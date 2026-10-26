@@ -13,7 +13,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "tsx watch src/dev.ts",
+    "dev": "node --env-file-if-exists=../../.env.local --import tsx --watch src/dev.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "pnpm run build && vitest run src && node --test test/distribution.test.mjs",
@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
+    "@libsql/client": "0.18.0",
     "hono": "4.13.14"
   },
   "devDependencies": {

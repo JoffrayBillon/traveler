@@ -40,4 +40,4 @@ Keep tickets in private storage with authorized server access, separate environm
 
 ## Current delivery boundary
 
-This foundation implements tooling, local scripts, an accessible themed welcome shell, an API liveness endpoint, tests, CI/CD configuration and contributor/AI documentation. It does not implement authentication, database migrations, live emails, participant imports, rooming, uploads, trip management or request processing. Those features follow the clarified contract above in later reviewed changes.
+The foundation includes tooling, local scripts, an accessible themed welcome shell, API liveness and readiness endpoints, tests, CI/CD configuration and contributor/AI documentation. The readiness probe only verifies the configured Turso connection; it does not define a business schema or migrate data. Authentication, business database migrations, live emails, participant imports, rooming, uploads, trip management and request processing remain for later reviewed changes under the clarified contract above.
