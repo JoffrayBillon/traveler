@@ -5,7 +5,7 @@ Use one entry per coherent technical change: date, module, action, details/impac
 ## 2026-10-26 — Deployments — Add
 
 - Details/impact: disable automatic Vercel Git deployments; deploy the `dev` Git reference after successful CI and offer manual, tested previews for `codex/*` and `feature/*` references through the Vercel Git deployment API. Keep privileged jobs on `main` workflow code and retain manual staged production.
-- Test status: `node --check` and `git diff --check` passed. `pnpm check` could not finish because package downloads from the npm registry were denied with `EACCES`; GitHub Actions will run it after the PR is pushed. Vercel alias and GitHub environment settings require remote verification after the branch and credentials are configured.
+- Test status: `node --check` and `git diff --check` passed. The first PR CI run found Biome formatting issues; they are corrected and CI is being rerun. Local `pnpm check` could not finish because package downloads from the npm registry were denied with `EACCES`. Vercel alias and GitHub environment settings require remote verification after the branch and credentials are configured.
 
 ## 2026-10-26 — Foundation — Add
 

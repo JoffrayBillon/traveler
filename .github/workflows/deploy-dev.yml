@@ -44,4 +44,3 @@ jobs:
       - name: Deploy the tested dev commit
         id: deploy
         run: node .github/scripts/deploy-vercel-git-ref.mjs
-

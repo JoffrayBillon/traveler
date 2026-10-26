@@ -60,7 +60,10 @@ async function request(url, options) {
     throw new Error(`Vercel API returned non-JSON (HTTP ${response.status})`);
   }
   if (!response.ok) {
-    const message = typeof result.error?.message === "string" ? result.error.message : `HTTP ${response.status}`;
+    const message =
+      typeof result.error?.message === "string"
+        ? result.error.message
+        : `HTTP ${response.status}`;
     throw new Error(`Vercel deployment request failed: ${message}`);
   }
   return result;
@@ -84,14 +87,20 @@ for (let attempt = 0; attempt < 90; attempt += 1) {
   const state = String(status.readyState ?? status.state ?? "").toUpperCase();
 
   if (state === "READY") {
+    // biome-ignore lint/suspicious/noUndeclaredEnvVars: GitHub Actions provides this output file at runtime.
     const output = process.env.GITHUB_OUTPUT;
     if (!output) throw new Error("GITHUB_OUTPUT is unavailable");
     const { appendFile } = await import("node:fs/promises");
     const aliases = Array.isArray(status.alias) ? status.alias : [];
-    const stableDevAlias = DEPLOY_KIND === "development" ? aliases[0] : undefined;
-    const resultUrl = stableDevAlias ? `https://${stableDevAlias}` : deploymentUrl;
+    const stableDevAlias =
+      DEPLOY_KIND === "development" ? aliases[0] : undefined;
+    const resultUrl = stableDevAlias
+      ? `https://${stableDevAlias}`
+      : deploymentUrl;
     if (DEPLOY_KIND === "development" && !stableDevAlias) {
-      console.warn("Vercel did not return the stable staging alias; reporting the deployment URL.");
+      console.warn(
+        "Vercel did not return the stable staging alias; reporting the deployment URL.",
+      );
     }
     await appendFile(output, `url=${resultUrl}\n`, "utf8");
     console.log(`Deployment ready: ${resultUrl}`);
