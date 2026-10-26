@@ -11,9 +11,9 @@ This file contains instructions for AI assistants. The contributor-facing engine
 ## 2. Before and During Implementation
 
 - Read the relevant contributor guides, existing code, tests, and configurations. Treat package manifests, lockfiles, and tool configuration as authoritative for installed versions and available commands. Verify uncertain or time-sensitive APIs against installed or primary documentation; do not rely on model memory alone.
-- Do not guess business logic, ambiguous accessibility requirements, or material architectural and behavioral trade-offs. Outline the meaningful alternatives and ask the user one focused question when the choice is not established. Do not block on questions that the existing documentation already answers.
+- Do not guess business logic, ambiguous accessibility requirements, or material architectural and behavioral trade-offs. Ask one focused question when a material decision is not established. Resolve routine reversible engineering choices using the repository and accepted scope; do not block on questions the documentation already answers.
 - Apply **KISS**: keep code direct, readable, and idiomatic; avoid unnecessary wrappers and over-engineering.
-- Apply **SINE (Simple Is Not Easy)**: favor loose coupling and clear separation of concerns over familiar shortcuts that hide complexity or create technical debt.
+- Keep responsibilities clear, define explicit boundaries, and limit coupling. Do not introduce speculative layers or wrappers merely to claim architectural separation.
 - Apply **DRY** to genuinely shared behavior, helpers, hooks, and tokens; do not create artificial coupling to remove superficial repetition.
 - Apply **YAGNI**: implement what the current use case needs, without speculative features, dead code, or "just in case" abstractions.
 - Honor the **Single Source of Truth**: use shared tokens and configuration rather than duplicating constants or project rules. Update a contributor rule in its canonical guide instead of restating it in `context/`.
@@ -23,7 +23,7 @@ This file contains instructions for AI assistants. The contributor-facing engine
 ## 3. Documentation and Changelog Maintenance
 
 - Proactively keep the relevant contributor documentation and examples current when code, dependencies, tooling, configuration, or workflows change. Update the canonical guide and links in the same change; do not leave obsolete instructions for a later task.
-- Immediately after any concrete technical change (new or modified component, utility, dependency, tooling, configuration, or tests), add a concise entry to the [technical changelog](../docs/contributing/CHANGELOG_DEV.md) using its date, module, action, details/impact, and test-status format. Never log documentation-only, AI-context-only, or comment-only changes, nor discussions and unapplied decisions; the changelog documents the code, not the context.
+- For each coherent concrete technical change (component, utility, dependency, tooling, configuration, or tests), add one concise entry to the [technical changelog](../docs/contributing/CHANGELOG_DEV.md) in the same change using its date, module, action, details/impact, and test-status format. Never log documentation-only, AI-context-only, or comment-only changes, nor discussions and unapplied decisions; the changelog documents the code, not the context.
 - Record only concrete changes made to the codebase. Exclude conversations, philosophical debates, theoretical options, and proposals not implemented.
 
 ## 4. Automatic Testing and Validation
@@ -44,3 +44,9 @@ Rules 1–5 apply to architecture proposals, benchmarks, and technology reviews.
 5. **Neutral choices**: present the pros, cons, and trade-offs of viable options; leave value judgments and material decisions to the user.
 6. **Position stability**: do not change a position because the user disagrees, insists, or rephrases. Change it only for a new argument or new evidence, and name that argument or evidence when you do. Otherwise, maintain the disagreement explicitly, restate its justification, and leave the decision to the user.
 7. **Challenge the user's premises**: when a user's statement or reasoning is factually wrong or rests on a false premise (for example, attributing a requirement to the wrong standard), say so before acting on it, even if the user did not ask for a review.
+
+## Project adaptation
+
+This file was supplied by the owner and adapted with their agreement on 2026-10-26: routine engineering choices may proceed autonomously, and changelog entries describe coherent technical changes. The linked contributor guides are maintained in this repository. Follow [AGENTS.md](../AGENTS.md) for task handoffs and [the current specification](../docs/PRODUCT_SPEC.md) for accepted behavior. New sessions and delegated tasks must load these canonical documents rather than relying on another conversation's memory. Verify tool-specific discovery in the actual client; file presence alone does not prove instructions were read.
+
+Give every delegated task the repository root, starting commit, assigned scope, accepted decisions, outstanding questions and relevant canonical guides. Require the worker to read those guides. Use independent sub-agents for independent complex development tasks, separate Git worktrees for concurrent editors, and an independent review for important changes. The parent inspects diffs and runs checks before proposing integration. Do not merge important changes or perform definitive integration without the owner's agreement, and do not delete worktrees unless requested.

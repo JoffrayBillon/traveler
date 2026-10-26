@@ -1,0 +1,6 @@
+---
+description: Canonical Traveler project instructions
+alwaysApply: true
+---
+
+Before work, read [AGENTS.md](../../AGENTS.md), [the AI workflow](../../context/IA_WORKFLOW.md), [contributor guide](../../docs/CONTRIBUTING.md), and relevant linked guides. Update those canonical sources rather than duplicating rules here. Keep real traveler data and secrets outside this public repository.

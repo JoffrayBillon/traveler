@@ -1,4 +1,5 @@
 node_modules/
+.pnpm-store/
 .turbo/
 dist/
 coverage/
@@ -10,3 +11,6 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+data/
+uploads/
+*.log

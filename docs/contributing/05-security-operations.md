@@ -1,0 +1,11 @@
+# Security and operations
+
+This repository is public. Commit only synthetic examples. Never commit participant spreadsheets, names/emails tied to bookings, tickets, database dumps, session data, magic links, credentials, private logs, or browser state. Keep those outside the checkout; ignored directories are an extra guard, not a privacy boundary. Inspect staged diffs before publishing. Report a leak without reposting its contents; revoke exposed credentials and handle history cleanup explicitly.
+
+Future authentication is closed membership: no public signup, server-side membership and role authorization, indistinguishable known/unknown email responses, rate limiting and secure session cookies. An imported address is not yet verified. Bootstrap the first manager through a reviewed server-side procedure; clients cannot assign themselves privileges.
+
+Future uploads need bounded sizes, type/content validation, generated storage keys and private storage. Download authorization must verify the requesting user's trip and permissions. Never place tickets in frontend public assets, Git, logs or an unauthenticated public bucket. The private storage provider and retention policy remain open decisions.
+
+Use separate development, preview and production resources and credentials. Redact secrets, ticket contents and authentication links from logs. Define retention, backup and restoration checks before real traveler data is stored. An Excel rooming export does not replace a database backup. Do not silently fall back to a fake successful external response.
+
+Dependency versions and lockfile are reviewed together. The workspace permits the specific esbuild version's required installation script only. CI jobs that execute unreviewed pull-request code receive no deployment secrets. Do not use `pull_request_target` to run a PR checkout with elevated credentials.
