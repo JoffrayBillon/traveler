@@ -9,7 +9,7 @@ const required = [
 ];
 
 for (const name of required) {
-  if (!process.env[name]) throw new Error("Missing required variable: " + name);
+  if (!process.env[name]) throw new Error(`Missing required variable: ${name}`);
 }
 
 const { DEPLOY_KIND, DEPLOY_REF, DEPLOY_SHA } = process.env;
@@ -29,9 +29,9 @@ if (!/^[0-9a-f]{40}$/i.test(DEPLOY_SHA)) {
 }
 
 const teamQuery = new URLSearchParams({ teamId: process.env.VERCEL_ORG_ID });
-const apiUrl = "https://api.vercel.com/v13/deployments?" + teamQuery;
+const apiUrl = `https://api.vercel.com/v13/deployments?${teamQuery}`;
 const headers = {
-  Authorization: "Bearer " + process.env.VERCEL_TOKEN,
+  Authorization: `Bearer ${process.env.VERCEL_TOKEN}`,
   "Content-Type": "application/json",
 };
 const body = {
@@ -52,14 +52,14 @@ async function request(url, options) {
   try {
     result = JSON.parse(text);
   } catch {
-    throw new Error("Vercel API returned non-JSON (HTTP " + response.status + ")");
+    throw new Error(`Vercel API returned non-JSON (HTTP ${response.status})`);
   }
   if (!response.ok) {
     const message =
       typeof result.error?.message === "string"
         ? result.error.message
-        : "HTTP " + response.status;
-    throw new Error("Vercel deployment request failed: " + message);
+        : `HTTP ${response.status}`;
+    throw new Error(`Vercel deployment request failed: ${message}`);
   }
   return result;
 }
@@ -74,12 +74,8 @@ if (typeof deployment.id !== "string" || typeof deployment.url !== "string") {
   throw new Error("Vercel did not return a deployment ID and URL");
 }
 
-const deploymentUrl = "https://" + deployment.url;
-const statusUrl =
-  "https://api.vercel.com/v13/deployments/" +
-  encodeURIComponent(deployment.id) +
-  "?" +
-  teamQuery;
+const deploymentUrl = `https://${deployment.url}`;
+const statusUrl = `https://api.vercel.com/v13/deployments/${encodeURIComponent(deployment.id)}?${teamQuery}`;
 
 for (let attempt = 0; attempt < 90; attempt += 1) {
   const status = await request(statusUrl, { headers });
@@ -100,25 +96,24 @@ for (let attempt = 0; attempt < 90; attempt += 1) {
           )
         : undefined;
     const resultUrl = stableDevAlias
-      ? "https://" + stableDevAlias
+      ? `https://${stableDevAlias}`
       : deploymentUrl;
     if (DEPLOY_KIND === "development" && !stableDevAlias) {
       console.warn(
         "Vercel did not return the stable dev branch alias; reporting the unique deployment URL.",
       );
     }
-    await appendFile(output, "url=" + resultUrl + "
-", "utf8");
+    await appendFile(output, `url=${resultUrl}\n`, "utf8");
     const environmentLabel =
       DEPLOY_KIND === "development" ? "Preview for dev" : "Preview";
-    console.log("Deployment ready (" + environmentLabel + "): " + resultUrl);
+    console.log(`Deployment ready (${environmentLabel}): ${resultUrl}`);
     process.exit(0);
   }
   if (["ERROR", "CANCELED"].includes(state)) {
-    throw new Error("Vercel deployment finished in " + state);
+    throw new Error(`Vercel deployment finished in ${state}`);
   }
 
   await new Promise((resolve) => setTimeout(resolve, 10_000));
 }
 
-throw new Error("Timed out waiting for Vercel deployment: " + deploymentUrl);
+throw new Error(`Timed out waiting for Vercel deployment: ${deploymentUrl}`);
