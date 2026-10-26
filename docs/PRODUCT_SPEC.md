@@ -12,7 +12,7 @@ Identity is global; membership and role belong to a trip. A person can participa
 | `companion` — accompagnateur | Retain traveler view; process traveler requests; upload transport tickets and manage rooming within the trip.                                                        |
 | `manager` — gestionnaire     | Retain companion capabilities; edit trip information and appoint companions.                                                                                         |
 
-No public signup. Imported participants receive access using a passwordless email link and a secure persistent session. Importing an email does not establish email verification. Define initial manager provisioning and recovery before implementing authentication. Participants do not directly edit activity, transport mode, tickets or room assignment. Later, ski day 3 and ski/spa formula changes can be requested and require administrative approval; these forms are outside the initial foundation.
+No public signup. Imported participants receive access using a passwordless email link and a secure persistent session. Importing an email does not establish email verification. Sign-in emails use the sender identity `BotMail <no-reply@joffraybillon.fr>`; verify the sender/domain in Brevo before the first live send. Define initial manager provisioning and recovery before implementing authentication. Participants do not directly edit activity, transport mode, tickets or room assignment. Later, ski day 3 and ski/spa formula changes can be requested and require administrative approval; these forms are outside the initial foundation.
 
 ## Rooms and requests
 
