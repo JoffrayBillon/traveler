@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: system-ui, sans-serif;
+}
+
+:root {
+  font-family: var(--font-sans);
+  color-scheme: light;
+}
+body {
+  margin: 0;
+}
+.app-shell {
+  --surface: #f8faf7;
+  --ink: #183e35;
+  --muted: #49655c;
+  --border: #afc2b8;
+  min-height: 100dvh;
+  background: var(--surface);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+}
+.app-shell[data-theme="dark"] {
+  --surface: #102d26;
+  --ink: #f1f8ef;
+  --muted: #bfd3c7;
+  --border: #78988a;
+  color-scheme: dark;
+}
+.site-header,
+.site-footer {
+  padding: 1.5rem clamp(1.25rem, 5vw, 5rem);
+}
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.brand {
+  font-size: 1.5rem;
+  font-weight: 750;
+  letter-spacing: -0.05em;
+}
+.theme-toggle {
+  border: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.theme-toggle[data-selected] {
+  background: var(--ink);
+  color: var(--surface);
+}
+.theme-toggle[data-focus-visible],
+a:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 4px;
+}
+.welcome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5rem clamp(1.25rem, 8vw, 8rem);
+}
+.welcome h1 {
+  font-size: clamp(2.5rem, 6vw, 5.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.06em;
+  max-width: 13ch;
+  margin-block: 1.5rem;
+  font-weight: 650;
+}
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.intro,
+.site-footer {
+  color: var(--muted);
+}
+.intro {
+  max-width: 40ch;
+  line-height: 1.6;
+}
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -8rem;
+  background: var(--ink);
+  color: var(--surface);
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+.skip-link:focus {
+  top: 1rem;
+}

@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  esbuild@0.28.2: true
+
+minimumReleaseAge: 1440
+saveExact: true
+engineStrict: true
