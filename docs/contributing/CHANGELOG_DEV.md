@@ -16,3 +16,8 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 - Details/impact: increase the light-theme control boundary contrast and allow the header to wrap at narrow widths/large text, addressing reviewed accessibility issues.
 - Test status: calculated border/surface contrast is 3.81:1 in light mode and 4.67:1 in dark mode; local checks pass. Desktop Chrome confirmed skip-link focus transfer and normal 320px reflow. 200% text and actual iPhone behavior remain unverified.
+
+## 2026-10-26 — API tests — Fix
+
+- Details/impact: the standalone API test command now builds the distribution before testing it, so it does not depend on a previous Turbo build or read stale output.
+- Test status: `pnpm --filter @traveler/api test` and the full `pnpm check` passed.
