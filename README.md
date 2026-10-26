@@ -32,7 +32,7 @@ Read [the current specification](docs/PRODUCT_SPEC.md), [contributor guide](docs
 
 ## Delivery
 
-CI validates pull requests and pushes to `main` or `chore/bootstrap`. A manual deployment workflow prepares Vercel previews or a staged production build after checks; it never promotes production automatically. Vercel project linking, GitHub environment configuration and deployment credentials are separate prerequisites. See [delivery instructions](docs/contributing/03-testing-delivery.md).
+CI validates pull requests and pushes to `main` and `dev`. A successful push to `dev` deploys that exact commit to Vercel's standard Preview environment and provides the stable branch alias, or the unique deployment URL if Vercel does not return that alias. Feature previews can be started manually from the `main` GitHub Actions ref for `codex/*` and `feature/*` branches. On the Vercel Hobby plan, `dev` is a branch-specific Preview rather than a separate custom environment; use Preview variables scoped to the `dev` branch when it needs different values. Production remains manually staged and is never promoted automatically. See [delivery instructions](docs/contributing/03-testing-delivery.md).
 
 CodeRabbit configuration is included; the GitHub App must be authorized separately. Agent entry files point to the shared workflow for Codex, Claude Code, Antigravity, Copilot and Cursor. Their discovery mechanisms vary; validate each client rather than assuming all sessions load every linked document.
 

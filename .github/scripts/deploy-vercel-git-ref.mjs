@@ -13,7 +13,7 @@ for (const name of required) {
 }
 
 const { DEPLOY_KIND, DEPLOY_REF, DEPLOY_SHA } = process.env;
-const isFeatureBranch = /^(codex|feature)\/[A-Za-z0-9._/-]+$/.test(DEPLOY_REF);
+const isFeatureBranch = /^(codex|feature)[/][A-Za-z0-9._/-]+$/.test(DEPLOY_REF);
 
 if (DEPLOY_KIND === "development" && DEPLOY_REF !== "dev") {
   throw new Error("Development deployments must use the dev branch");
@@ -45,11 +45,7 @@ const body = {
   },
 };
 
-if (DEPLOY_KIND === "development") {
-  // The staging target gives the dev environment a stable Vercel alias.
-  body.target = "staging";
-}
-
+/** Sends an authenticated request to the Vercel API and parses its JSON response. */
 async function request(url, options) {
   const response = await fetch(url, options);
   const text = await response.text();
@@ -93,17 +89,25 @@ for (let attempt = 0; attempt < 90; attempt += 1) {
     const { appendFile } = await import("node:fs/promises");
     const aliases = Array.isArray(status.alias) ? status.alias : [];
     const stableDevAlias =
-      DEPLOY_KIND === "development" ? aliases[0] : undefined;
+      DEPLOY_KIND === "development"
+        ? aliases.find(
+            (alias) =>
+              alias.startsWith("traveler-git-dev-") &&
+              alias.endsWith(".vercel.app"),
+          )
+        : undefined;
     const resultUrl = stableDevAlias
       ? `https://${stableDevAlias}`
       : deploymentUrl;
     if (DEPLOY_KIND === "development" && !stableDevAlias) {
       console.warn(
-        "Vercel did not return the stable staging alias; reporting the deployment URL.",
+        "Vercel did not return the stable dev branch alias; reporting the unique deployment URL.",
       );
     }
     await appendFile(output, `url=${resultUrl}\n`, "utf8");
-    console.log(`Deployment ready: ${resultUrl}`);
+    const environmentLabel =
+      DEPLOY_KIND === "development" ? "Preview for dev" : "Preview";
+    console.log(`Deployment ready (${environmentLabel}): ${resultUrl}`);
     process.exit(0);
   }
   if (["ERROR", "CANCELED"].includes(state)) {
