@@ -2,6 +2,11 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-26 — Deployments — Add
+
+- Details/impact: disable automatic Vercel Git deployments; deploy the `dev` Git reference after successful CI and offer manual, tested previews for `codex/*` and `feature/*` references through the Vercel Git deployment API. Keep privileged jobs on `main` workflow code and retain manual staged production.
+- Test status: `node --check` and `git diff --check` passed. `pnpm check` could not finish because package downloads from the npm registry were denied with `EACCES`; GitHub Actions will run it after the PR is pushed. Vercel alias and GitHub environment settings require remote verification after the branch and credentials are configured.
+
 ## 2026-10-26 — Foundation — Add
 
 - Details/impact: pnpm/Turborepo workspaces with cache invalidation for shared TypeScript/runtime configuration, strict TypeScript, Biome, React/Vite/Tailwind welcome shell with React Aria keyboard theme toggle, Hono liveness/404 endpoints, Vercel entry point, Vitest tests and CI/manual deployment preparation.
