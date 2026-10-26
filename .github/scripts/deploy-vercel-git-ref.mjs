@@ -45,6 +45,7 @@ const body = {
   },
 };
 
+/** Sends an authenticated request to the Vercel API and parses its JSON response. */
 async function request(url, options) {
   const response = await fetch(url, options);
   const text = await response.text();
