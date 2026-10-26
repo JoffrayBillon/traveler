@@ -6,16 +6,16 @@ Personal trip management, starting with a ski trip. This repository currently co
 
 Install Node.js 24 (tested with 24.17.0) and pnpm 11.25.0, then from the repository root:
 
-`sh
+```sh
 pnpm install --frozen-lockfile
 pnpm dev
-`
+```
 
 Open **http://127.0.0.1:5173**. The local Hono API runs on port 3001; Vite proxies `/api` to it. No external service or secret is required for this shell. See [local development](docs/contributing/01-local-development.md) for setup and individual commands.
 
-`sh
+```sh
 pnpm check
-`
+```
 
 This runs Biome, strict TypeScript, Vitest and the production frontend build. `pnpm format` applies formatting. To inspect the built frontend, run `pnpm --filter @traveler/web preview`; it does not start the API.
 
@@ -32,7 +32,7 @@ Read [the current specification](docs/PRODUCT_SPEC.md), [contributor guide](docs
 
 ## Delivery
 
-CI validates pull requests and pushes to `main` and `dev`. A successful push to `dev` deploys that exact commit to Vercel's standard Preview environment and provides the stable branch alias. Feature previews can be started manually from the `main` GitHub Actions ref for `codex/*` and `feature/*` branches. On the Vercel Hobby plan, `dev` is a branch-specific Preview rather than a separate custom environment; use Preview variables scoped to the `dev` branch when it needs different values. Production remains manually staged and is never promoted automatically. See [delivery instructions](docs/contributing/03-testing-delivery.md).
+CI validates pull requests and pushes to `main` and `dev`. A successful push to `dev` deploys that exact commit to Vercel's standard Preview environment and provides the stable branch alias, or the unique deployment URL if Vercel does not return that alias. Feature previews can be started manually from the `main` GitHub Actions ref for `codex/*` and `feature/*` branches. On the Vercel Hobby plan, `dev` is a branch-specific Preview rather than a separate custom environment; use Preview variables scoped to the `dev` branch when it needs different values. Production remains manually staged and is never promoted automatically. See [delivery instructions](docs/contributing/03-testing-delivery.md).
 
 CodeRabbit configuration is included; the GitHub App must be authorized separately. Agent entry files point to the shared workflow for Codex, Claude Code, Antigravity, Copilot and Cursor. Their discovery mechanisms vary; validate each client rather than assuming all sessions load every linked document.
 
