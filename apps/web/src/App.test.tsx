@@ -19,6 +19,8 @@ describe("application shell", () => {
     expect(
       screen.getByRole("link", { name: "Aller au contenu" }),
     ).toHaveAttribute("href", "#main");
+    await user.keyboard("{Enter}");
+    expect(window.location.hash).toBe("#main");
   });
 
   it("changes the theme with the keyboard and exposes the toggle state", async () => {
