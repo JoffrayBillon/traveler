@@ -3,8 +3,8 @@
   "globalDependencies": ["tsconfig.base.json", ".node-version"],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
-    "typecheck": { "dependsOn": ["^typecheck"] },
-    "test": { "dependsOn": ["^typecheck"], "outputs": [] },
-    "dev": { "cache": false, "persistent": true }
+    "typecheck": { "dependsOn": ["^build", "^typecheck"] },
+    "test": { "dependsOn": ["^build", "^typecheck"], "outputs": [] },
+    "dev": { "dependsOn": ["^build"], "cache": false, "persistent": true }
   }
 }

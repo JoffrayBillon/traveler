@@ -2,7 +2,7 @@
 
 Use Vitest for behavior tests, Testing Library and user-event for UI interactions, and axe-core for semantic checks. Test meaningful states, failures and authorization boundaries when introduced. Prefer user-visible outcomes to implementation details. The shell tests cover the skip link, keyboard theme toggle, semantic accessibility and API status/error contracts. jsdom cannot verify visual contrast or actual screen-reader output.
 
-Run the smallest relevant command while editing, then `pnpm check` before integration. Type checks include the Vercel function entry point. The Vite build alone does not bundle Vercel serverless functions; remote preview verification is required before claiming deployment success.
+Run the smallest relevant command while editing, then `pnpm check` before integration. Type checks include the Vercel function entry point using its isolated configuration. API tests include a native Node import of the compiled package from the web workspace and actual health/error responses. The Vite build alone does not bundle Vercel serverless functions; remote preview verification is required before claiming deployment success. A Vercel READY state is not evidence that function invocation succeeds.
 
 GitHub Actions CI runs on pull requests and pushes, with read-only repository permission and no service secrets. The deploy workflow is manual and restricted to `main`; it repeats checks before accessing deployment credentials. Its preview and staged-production paths use separate GitHub environments. Configure required reviewers and branch restrictions where available before adding secrets. No workflow promotes a deployment automatically.
 

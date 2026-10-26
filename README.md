@@ -32,7 +32,7 @@ Read [the current specification](docs/PRODUCT_SPEC.md), [contributor guide](docs
 
 ## Delivery
 
-CI validates pull requests and pushes. A manual deployment workflow prepares Vercel previews or a staged production build after checks; it never promotes production automatically. Vercel project linking, GitHub environment configuration and deployment credentials are separate prerequisites. See [delivery instructions](docs/contributing/03-testing-delivery.md).
+CI validates pull requests and pushes to `main` or `chore/bootstrap`. A manual deployment workflow prepares Vercel previews or a staged production build after checks; it never promotes production automatically. Vercel project linking, GitHub environment configuration and deployment credentials are separate prerequisites. See [delivery instructions](docs/contributing/03-testing-delivery.md).
 
 CodeRabbit configuration is included; the GitHub App must be authorized separately. Agent entry files point to the shared workflow for Codex, Claude Code, Antigravity, Copilot and Cursor. Their discovery mechanisms vary; validate each client rather than assuming all sessions load every linked document.
 

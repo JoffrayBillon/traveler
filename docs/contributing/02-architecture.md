@@ -4,7 +4,9 @@
 - `packages/api`: Hono application, API tests and local Node server.
 - Root: pnpm workspaces, Turborepo task graph, strict TypeScript defaults, Biome and CI.
 
-The API is a source package consumed by the platform bundler. Its `build` task verifies types and intentionally emits no independent bundle. Browser code must not import the API package or server-only modules. The Vercel function is the only web workspace consumer of that package. Keep imports direct, component state local, and dependencies minimal; add a shared package only for an actual shared responsibility.
+The API package builds runtime modules to `dist` as native ES modules and emits declarations. Its public export resolves to compiled JavaScript, so Vercel can trace files that exist at runtime. Build, typecheck, test and development task dependencies build the API before web code resolves it; Turborepo caches and restores `dist`. Tests and the local development entry point are excluded from that runtime build. Browser code must not import the API package or server-only modules. The Vercel function is the only web workspace consumer of that package. Keep imports direct, component state local, and dependencies minimal; add a shared package only for an actual shared responsibility.
+
+The Vercel entry point has an isolated `api/tsconfig.json` with Web API libraries and no frontend ambient type packages. Web typechecking checks both frontend and function configurations. A native Node subprocess test resolves the compiled workspace package from the web directory and verifies health and error responses; this complements, rather than replaces, remote function invocation checks.
 
 Use runtime validation at trust boundaries and database constraints for durable invariants; TypeScript types alone are not validation. Separate global identity from membership and role within a trip. Every future room, option, ticket and request is scoped to its trip; reject IDs from another trip. Authorize every server operation rather than relying on hidden buttons.
 

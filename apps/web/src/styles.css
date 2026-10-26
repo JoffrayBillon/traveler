@@ -15,7 +15,7 @@ body {
   --surface: #f8faf7;
   --ink: #183e35;
   --muted: #49655c;
-  --border: #afc2b8;
+  --border: #6b8578;
   min-height: 100dvh;
   background: var(--surface);
   color: var(--ink);
@@ -35,6 +35,7 @@ body {
 }
 .site-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
