@@ -5,7 +5,7 @@ Use one entry per coherent technical change: date, module, action, details/impac
 ## 2026-10-26 — Deployments — Fix
 
 - Details/impact: target the `dev` branch deployment to Vercel's standard Preview environment on Hobby, since custom environments are unavailable; select the branch-specific `git-dev` alias instead of assuming the first returned alias is the dev URL.
-- Test status: local checks were not run; GitHub Actions CI will validate the pull request.
+- Test status: local checks were not run; GitHub Actions CI passed for the deployment script at commit `534bb86`. README and changelog corrections are pending CI.
 
 ## 2026-10-26 — Deployments — Add
 
