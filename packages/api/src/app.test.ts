@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createApp } from "./app.ts";
-import { createDatabaseProvider } from "./database.ts";
+import { createApp } from "./app";
+import { createDatabaseProvider } from "./database";
 
 describe("API boundaries", () => {
   it("reports liveness without leaking configuration", async () => {

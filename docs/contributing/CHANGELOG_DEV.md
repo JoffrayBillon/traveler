@@ -7,6 +7,11 @@ Use one entry per coherent technical change: date, module, action, details/impac
 - Details/impact: add a lazy Turso/libSQL client, a no-store `/api/ready` probe with generic failure responses, local development environment loading, and Paris-region Vercel Functions for the EU database.
 - Test status: `pnpm check` passed: Biome, both workspace typechecks, twelve automated tests and both production builds. Biome reports one pre-existing warning for `GITHUB_REPOSITORY_ID` in the GitHub deployment script. No live Turso connection was made.
 
+## 2026-10-27 — API module imports — Fix
+
+- Details/impact: keep relative TypeScript imports extensionless and bundle the API runtime entry point into Node-compatible ESM for distribution.
+- Test status: `pnpm check` passed: Biome, both workspace typechecks, twelve automated tests and both production builds. The native Node distribution test confirms the bundled runtime resolves its dependencies without relative source imports. Biome reports the existing `GITHUB_REPOSITORY_ID` warning.
+
 ## 2026-10-26 — Deployments — Fix
 
 - Details/impact: target the `dev` branch deployment to Vercel's standard Preview environment on Hobby, since custom environments are unavailable; select the branch-specific `git-dev` alias instead of assuming the first returned alias is the dev URL.

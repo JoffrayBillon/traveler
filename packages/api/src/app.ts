@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createDatabaseProvider } from "./database.js";
+import { createDatabaseProvider } from "./database";
 
 export function createApp(getDatabase = createDatabaseProvider()) {
   const app = new Hono();
