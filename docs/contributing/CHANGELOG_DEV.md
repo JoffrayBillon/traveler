@@ -2,10 +2,20 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-27 — API database readiness — Add
+
+- Details/impact: add a lazy Turso/libSQL client, a no-store `/api/ready` probe with generic failure responses, local development environment loading, and Paris-region Vercel Functions for the EU database.
+- Test status: `pnpm check` passed: Biome, both workspace typechecks, twelve automated tests and both production builds. Biome reports one pre-existing warning for `GITHUB_REPOSITORY_ID` in the GitHub deployment script. No live Turso connection was made.
+
+## 2026-10-27 — API module imports — Fix
+
+- Details/impact: keep relative TypeScript imports extensionless and bundle the API runtime entry point into Node-compatible ESM for distribution.
+- Test status: `pnpm check` passed: Biome, both workspace typechecks, twelve automated tests and both production builds. The native Node distribution test confirms the bundled runtime resolves its dependencies without relative source imports. Biome reports the existing `GITHUB_REPOSITORY_ID` warning.
+
 ## 2026-10-26 — Deployments — Fix
 
 - Details/impact: target the `dev` branch deployment to Vercel's standard Preview environment on Hobby, since custom environments are unavailable; select the branch-specific `git-dev` alias instead of assuming the first returned alias is the dev URL.
-- Test status: local checks were not run; GitHub Actions CI passed for the deployment script at commit `534bb86`. README and changelog corrections are pending CI.
+- Test status: local checks were not run; GitHub Actions CI passed for the deployment script at `534bb86` and the complete PR at `2f1ca9d` (run `40416304000`). The merged commit also passed `dev` CI (run `40416939753`) and its Vercel Preview deployment (run `40416997590`).
 
 ## 2026-10-26 — Deployments — Add
 
