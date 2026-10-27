@@ -9,7 +9,9 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open `http://127.0.0.1:5173`. Vite proxies `/api` to the local Hono server at `http://127.0.0.1:3001`; `/api/health` returns `{"status":"ok"}`. Both servers bind to loopback. Stop both with Ctrl+C. Ports are intentionally fixed to avoid a silently broken proxy.
+Open `http://127.0.0.1:5173`. Vite proxies `/api` to the local Hono server at `http://127.0.0.1:3001`; `/api/health` reports liveness and `/api/ready` checks the database connection. Both servers bind to loopback. Stop both with Ctrl+C. Ports are intentionally fixed to avoid a silently broken proxy.
+
+To check database readiness locally, create `.env.local` from `.env.example` and fill it only with the **development** Turso URL and token. The API loads this file when it starts. Never use production credentials locally; Vercel Preview for the `dev` branch has its own development database variables. Without database configuration, `/api/ready` returns `503` while `/api/health` remains available.
 
 | Command                                  | Purpose                                                           |
 | ---------------------------------------- | ----------------------------------------------------------------- |
@@ -20,6 +22,6 @@ Open `http://127.0.0.1:5173`. Vite proxies `/api` to the local Hono server at `h
 | `pnpm build --filter=@traveler/web...`   | Build the web workspace and its dependency graph                  |
 | `pnpm --filter @traveler/web preview`    | Inspect the built frontend; does not start the API                |
 
-The current shell has no environment variables, authentication, database, email, or migration command. Add an `.env.example` only when executable code starts requiring keys; use names and safe placeholders, never working secrets. Before introducing linked services, link the intended Vercel project, provision the intended development resources, verify required key names, then start service-dependent development or migrations. Never use production data locally or in previews.
+The current shell has no authentication, email, or migration command. `.env.example` lists the database variables required for readiness and contains only safe placeholders. Keep `.env.local` out of Git, use development credentials, and never use production data locally or in previews.
 
 Turborepo caches builds, type checks and tests; persistent development servers are not cached. `pnpm check --` does not forward to every task: run an individual task when you need task-specific flags. A fresh install may require network access and the approved esbuild install script; do not globally allow unknown dependency scripts.

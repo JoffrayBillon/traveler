@@ -12,7 +12,7 @@ Identity is global; membership and role belong to a trip. A person can participa
 | `companion` — accompagnateur | Retain traveler view; process traveler requests; upload transport tickets and manage rooming within the trip.                                                        |
 | `manager` — gestionnaire     | Retain companion capabilities; edit trip information and appoint companions.                                                                                         |
 
-No public signup. Imported participants receive access using a passwordless email link and a secure persistent session. Importing an email does not establish email verification. Define initial manager provisioning and recovery before implementing authentication. Participants do not directly edit activity, transport mode, tickets or room assignment. Later, ski day 3 and ski/spa formula changes can be requested and require administrative approval; these forms are outside the initial foundation.
+No public signup. Imported participants receive access using a passwordless email link and a secure persistent session. Importing an email does not establish email verification. Sign-in emails use the sender identity `BotMail <no-reply@joffraybillon.fr>`; verify the sender/domain in Brevo before the first live send. Define initial manager provisioning and recovery before implementing authentication. Participants do not directly edit activity, transport mode, tickets or room assignment. Later, ski day 3 and ski/spa formula changes can be requested and require administrative approval; these forms are outside the initial foundation.
 
 ## Rooms and requests
 
@@ -40,4 +40,4 @@ Keep tickets in private storage with authorized server access, separate environm
 
 ## Current delivery boundary
 
-This foundation implements tooling, local scripts, an accessible themed welcome shell, an API liveness endpoint, tests, CI/CD configuration and contributor/AI documentation. It does not implement authentication, database migrations, live emails, participant imports, rooming, uploads, trip management or request processing. Those features follow the clarified contract above in later reviewed changes.
+The foundation includes tooling, local scripts, an accessible themed welcome shell, API liveness and readiness endpoints, tests, CI/CD configuration and contributor/AI documentation. The readiness probe only verifies the configured Turso connection; it does not define a business schema or migrate data. Authentication, business database migrations, live emails, participant imports, rooming, uploads, trip management and request processing remain for later reviewed changes under the clarified contract above.
