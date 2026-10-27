@@ -7,6 +7,11 @@ Use one entry per coherent technical change: date, module, action, details/impac
 - Details/impact: add a minimal Drizzle `trips` table, checked-in SQL migration, and explicit commands to apply migrations and create/list trips. Startup and CI/CD do not mutate database schema.
 - Test status: migration SQL generated from the schema; API typecheck/build and Biome passed; automated tests and `pnpm check` not run.
 
+## 2026-10-27 — CodeRabbit — Configure
+
+- Details/impact: include `dev` as an automatic review target so feature pull requests follow the project's review workflow.
+- Test status: configuration reviewed against CodeRabbit's documented `reviews.auto_review.base_branches` setting; no automated tests run.
+
 ## 2026-10-27 — API database readiness — Add
 
 - Details/impact: add a lazy Turso/libSQL client, a no-store `/api/ready` probe with generic failure responses, local development environment loading, and Paris-region Vercel Functions for the EU database.
