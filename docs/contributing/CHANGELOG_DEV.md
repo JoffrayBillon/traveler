@@ -5,7 +5,7 @@ Use one entry per coherent technical change: date, module, action, details/impac
 ## 2026-10-27 — Trip persistence — Add
 
 - Details/impact: add a minimal Drizzle `trips` table, checked-in SQL migration, and explicit commands to apply migrations and create/list trips. Startup and CI/CD do not mutate database schema.
-- Test status: migration SQL generated from the schema; API typecheck/build and Biome passed; automated tests and `pnpm check` not run.
+- Test status: migration generation/metadata normalization, API typecheck/build, `pnpm lint` and `git diff --check` passed. The first PR CI run failed because Drizzle metadata lacked final newlines; `db:generate` now formats that output. Automated tests and full `pnpm check` were not run locally; CI must rerun on the latest commit.
 
 ## 2026-10-27 — CodeRabbit — Configure
 

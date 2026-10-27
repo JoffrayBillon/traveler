@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit",
     "test": "pnpm run build && vitest run src && node --test test/distribution.test.mjs",
     "test:watch": "vitest",
-    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts && biome check --write drizzle/meta",
     "db:migrate": "node --env-file-if-exists=../../.env.local --import tsx src/migrate.ts",
     "trips:create": "node --env-file-if-exists=../../.env.local --import tsx src/create-trip.ts",
     "trips:list": "node --env-file-if-exists=../../.env.local --import tsx src/list-trips.ts"
