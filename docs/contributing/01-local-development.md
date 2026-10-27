@@ -22,6 +22,15 @@ To check database readiness locally, create `.env.local` from `.env.example` and
 | `pnpm build --filter=@traveler/web...`   | Build the web workspace and its dependency graph                  |
 | `pnpm --filter @traveler/web preview`    | Inspect the built frontend; does not start the API                |
 
-The current shell has no authentication, email, or migration command. `.env.example` lists the database variables required for readiness and contains only safe placeholders. Keep `.env.local` out of Git, use development credentials, and never use production data locally or in previews.
+The current shell has no authentication or email. The API uses Drizzle for its minimal trip schema and checked-in SQL migrations. From the repository root, explicitly apply migrations and manage trip records against the database configured in `.env.local`:
+
+```sh
+pnpm --filter @traveler/api db:generate
+pnpm --filter @traveler/api db:migrate
+pnpm --filter @traveler/api trips:create -- "Ski 2027"
+pnpm --filter @traveler/api trips:list
+```
+
+`db:generate` only creates migration files from the schema. `db:migrate` applies them to the database configured by `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`; it is never run automatically at startup or in CI/CD. Confirm `.env.local` points to the development database before invoking `db:migrate` or a trip record command. `.env.example` contains only safe placeholders. Keep `.env.local` out of Git and never use production data locally or in previews.
 
 Turborepo caches builds, type checks and tests; persistent development servers are not cached. `pnpm check --` does not forward to every task: run an individual task when you need task-specific flags. A fresh install may require network access and the approved esbuild install script; do not globally allow unknown dependency scripts.

@@ -17,15 +17,21 @@
     "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/app.ts --bundle --packages=external --platform=node --format=esm --outfile=dist/app.js",
     "typecheck": "tsc --noEmit",
     "test": "pnpm run build && vitest run src && node --test test/distribution.test.mjs",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "db:migrate": "node --env-file-if-exists=../../.env.local --import tsx src/migrate.ts",
+    "trips:create": "node --env-file-if-exists=../../.env.local --import tsx src/create-trip.ts",
+    "trips:list": "node --env-file-if-exists=../../.env.local --import tsx src/list-trips.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
     "@libsql/client": "0.18.0",
+    "drizzle-orm": "0.45.4",
     "hono": "4.13.14"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
+    "drizzle-kit": "0.31.11",
     "esbuild": "0.28.2",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
