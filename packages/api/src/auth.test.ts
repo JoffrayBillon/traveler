@@ -98,6 +98,14 @@ describe("invite-only magic-link authentication", () => {
       .get("set-cookie")
       ?.split(";")[0];
     expect(cookie).toBeTruthy();
+    expect(await services.database.select().from(schema.sessions)).toHaveLength(
+      1,
+    );
+
+    await app.request(magicLink.href);
+    expect(await services.database.select().from(schema.sessions)).toHaveLength(
+      1,
+    );
 
     const profileResponse = await app.request("/api/me", {
       headers: { Cookie: cookie ?? "" },

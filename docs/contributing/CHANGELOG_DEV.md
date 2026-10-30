@@ -4,7 +4,7 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 ## 2026-10-31 — Authentication and traveler shell — Fix
 
-- Details/impact: schedule magic-link email delivery with Vercel `waitUntil` so SMTP latency does not delay public acknowledgements; report delivery failures privately without logging addresses or links. Revalidate sessions on focus/visibility, handle rate-limit retry delays, and allow long trip names to wrap.
+- Details/impact: schedule magic-link email delivery with Vercel `waitUntil` so SMTP latency does not delay public acknowledgements; report delivery failures privately without logging addresses or links. Revalidate sessions on focus/visibility, handle rate-limit retry delays, allow long trip names to wrap, and verify a consumed magic link cannot create another session.
 - Test status: `pnpm check` passed (Biome with the pre-existing `GITHUB_REPOSITORY_ID` warning, both typechecks, 14 API tests, 8 web tests, native Node distribution test and both production builds).
 
 ## 2026-10-30 — Invite-only authentication — Add
