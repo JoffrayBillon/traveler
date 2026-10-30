@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { waitUntil } from "@vercel/functions";
 import type { Auth, BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -17,6 +18,15 @@ export type AuthServices = {
   database: AppDatabase;
 };
 export type MagicLinkSender = (email: string, url: string) => Promise<void>;
+export type BackgroundTaskScheduler = (task: Promise<void>) => void;
+
+function scheduleBackgroundTask(task: Promise<void>) {
+  if (process.env.VERCEL) {
+    waitUntil(task);
+  } else {
+    void task;
+  }
+}
 
 function toOrigin(value: string) {
   const url =
@@ -77,6 +87,7 @@ export function createAuth(
   database: AppDatabase,
   env: NodeJS.ProcessEnv,
   sendEmail: MagicLinkSender = (email, url) => sendLoginLink(email, url, env),
+  scheduleTask: BackgroundTaskScheduler = scheduleBackgroundTask,
 ): Auth<BetterAuthOptions> {
   const baseURL =
     env.BETTER_AUTH_URL?.trim() ||
@@ -163,7 +174,13 @@ export function createAuth(
         storeToken: "hashed",
         rateLimit: { window: 60, max: 5 },
         sendMagicLink: async ({ email, url }) => {
-          if (await hasMembershipForEmail(email)) await sendEmail(email, url);
+          const delivery = sendEmail(email, url).catch((error: unknown) => {
+            console.error(
+              "Magic link email delivery failed.",
+              error instanceof Error ? error.name : "UnknownError",
+            );
+          });
+          scheduleTask(delivery);
         },
       }),
     ],

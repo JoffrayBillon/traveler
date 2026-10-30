@@ -107,6 +107,35 @@ describe("application shell", () => {
     );
   });
 
+  it("shows the retry delay when sign-in is rate limited", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) =>
+        url === "/api/me"
+          ? Promise.resolve({ status: 401 })
+          : Promise.resolve({
+              ok: false,
+              status: 429,
+              headers: new Headers({ "Retry-After": "45" }),
+            }),
+      ),
+    );
+    render(<App />);
+
+    await user.type(
+      await screen.findByRole("textbox", { name: "Adresse e-mail" }),
+      "traveler@example.com",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Recevoir un lien de connexion" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Trop de demandes. Réessayez dans 45 secondes.",
+    );
+  });
+
   it("shows only the signed-in member's trips and supports signing out", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockImplementation((url: string) =>
@@ -143,5 +172,37 @@ describe("application shell", () => {
         name: "Retrouvez votre espace voyage.",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("revalidates the session on focus and clears the profile after a 401", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          user: {
+            id: "user-1",
+            name: "Mina Manager",
+            email: "manager@example.com",
+          },
+          trips: [{ tripId: "trip-1", tripName: "Ski 2027", role: "manager" }],
+        }),
+      })
+      .mockResolvedValueOnce({ status: 401 });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
+    ).toBeInTheDocument();
+    window.dispatchEvent(new Event("focus"));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Retrouvez votre espace voyage.",
+      }),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

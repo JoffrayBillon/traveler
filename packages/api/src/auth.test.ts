@@ -35,10 +35,14 @@ async function createTestServices(
       if (statement.trim()) await client.execute(statement);
     }
   }
+  const backgroundTasks: Promise<void>[] = [];
   return {
     client,
     database,
-    auth: createAuth(database, authEnv, sendEmail),
+    backgroundTasks,
+    auth: createAuth(database, authEnv, sendEmail, (task) => {
+      backgroundTasks.push(task);
+    }),
   };
 }
 
@@ -85,6 +89,7 @@ describe("invite-only magic-link authentication", () => {
     expect(await invitedResponse.json()).toEqual({ status: "accepted" });
     expect(sendEmail).toHaveBeenCalledOnce();
     expect(sendEmail.mock.calls[0]?.[0]).toBe("manager@example.com");
+    await Promise.all(services.backgroundTasks);
 
     const magicLink = new URL(sendEmail.mock.calls[0]?.[1] ?? "");
     const verificationResponse = await app.request(magicLink.href);
@@ -122,5 +127,40 @@ describe("invite-only magic-link authentication", () => {
     });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "service_unavailable" });
+  });
+
+  it("keeps the generic acknowledgement and logs privately when email delivery fails", async () => {
+    const sendEmail = vi.fn().mockRejectedValue(new Error("SMTP failure"));
+    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const services = await createTestServices(sendEmail);
+    const trip = await createTripsStore(services.database).create("Ski 2027");
+    await createManagersStore(services.database).create({
+      tripId: trip.id,
+      email: "manager@example.com",
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+    const app = createApp(
+      () => services.client,
+      () => services,
+    );
+
+    const response = await app.request("/api/auth/sign-in/magic-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: authEnv.BETTER_AUTH_URL as string,
+      },
+      body: JSON.stringify({ email: "manager@example.com", callbackURL: "/" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "accepted" });
+    await Promise.all(services.backgroundTasks);
+    expect(logError).toHaveBeenCalledWith(
+      "Magic link email delivery failed.",
+      "Error",
+    );
+    logError.mockRestore();
   });
 });

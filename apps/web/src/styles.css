@@ -159,6 +159,10 @@ a:focus-visible {
 .trip-list span {
   color: var(--muted);
 }
+.trip-list strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .skip-link {
   position: absolute;
   left: 1rem;

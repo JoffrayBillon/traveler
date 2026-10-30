@@ -23,23 +23,39 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/me", { cache: "no-store" })
-      .then(async (response) => {
-        if (response.status === 401) return null;
+    let requestId = 0;
+    async function refreshProfile() {
+      const currentRequest = ++requestId;
+      try {
+        const response = await fetch("/api/me", { cache: "no-store" });
+        if (!active || currentRequest !== requestId) return;
+        if (response.status === 401) {
+          setProfile(null);
+          setProfileStatus("ready");
+          return;
+        }
         if (!response.ok)
           throw new Error("The traveler profile could not be loaded.");
-        return (await response.json()) as TravelerProfile;
-      })
-      .then((member) => {
-        if (!active) return;
-        setProfile(member);
+        setProfile((await response.json()) as TravelerProfile);
         setProfileStatus("ready");
-      })
-      .catch(() => {
-        if (active) setProfileStatus("unavailable");
-      });
+      } catch {
+        if (active && currentRequest === requestId)
+          setProfileStatus("unavailable");
+      }
+    }
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") void refreshProfile();
+    }
+    function refreshOnFocus() {
+      void refreshProfile();
+    }
+    void refreshProfile();
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       active = false;
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, []);
 
@@ -54,6 +70,17 @@ export function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, callbackURL: "/" }),
       });
+      if (response.status === 429) {
+        const retryAfter = Number.parseInt(
+          response.headers.get("Retry-After") ?? "",
+          10,
+        );
+        const seconds =
+          Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+        setHasError(true);
+        setMessage(`Trop de demandes. Réessayez dans ${seconds} secondes.`);
+        return;
+      }
       if (!response.ok) throw new Error("The sign-in service is unavailable.");
       setMessage(
         "Si cette adresse est autorisée, un lien de connexion vient d’être envoyé.",
