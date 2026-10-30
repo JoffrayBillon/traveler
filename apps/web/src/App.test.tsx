@@ -78,6 +78,16 @@ describe("application shell", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Si cette adresse est autorisée, un lien de connexion vient d’être envoyé.",
     );
+    const retryButton = screen.getByRole("button", {
+      name: "Réessayez dans 30 s",
+    });
+    expect(retryButton).toBeDisabled();
+    await user.click(retryButton);
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url === "/api/auth/sign-in/magic-link",
+      ),
+    ).toHaveLength(1);
   });
 
   it("announces an unavailable sign-in service accessibly", async () => {
@@ -134,6 +144,9 @@ describe("application shell", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Trop de demandes. Réessayez dans 45 secondes.",
     );
+    expect(
+      screen.getByRole("button", { name: "Réessayez dans 45 s" }),
+    ).toBeDisabled();
   });
 
   it("shows only the signed-in member's trips and supports signing out", async () => {

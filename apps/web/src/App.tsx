@@ -9,6 +9,8 @@ import {
   ToggleButton,
 } from "react-aria-components";
 
+const SIGN_IN_COOLDOWN_SECONDS = 30;
+
 export function App() {
   const [isDark, setIsDark] = useState(false);
   const [profile, setProfile] = useState<TravelerProfile | null>(null);
@@ -17,9 +19,18 @@ export function App() {
   >("checking");
   const [email, setEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [message, setMessage] = useState("");
   const [hasError, setHasError] = useState(false);
   const [profileError, setProfileError] = useState("");
+
+  useEffect(() => {
+    if (cooldownSeconds === 0) return;
+    const timer = window.setTimeout(() => {
+      setCooldownSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [cooldownSeconds]);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +72,7 @@ export function App() {
 
   async function requestSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSending || cooldownSeconds > 0) return;
     setIsSending(true);
     setMessage("");
     setHasError(false);
@@ -77,15 +89,18 @@ export function App() {
         );
         const seconds =
           Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+        setCooldownSeconds(seconds);
         setHasError(true);
         setMessage(`Trop de demandes. Réessayez dans ${seconds} secondes.`);
         return;
       }
       if (!response.ok) throw new Error("The sign-in service is unavailable.");
+      setCooldownSeconds(SIGN_IN_COOLDOWN_SECONDS);
       setMessage(
         "Si cette adresse est autorisée, un lien de connexion vient d’être envoyé.",
       );
     } catch {
+      setCooldownSeconds(SIGN_IN_COOLDOWN_SECONDS);
       setHasError(true);
       setMessage(
         "La connexion est momentanément indisponible. Réessayez plus tard.",
@@ -176,11 +191,13 @@ export function App() {
               <Button
                 className="sign-in-button"
                 type="submit"
-                isDisabled={isSending}
+                isDisabled={isSending || cooldownSeconds > 0}
               >
                 {isSending
                   ? "Envoi en cours…"
-                  : "Recevoir un lien de connexion"}
+                  : cooldownSeconds > 0
+                    ? `Réessayez dans ${cooldownSeconds} s`
+                    : "Recevoir un lien de connexion"}
               </Button>
               {message && (
                 <Text

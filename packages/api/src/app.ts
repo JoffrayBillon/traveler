@@ -1,4 +1,3 @@
-import { setTimeout as delay } from "node:timers/promises";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthServices } from "./auth";
@@ -94,7 +93,6 @@ async function handleMagicLinkRequest(
   services: AuthServices,
   request: Request,
 ) {
-  const startedAt = Date.now();
   const normalizedRequest = await normalizeMagicLinkRequest(request);
   const response = await services.auth.handler(normalizedRequest);
   if (response.status === 429) {
@@ -110,9 +108,7 @@ async function handleMagicLinkRequest(
     );
   }
 
-  // Keep the public response independent of whether the submitted address is invited.
-  const remainingDelay = 500 - (Date.now() - startedAt);
-  if (remainingDelay > 0) await delay(remainingDelay);
+  // Keep the public acknowledgement the same for invited and unknown addresses.
   return Response.json(
     { status: "accepted" },
     {
