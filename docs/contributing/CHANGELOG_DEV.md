@@ -2,6 +2,21 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-30 — Trip creation CLI — Fix
+
+- Details/impact: ignore the leading `--` separator forwarded by pnpm so it is not included in the saved trip name; cover separated and unseparated arguments with unit tests.
+- Test status: `pnpm check` passed (Biome with one pre-existing `GITHUB_REPOSITORY_ID` warning, both typechecks, 14 automated tests, and both production builds).
+
+## 2026-10-27 — Trip persistence — Add
+
+- Details/impact: add a minimal Drizzle `trips` table, checked-in SQL migration, and explicit commands to apply migrations and create/list trips. Startup and CI/CD do not mutate database schema.
+- Test status: migration generation/metadata normalization, API typecheck/build, `pnpm lint` and `git diff --check` passed. The first PR CI run failed because Drizzle metadata lacked final newlines; `db:generate` now formats that output. Automated tests and full `pnpm check` were not run locally; CI must rerun on the latest commit.
+
+## 2026-10-27 — CodeRabbit — Configure
+
+- Details/impact: include `dev` as an automatic review target so feature pull requests follow the project's review workflow.
+- Test status: configuration reviewed against CodeRabbit's documented `reviews.auto_review.base_branches` setting; no automated tests run.
+
 ## 2026-10-27 — API database readiness — Add
 
 - Details/impact: add a lazy Turso/libSQL client, a no-store `/api/ready` probe with generic failure responses, local development environment loading, and Paris-region Vercel Functions for the EU database.
