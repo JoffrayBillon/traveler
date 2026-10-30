@@ -12,4 +12,10 @@ The foundation now includes a lazy Turso/libSQL client, a read-only readiness pr
 
 Add a minimal trip identity and name, SQL migration generation, explicit migration and local operator create/list commands. Keep the table free of speculative dates, status, ownership and membership fields. Authentication, membership and trip management UI remain separate reviewed work.
 
+## 2026-10-30 — Invite-only authentication foundation
+
+Implement the Better Auth passwordless flow already selected in the original mission, using the existing Turso/libSQL database and Brevo SMTP credentials. New signups stay disabled; the first manager is created only by the local `managers:create` operator command, and later imports will provision traveler accounts. Roles live on trip memberships, never on the global identity. Login links expire after ten minutes, are single-use and stored hashed; sessions last 30 days and refresh daily. Rate limits use the database because the app runs in serverless functions. The API requires trip membership both before sending a link and when creating a session; `/api/me` scopes its response to the current identity.
+
+This is authentication infrastructure, not a finished traveler or management dashboard. Live email requires sender verification and environment configuration; the code never applies migrations automatically.
+
 Public code does not imply an open-source license grant; no license has been chosen. Reassess hosting plans if the owner changes from personal use to professional/commercial use.

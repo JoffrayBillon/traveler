@@ -2,6 +2,11 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-30 — Invite-only authentication — Add
+
+- Details/impact: add Better Auth magic-link login for pre-provisioned trip members, ten-minute single-use hashed tokens, database-backed rate limits, 30-day sessions, trip-scoped membership roles, `/api/me`, a traveler landing view, and an accessible React Aria login form. Add an explicit local first-manager provisioning command and checked-in migrations; startup and CI do not migrate the database.
+- Test status: `pnpm check` passed (Biome, both strict typechecks, 13 API tests, 6 web tests, native Node distribution test and both production builds); Biome retains the pre-existing `GITHUB_REPOSITORY_ID` warning. CI and CodeRabbit review are pending.
+
 ## 2026-10-30 — Trip creation CLI — Fix
 
 - Details/impact: ignore the leading `--` separator forwarded by pnpm so it is not included in the saved trip name; cover separated and unseparated arguments with unit tests.

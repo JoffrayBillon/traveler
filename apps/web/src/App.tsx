@@ -1,8 +1,84 @@
-import { useState } from "react";
-import { ToggleButton } from "react-aria-components";
+import { type FormEvent, useEffect, useState } from "react";
+import {
+  Button,
+  Form,
+  Input,
+  Label,
+  Text,
+  TextField,
+  ToggleButton,
+} from "react-aria-components";
 
 export function App() {
   const [isDark, setIsDark] = useState(false);
+  const [profile, setProfile] = useState<TravelerProfile | null>(null);
+  const [profileStatus, setProfileStatus] = useState<
+    "checking" | "ready" | "unavailable"
+  >("checking");
+  const [email, setEmail] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [message, setMessage] = useState("");
+  const [hasError, setHasError] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/me", { cache: "no-store" })
+      .then(async (response) => {
+        if (response.status === 401) return null;
+        if (!response.ok)
+          throw new Error("The traveler profile could not be loaded.");
+        return (await response.json()) as TravelerProfile;
+      })
+      .then((member) => {
+        if (!active) return;
+        setProfile(member);
+        setProfileStatus("ready");
+      })
+      .catch(() => {
+        if (active) setProfileStatus("unavailable");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function requestSignIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSending(true);
+    setMessage("");
+    setHasError(false);
+    try {
+      const response = await fetch("/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, callbackURL: "/" }),
+      });
+      if (!response.ok) throw new Error("The sign-in service is unavailable.");
+      setMessage(
+        "Si cette adresse est autorisée, un lien de connexion vient d’être envoyé.",
+      );
+    } catch {
+      setHasError(true);
+      setMessage(
+        "La connexion est momentanément indisponible. Réessayez plus tard.",
+      );
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  async function signOut() {
+    setProfileError("");
+    try {
+      const response = await fetch("/api/auth/sign-out", { method: "POST" });
+      if (!response.ok) throw new Error("Sign-out failed.");
+      setProfile(null);
+      setProfileStatus("ready");
+    } catch {
+      setProfileError("La déconnexion est momentanément indisponible.");
+    }
+  }
 
   return (
     <div className="app-shell" data-theme={isDark ? "dark" : "light"}>
@@ -20,11 +96,94 @@ export function App() {
         </ToggleButton>
       </header>
       <main id="main" tabIndex={-1} className="welcome">
-        <p className="eyebrow">Les départs se préparent ensemble</p>
-        <h1>Votre prochain voyage commence ici.</h1>
-        <p className="intro">Votre espace voyage sera bientôt disponible.</p>
+        {profileStatus === "checking" ? (
+          <p role="status">Chargement de votre espace…</p>
+        ) : profile ? (
+          <>
+            <p className="eyebrow">Les départs se préparent ensemble</p>
+            <h1>Bonjour {profile.user.name}.</h1>
+            <p className="intro">
+              Vos voyages et votre rôle dans chacun d’eux.
+            </p>
+            <ul className="trip-list">
+              {profile.trips.map((trip) => (
+                <li key={trip.tripId}>
+                  <strong>{trip.tripName}</strong>
+                  <span>{roleLabel[trip.role]}</span>
+                </li>
+              ))}
+            </ul>
+            {profileError && (
+              <p className="form-message" role="alert">
+                {profileError}
+              </p>
+            )}
+            <Button className="sign-in-button" onPress={signOut}>
+              Se déconnecter
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="eyebrow">Les départs se préparent ensemble</p>
+            <h1>Retrouvez votre espace voyage.</h1>
+            <p className="intro">
+              Connectez-vous avec l’adresse e-mail communiquée à l’organisation.
+            </p>
+            {profileStatus === "unavailable" && (
+              <p className="form-message" role="status">
+                Votre espace n’est pas joignable pour le moment.
+              </p>
+            )}
+            <Form className="sign-in-form" onSubmit={requestSignIn}>
+              <TextField
+                type="email"
+                name="email"
+                value={email}
+                onChange={setEmail}
+                isRequired
+                autoComplete="email"
+              >
+                <Label>Adresse e-mail</Label>
+                <Input className="email-input" />
+              </TextField>
+              <Button
+                className="sign-in-button"
+                type="submit"
+                isDisabled={isSending}
+              >
+                {isSending
+                  ? "Envoi en cours…"
+                  : "Recevoir un lien de connexion"}
+              </Button>
+              {message && (
+                <Text
+                  className="form-message"
+                  role={hasError ? "alert" : "status"}
+                  aria-live={hasError ? "assertive" : "polite"}
+                >
+                  {message}
+                </Text>
+              )}
+            </Form>
+          </>
+        )}
       </main>
       <footer className="site-footer">Traveler · Voyages entre nous</footer>
     </div>
   );
 }
+
+type TravelerProfile = {
+  user: { id: string; name: string; email: string };
+  trips: {
+    tripId: string;
+    tripName: string;
+    role: "traveler" | "companion" | "manager";
+  }[];
+};
+
+const roleLabel = {
+  traveler: "Voyageur",
+  companion: "Accompagnateur",
+  manager: "Gestionnaire",
+} satisfies Record<TravelerProfile["trips"][number]["role"], string>;
