@@ -171,4 +171,38 @@ describe("invite-only magic-link authentication", () => {
     );
     logError.mockRestore();
   });
+
+  it("limits each email address to one magic-link request every 30 seconds", async () => {
+    const services = await createTestServices(
+      vi.fn().mockResolvedValue(undefined),
+    );
+    const app = createApp(
+      () => services.client,
+      () => services,
+    );
+    const requestLink = () =>
+      app.request("/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: authEnv.BETTER_AUTH_URL as string,
+          "X-Forwarded-For": "198.51.100.42",
+        },
+        body: JSON.stringify({
+          email: "unknown@example.com",
+          callbackURL: "/",
+        }),
+      });
+
+    const firstResponse = await requestLink();
+    expect(firstResponse.status).toBe(200);
+    expect(await firstResponse.json()).toEqual({ status: "accepted" });
+
+    const secondResponse = await requestLink();
+    expect(secondResponse.status).toBe(429);
+    expect(await secondResponse.json()).toEqual({ error: "rate_limited" });
+    const retryAfter = Number(secondResponse.headers.get("Retry-After"));
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(30);
+  });
 });
