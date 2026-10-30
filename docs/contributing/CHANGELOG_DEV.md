@@ -2,6 +2,11 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — Database deployments — Add
+
+- Details/impact: run read-only quality checks before privileged jobs, then apply pending Drizzle migrations before dev and staged production deployments using branch-scoped or production Vercel environment variables, without copying database credentials into GitHub secrets or files. Trigger dev deployment from the `dev` push so the workflow update works before it reaches `main`; keep migrations out of feature previews until they have an isolated database. Document migration history, serialization and backward-compatible schema requirements.
+- Test status: workflow changes reviewed; automated checks not run locally. GitHub CI will validate the workflow on the PR.
+
 ## 2026-10-31 — Authentication and traveler shell — Fix
 
 - Details/impact: schedule magic-link email delivery with Vercel `waitUntil` so SMTP latency does not delay public acknowledgements; report delivery failures privately without logging addresses or links. Remove the fixed 500 ms response delay, add a 30-second client cooldown and a persistent per-email server cooldown, and retain the broader IP limit for abuse protection. Revalidate sessions on focus/visibility, allow long trip names to wrap, and verify a consumed magic link cannot create another session.
