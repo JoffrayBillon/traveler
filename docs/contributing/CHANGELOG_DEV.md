@@ -2,6 +2,11 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-30 — Trip creation CLI — Fix
+
+- Details/impact: ignore the leading `--` separator forwarded by pnpm so it is not included in the saved trip name; cover separated and unseparated arguments with unit tests.
+- Test status: `pnpm check` passed (Biome with one pre-existing `GITHUB_REPOSITORY_ID` warning, both typechecks, 14 automated tests, and both production builds).
+
 ## 2026-10-27 — Trip persistence — Add
 
 - Details/impact: add a minimal Drizzle `trips` table, checked-in SQL migration, and explicit commands to apply migrations and create/list trips. Startup and CI/CD do not mutate database schema.

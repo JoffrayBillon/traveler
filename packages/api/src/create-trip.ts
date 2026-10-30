@@ -1,9 +1,10 @@
 import { drizzle } from "drizzle-orm/libsql";
 import { createDatabaseClient, getDatabaseErrorCode } from "./database";
 import * as schema from "./schema";
+import { getTripNameFromArgs } from "./trip-name";
 import { createTripsStore } from "./trips";
 
-const name = process.argv.slice(2).join(" ").trim();
+const name = getTripNameFromArgs(process.argv.slice(2));
 
 if (!name) {
   console.error(
