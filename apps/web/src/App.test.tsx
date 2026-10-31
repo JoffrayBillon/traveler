@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -301,21 +307,13 @@ describe("application shell", () => {
 
   it("does not restore a stale profile response after signing out", async () => {
     const user = userEvent.setup();
-    let resolveStaleProfile!: (value: {
-      ok: boolean;
-      status: number;
-      json: () => Promise<{
-        user: { id: string; name: string; email: string };
-        trips: { tripId: string; tripName: string; role: "manager" }[];
-      }>;
+    let resolveStaleProfile!: (profile: {
+      user: { id: string; name: string; email: string };
+      trips: { tripId: string; tripName: string; role: "manager" }[];
     }) => void;
-    const staleProfileResponse = new Promise<{
-      ok: boolean;
-      status: number;
-      json: () => Promise<{
-        user: { id: string; name: string; email: string };
-        trips: { tripId: string; tripName: string; role: "manager" }[];
-      }>;
+    const staleProfileBody = new Promise<{
+      user: { id: string; name: string; email: string };
+      trips: { tripId: string; tripName: string; role: "manager" }[];
     }>((resolve) => {
       resolveStaleProfile = resolve;
     });
@@ -329,6 +327,7 @@ describe("application shell", () => {
         { tripId: "trip-1", tripName: "Ski 2027", role: "manager" as const },
       ],
     };
+    const staleJson = vi.fn(() => staleProfileBody);
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -336,7 +335,7 @@ describe("application shell", () => {
         status: 200,
         json: async () => profile,
       })
-      .mockReturnValueOnce(staleProfileResponse)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: staleJson })
       .mockResolvedValueOnce({ ok: true, status: 200 });
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
@@ -344,7 +343,10 @@ describe("application shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
     ).toBeInTheDocument();
-    window.dispatchEvent(new Event("focus"));
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    await waitFor(() => expect(staleJson).toHaveBeenCalledOnce());
     await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
     expect(
       await screen.findByRole("heading", {
@@ -353,8 +355,8 @@ describe("application shell", () => {
     ).toBeInTheDocument();
 
     await act(async () => {
-      resolveStaleProfile({ ok: true, status: 200, json: async () => profile });
-      await staleProfileResponse;
+      resolveStaleProfile(profile);
+      await staleProfileBody;
     });
 
     expect(
