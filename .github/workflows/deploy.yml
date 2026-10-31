@@ -1,60 +1,71 @@
-name: Stage production from main
+name: Deploy production after CI
 
 on:
-  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
 
 permissions:
   contents: read
 
 concurrency:
-  group: stage-production
+  group: deploy-production
   cancel-in-progress: false
 
 jobs:
-  check:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version-file: .node-version
-      - run: npm install --global pnpm@11.25.0
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check
-
   deploy:
-    needs: check
+    name: Migrate and deploy Production
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: production
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
     env:
+      DEPLOY_KIND: production
+      DEPLOY_REF: ${{ github.event.workflow_run.head_branch }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+      GITHUB_REPOSITORY_ID: ${{ github.event.repository.id }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      VERCEL_CLI_VERSION: 65.2.0
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
-      - name: Install pinned tools
-        run: npm install --global pnpm@11.25.0 "vercel@$VERCEL_CLI_VERSION"
-      - name: Verify project configuration
-        run: |
-          test -n "$VERCEL_ORG_ID"
-          test -n "$VERCEL_PROJECT_ID"
-      - name: Pull deployment settings
-        run: vercel pull --yes --environment=production
+          package-manager-cache: false
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.25.0
+      - name: Install Vercel CLI
+        run: npm install --global vercel@65.8.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Link Vercel project
+        run: vercel link --yes --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      - name: Build deployment output
-        run: vercel build --prod
-      - name: Deploy without promoting production
-        run: vercel deploy --prebuilt --prod --skip-domain
+      - name: Migrate the production database
+        run: vercel env run --environment=production -- pnpm --filter @traveler/api db:migrate
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Confirm tested commit is still the main tip
+        run: |
+          git fetch --no-tags origin main
+          current_main_sha="$(git rev-parse FETCH_HEAD)"
+          if [ "$current_main_sha" != "$DEPLOY_SHA" ]; then
+            echo "Refusing stale deployment: main is now $current_main_sha." >&2
+            exit 1
+          fi
+      - name: Deploy the tested main commit
+        id: deploy
+        run: node .github/scripts/deploy-vercel-git-ref.mjs
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
