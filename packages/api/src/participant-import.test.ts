@@ -131,6 +131,56 @@ describe("participant spreadsheet import", () => {
     expect(user?.email).toBe("alex@example.com");
   });
 
+  it("imports participants across bounded write batches", async () => {
+    const { database, trip } = await createDatabase();
+    await database.insert(schema.rooms).values([
+      {
+        id: "room-batch-one",
+        tripId: trip.id,
+        name: "Chambre batch 1",
+        capacity: 30,
+      },
+      {
+        id: "room-batch-two",
+        tripId: trip.id,
+        name: "Chambre batch 2",
+        capacity: 30,
+      },
+    ]);
+    const rows = Array.from({ length: 55 }, (_, index) =>
+      validRow({
+        Prenom: `Alex ${index}`,
+        Email: `participant-${index}@example.com`,
+        ChambreInitiale: index < 30 ? "Chambre batch 1" : "Chambre batch 2",
+      }),
+    );
+    const parsed = await parseParticipantWorkbook(await workbookBuffer(rows));
+    expect(parsed.errors).toEqual([]);
+
+    const result = await importParticipants(
+      database,
+      trip.id,
+      parsed.participants,
+    );
+
+    expect(result).toMatchObject({
+      created: 55,
+      updated: 0,
+      assigned: 55,
+      errors: [],
+    });
+    expect(await database.select().from(schema.users)).toHaveLength(55);
+    expect(await database.select().from(schema.tripMemberships)).toHaveLength(
+      55,
+    );
+    expect(await database.select().from(schema.travelerDetails)).toHaveLength(
+      55,
+    );
+    expect(await database.select().from(schema.roomAssignments)).toHaveLength(
+      55,
+    );
+  });
+
   it("normalizes imported values and reports invalid rows before writing", async () => {
     const parsed = await parseParticipantWorkbook(
       await workbookBuffer([

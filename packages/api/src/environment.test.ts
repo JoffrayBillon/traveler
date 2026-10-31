@@ -87,6 +87,49 @@ describe("environment validation", () => {
     expect(report).not.toContain("api-key");
   });
 
+  it("trims secret and Brevo key before validating minimum lengths", () => {
+    let validationError: EnvironmentValidationError | undefined;
+    try {
+      validateEnvironment("api", {
+        TURSO_DATABASE_URL: "libsql://example.turso.io",
+        TURSO_AUTH_TOKEN: "db-token",
+        BETTER_AUTH_SECRET: `${"s".repeat(31)}${" ".repeat(10)}`,
+        BETTER_AUTH_URL: "https://traveler.example.com",
+        BREVO_API_KEY: "   ",
+        BREVO_SENDER_EMAIL: "no-reply@example.com",
+      });
+    } catch (error) {
+      if (error instanceof EnvironmentValidationError) {
+        validationError = error;
+      }
+    }
+
+    expect(validationError?.issues.map(({ variable }) => variable)).toEqual(
+      expect.arrayContaining(["BETTER_AUTH_SECRET", "BREVO_API_KEY"]),
+    );
+  });
+
+  it("requires at least one trusted auth origin in the API profile", () => {
+    let validationError: EnvironmentValidationError | undefined;
+    try {
+      validateEnvironment("api", {
+        TURSO_DATABASE_URL: "libsql://example.turso.io",
+        TURSO_AUTH_TOKEN: "db-token",
+        BETTER_AUTH_SECRET: "test-secret-with-more-than-thirty-two-characters",
+        BREVO_API_KEY: "api-key",
+        BREVO_SENDER_EMAIL: "no-reply@example.com",
+      });
+    } catch (error) {
+      if (error instanceof EnvironmentValidationError) {
+        validationError = error;
+      }
+    }
+
+    expect(validationError?.issues).toContainEqual(
+      expect.objectContaining({ variable: "BETTER_AUTH_URL" }),
+    );
+  });
+
   it("does not require Brevo when tests inject an email sender", () => {
     expect(
       validateEnvironment("auth-injected", {

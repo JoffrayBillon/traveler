@@ -25,7 +25,7 @@ const databaseSchema = {
 };
 
 const authSchema = {
-  BETTER_AUTH_SECRET: z.string({ error: "required" }).min(32, {
+  BETTER_AUTH_SECRET: z.string({ error: "required" }).trim().min(32, {
     error: "must contain at least 32 characters",
   }),
   BETTER_AUTH_URL: z
@@ -45,7 +45,7 @@ const authSchema = {
     .min(1, { error: "must not be empty" })
     .refine(isDeploymentHost, { error: "must be a valid deployment host" })
     .optional(),
-  BREVO_API_KEY: z.string({ error: "required" }).min(1, {
+  BREVO_API_KEY: z.string({ error: "required" }).trim().min(1, {
     error: "must not be empty",
   }),
   BREVO_SENDER_EMAIL: z
@@ -144,15 +144,14 @@ export function validateEnvironment(
   try {
     const parsed = parseWithT3Env(server, source, profile);
 
-    if (profile === "api") {
-      return parsed as ApiEnvironment;
-    }
     if (profile === "database") return parsed as DatabaseEnvironment;
     const crossFieldIssues = getCrossFieldIssues(profile, source);
     if (crossFieldIssues.length) {
       throw new EnvironmentValidationError(profile, crossFieldIssues);
     }
-    return parsed as unknown as AuthEnvironment;
+    return profile === "api"
+      ? (parsed as ApiEnvironment)
+      : (parsed as unknown as AuthEnvironment);
   } catch (error) {
     if (error instanceof EnvironmentValidationError) throw error;
     throw new Error(`Could not validate the ${profile} environment.`, {

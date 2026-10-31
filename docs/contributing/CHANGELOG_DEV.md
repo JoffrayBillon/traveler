@@ -2,6 +2,11 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — Import and environment review — Fix
+
+- Details/impact: separate migration statements for Drizzle, validate trimmed authentication secrets and Brevo keys, enforce API auth-origin checks, and batch participant import reads/writes while preserving ticket and staff details plus optimistic room-composition checks.
+- Test status: Biome, API typecheck, API Vitest (48 tests), API distribution test and API build passed under Node 24. The workspace requires Node 26, so the Node 26 pipeline remains the final environment-parity check.
+
 ## 2026-10-31 — Review follow-ups — Fix
 
 - Details/impact: improve route focus and profile update ordering, expose missing file selections and rooming network failures, format travel dates independent of browser timezone, bound offset validation, traverse sparse import workbooks efficiently, normalize imported email matching, reject concurrent rooming changes with a composition-version check, pass authentication throttling to managers, and namespace preview tickets by branch.

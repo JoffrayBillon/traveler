@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, or, sql } from "drizzle-orm";
+import type { SQL, SQLWrapper } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase } from "./auth";
 import { normalizeEmail } from "./email";
 import type {
@@ -17,18 +18,12 @@ export async function importParticipants(
   const emails = participants.map((participant) =>
     normalizeEmail(participant.email),
   );
-  const normalizedEmails = emails;
+  const uniqueEmails = [...new Set(emails)];
   const existingUsers = emails.length
     ? await database
         .select({ id: schema.users.id, email: schema.users.email })
         .from(schema.users)
-        .where(
-          or(
-            ...normalizedEmails.map((email) =>
-              eq(sql<string>`lower(${schema.users.email})`, email),
-            ),
-          ),
-        )
+        .where(inArray(sql<string>`lower(${schema.users.email})`, uniqueEmails))
     : [];
   const userByEmail = new Map<string, string>();
   const duplicateEmails = new Set<string>();
@@ -101,10 +96,6 @@ export async function importParticipants(
       occupantsByRoom.set(occupant.roomId, group);
     }
   }
-  const projectedRoomAssignments = new Map<
-    string,
-    { userId: string; gender: "M" | "F" }[]
-  >();
   const projectedGendersByRoom = new Map(
     [...occupantsByRoom].map(([roomId, occupants]) => [
       roomId,
@@ -160,11 +151,7 @@ export async function importParticipants(
     }
     if (existingUserId && assignmentByUser.has(existingUserId)) continue;
     const currentOccupants = projectedGendersByRoom.get(room.id) ?? [];
-    const importedOccupants = projectedRoomAssignments.get(room.id) ?? [];
-    if (
-      currentOccupants.length + importedOccupants.length + 1 >
-      room.capacity
-    ) {
+    if (currentOccupants.length + 1 > room.capacity) {
       errors.push({
         row: participant.row,
         field: "ChambreInitiale",
@@ -175,7 +162,6 @@ export async function importParticipants(
     const genders = new Set(
       [
         ...currentOccupants.map((occupant) => occupant.gender),
-        ...importedOccupants.map((occupant) => occupant.gender),
         participant.gender,
       ].filter((gender): gender is "M" | "F" => gender !== null),
     );
@@ -188,11 +174,11 @@ export async function importParticipants(
       });
       continue;
     }
-    importedOccupants.push({
+    currentOccupants.push({
       userId: existingUserId ?? `new:${participant.email}`,
       gender: participant.gender,
     });
-    projectedRoomAssignments.set(room.id, importedOccupants);
+    projectedGendersByRoom.set(room.id, currentOccupants);
   }
   if (errors.length) return { errors, created: 0, updated: 0, assigned: 0 };
 
@@ -203,92 +189,139 @@ export async function importParticipants(
       let updated = 0;
       let assigned = 0;
       const changedRoomIds = new Set(changedGenderRoomRows.keys());
+      const now = new Date();
+      const transactionUsers = uniqueEmails.length
+        ? await transaction
+            .select({ id: schema.users.id, email: schema.users.email })
+            .from(schema.users)
+            .where(
+              inArray(sql<string>`lower(${schema.users.email})`, uniqueEmails),
+            )
+        : [];
+      const userIdByEmail = new Map<string, string>();
+      const userById = new Map(transactionUsers.map((user) => [user.id, user]));
+      for (const user of transactionUsers) {
+        const email = normalizeEmail(user.email);
+        if (userIdByEmail.has(email)) throw new DuplicateNormalizedEmailError();
+        userIdByEmail.set(email, user.id);
+      }
+      const userIds = transactionUsers.map((user) => user.id);
+      const transactionMemberships = userIds.length
+        ? await transaction
+            .select({
+              id: schema.tripMemberships.id,
+              userId: schema.tripMemberships.userId,
+              firstName: schema.tripMemberships.firstName,
+              lastName: schema.tripMemberships.lastName,
+              gender: schema.tripMemberships.gender,
+            })
+            .from(schema.tripMemberships)
+            .where(
+              and(
+                eq(schema.tripMemberships.tripId, tripId),
+                inArray(schema.tripMemberships.userId, userIds),
+              ),
+            )
+        : [];
+      const membershipByUserId = new Map(
+        transactionMemberships.map((membership) => [
+          membership.userId,
+          membership,
+        ]),
+      );
+      const transactionAssignments = userIds.length
+        ? await transaction
+            .select({
+              userId: schema.roomAssignments.userId,
+              roomId: schema.roomAssignments.roomId,
+            })
+            .from(schema.roomAssignments)
+            .where(
+              and(
+                eq(schema.roomAssignments.tripId, tripId),
+                inArray(schema.roomAssignments.userId, userIds),
+              ),
+            )
+        : [];
+      const assignmentRoomByUserId = new Map(
+        transactionAssignments.map((assignment) => [
+          assignment.userId,
+          assignment.roomId,
+        ]),
+      );
+      const usersToInsert: (typeof schema.users.$inferInsert)[] = [];
+      const usersToNormalize: { id: string; email: string }[] = [];
+      const membershipsToInsert: (typeof schema.tripMemberships.$inferInsert)[] =
+        [];
+      const membershipsToUpdate: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        gender: "M" | "F";
+      }[] = [];
+      const detailsToUpsert: (typeof schema.travelerDetails.$inferInsert)[] =
+        [];
+      const assignmentsToInsert: (typeof schema.roomAssignments.$inferInsert)[] =
+        [];
+
       for (const participant of participants) {
-        const [existingUser] = await transaction
-          .select({ id: schema.users.id, email: schema.users.email })
-          .from(schema.users)
-          .where(
-            eq(
-              sql<string>`lower(${schema.users.email})`,
-              normalizeEmail(participant.email),
-            ),
-          )
-          .limit(1);
-        const userId = existingUser?.id ?? randomUUID();
-        const now = new Date();
-        if (!existingUser) {
-          await transaction.insert(schema.users).values({
+        const email = normalizeEmail(participant.email);
+        let userId = userIdByEmail.get(email);
+        if (!userId) {
+          userId = randomUUID();
+          userIdByEmail.set(email, userId);
+          usersToInsert.push({
             id: userId,
             name: `${participant.firstName} ${participant.lastName}`,
-            email: normalizeEmail(participant.email),
+            email,
             emailVerified: false,
             createdAt: now,
             updatedAt: now,
           });
-        } else if (existingUser.email !== normalizeEmail(participant.email)) {
-          await transaction
-            .update(schema.users)
-            .set({ email: normalizeEmail(participant.email), updatedAt: now })
-            .where(eq(schema.users.id, existingUser.id));
-        }
-        const [membership] = await transaction
-          .select({
-            id: schema.tripMemberships.id,
-            role: schema.tripMemberships.role,
-            gender: schema.tripMemberships.gender,
-          })
-          .from(schema.tripMemberships)
-          .where(
-            and(
-              eq(schema.tripMemberships.tripId, tripId),
-              eq(schema.tripMemberships.userId, userId),
-            ),
-          )
-          .limit(1);
-        if (membership) {
-          await transaction
-            .update(schema.tripMemberships)
-            .set({
-              firstName: participant.firstName,
-              lastName: participant.lastName,
-              gender: participant.gender,
-            })
-            .where(eq(schema.tripMemberships.id, membership.id));
-          if (membership.gender !== participant.gender) {
-            const [assignment] = await transaction
-              .select({ roomId: schema.roomAssignments.roomId })
-              .from(schema.roomAssignments)
-              .where(
-                and(
-                  eq(schema.roomAssignments.tripId, tripId),
-                  eq(schema.roomAssignments.userId, userId),
-                ),
-              )
-              .limit(1);
-            if (assignment) changedRoomIds.add(assignment.roomId);
-          }
-          updated += 1;
         } else {
-          await transaction.insert(schema.tripMemberships).values({
-            id: randomUUID(),
-            tripId,
-            userId,
-            role: "traveler",
+          const existingUser = userById.get(userId);
+          if (existingUser && existingUser.email !== email) {
+            usersToNormalize.push({ id: userId, email });
+          }
+        }
+        const membership = membershipByUserId.get(userId);
+        if (membership) {
+          membershipsToUpdate.push({
+            id: membership.id,
             firstName: participant.firstName,
             lastName: participant.lastName,
             gender: participant.gender,
           });
+          if (membership.gender !== participant.gender) {
+            const assignedRoomId = assignmentRoomByUserId.get(userId);
+            if (assignedRoomId) changedRoomIds.add(assignedRoomId);
+          }
+          updated += 1;
+        } else {
+          const newMembership = {
+            id: randomUUID(),
+            tripId,
+            userId,
+            role: "traveler" as const,
+            firstName: participant.firstName,
+            lastName: participant.lastName,
+            gender: participant.gender,
+          };
+          membershipsToInsert.push(newMembership);
+          membershipByUserId.set(userId, newMembership);
           created += 1;
         }
 
         const isNoTransport = participant.transportMode === "none";
         const importedDetails = {
+          tripId,
+          userId,
           activityProfile: participant.activityProfile,
           skiDayThree: participant.skiDayThree,
           transportMode: participant.transportMode,
           departureCity: isNoTransport ? null : participant.departureCity,
-          outboundDateTime: null,
-          outboundTimezone: null,
+          outboundDateTime: null as string | null,
+          outboundTimezone: null as string | null,
           outboundMeetingTime: isNoTransport
             ? null
             : participant.outboundMeetingTime,
@@ -299,8 +332,8 @@ export async function importParticipants(
             ? null
             : participant.outboundReference,
           outboundSeat: isNoTransport ? null : participant.outboundSeat,
-          returnDateTime: null,
-          returnTimezone: null,
+          returnDateTime: null as string | null,
+          returnTimezone: null as string | null,
           returnMeetingTime: isNoTransport
             ? null
             : participant.returnMeetingTime,
@@ -309,108 +342,141 @@ export async function importParticipants(
             : participant.returnDepartureTime,
           returnReference: isNoTransport ? null : participant.returnReference,
           returnSeat: isNoTransport ? null : participant.returnSeat,
-          ...(isNoTransport
-            ? { outboundLocation: null, returnLocation: null }
-            : {}),
-          ...(!isNoTransport
-            ? { carpoolPreference: null, parkingPreference: null }
-            : {}),
+          outboundLocation: null as string | null,
+          returnLocation: null as string | null,
+          carpoolPreference: null as boolean | null,
+          parkingPreference: null as boolean | null,
           updatedAt: now,
         };
-        const importedUpdate = {
-          activityProfile: participant.activityProfile,
-          skiDayThree: participant.skiDayThree,
-          transportMode: participant.transportMode,
-          departureCity: isNoTransport ? null : participant.departureCity,
-          outboundMeetingTime: isNoTransport
-            ? null
-            : participant.outboundMeetingTime,
-          outboundDepartureTime: isNoTransport
-            ? null
-            : participant.outboundDepartureTime,
-          outboundReference: isNoTransport
-            ? null
-            : participant.outboundReference,
-          outboundSeat: isNoTransport ? null : participant.outboundSeat,
-          returnMeetingTime: isNoTransport
-            ? null
-            : participant.returnMeetingTime,
-          returnDepartureTime: isNoTransport
-            ? null
-            : participant.returnDepartureTime,
-          returnReference: isNoTransport ? null : participant.returnReference,
-          returnSeat: isNoTransport ? null : participant.returnSeat,
-          ...(!isNoTransport
-            ? { carpoolPreference: null, parkingPreference: null }
-            : {}),
-          ...(isNoTransport
-            ? {
-                outboundDateTime: null,
-                outboundTimezone: null,
-                outboundLocation: null,
-                returnDateTime: null,
-                returnTimezone: null,
-                returnLocation: null,
-              }
-            : {}),
-          updatedAt: now,
-        };
-        await transaction
-          .insert(schema.travelerDetails)
-          .values({ tripId, userId, ...importedDetails })
-          .onConflictDoUpdate({
-            target: [
-              schema.travelerDetails.tripId,
-              schema.travelerDetails.userId,
-            ],
-            set: importedUpdate,
-          });
+        detailsToUpsert.push(importedDetails);
 
         if (participant.initialRoomName) {
           const importedRoom = roomByName.get(
             participant.initialRoomName.toLocaleLowerCase("fr-FR"),
           );
-          const [currentAssignment] = await transaction
-            .select({ id: schema.roomAssignments.id })
-            .from(schema.roomAssignments)
-            .where(
-              and(
-                eq(schema.roomAssignments.tripId, tripId),
-                eq(schema.roomAssignments.userId, userId),
-              ),
-            )
-            .limit(1);
-          if (importedRoom && !currentAssignment) {
-            await transaction.insert(schema.roomAssignments).values({
+          if (importedRoom && !assignmentRoomByUserId.has(userId)) {
+            assignmentsToInsert.push({
               id: randomUUID(),
               tripId,
               roomId: importedRoom.id,
               userId,
             });
+            assignmentRoomByUserId.set(userId, importedRoom.id);
             assigned += 1;
             changedRoomIds.add(importedRoom.id);
           }
         }
       }
-      for (const roomId of changedRoomIds) {
-        const occupants = await transaction
-          .select({ gender: schema.tripMemberships.gender })
-          .from(schema.roomAssignments)
-          .innerJoin(
-            schema.tripMemberships,
-            and(
-              eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
-              eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
-            ),
-          )
+
+      for (const chunk of chunks(usersToInsert, 50)) {
+        await transaction.insert(schema.users).values(chunk);
+      }
+      for (const chunk of chunks(usersToNormalize, 50)) {
+        await transaction
+          .update(schema.users)
+          .set({
+            email: caseById(schema.users.id, chunk, "email"),
+            updatedAt: now,
+          })
           .where(
-            and(
-              eq(schema.roomAssignments.tripId, tripId),
-              eq(schema.roomAssignments.roomId, roomId),
+            inArray(
+              schema.users.id,
+              chunk.map(({ id }) => id),
             ),
           );
+      }
+      for (const chunk of chunks(membershipsToInsert, 50)) {
+        await transaction.insert(schema.tripMemberships).values(chunk);
+      }
+      for (const chunk of chunks(membershipsToUpdate, 50)) {
+        await transaction
+          .update(schema.tripMemberships)
+          .set({
+            firstName: caseById(schema.tripMemberships.id, chunk, "firstName"),
+            lastName: caseById(schema.tripMemberships.id, chunk, "lastName"),
+            gender: caseById(schema.tripMemberships.id, chunk, "gender"),
+          })
+          .where(
+            inArray(
+              schema.tripMemberships.id,
+              chunk.map(({ id }) => id),
+            ),
+          );
+      }
+
+      for (const chunk of chunks(detailsToUpsert, 25)) {
+        const noTransportIds = chunk
+          .filter((details) => details.transportMode === "none")
+          .map(({ userId }) => userId);
+        const transportIds = chunk
+          .filter((details) => details.transportMode !== "none")
+          .map(({ userId }) => userId);
+        await transaction
+          .insert(schema.travelerDetails)
+          .values(chunk)
+          .onConflictDoUpdate({
+            target: [
+              schema.travelerDetails.tripId,
+              schema.travelerDetails.userId,
+            ],
+            set: {
+              activityProfile: sql`excluded.activity_profile`,
+              skiDayThree: sql`excluded.ski_day_three`,
+              transportMode: sql`excluded.transport_mode`,
+              departureCity: sql`excluded.departure_city`,
+              outboundMeetingTime: sql`excluded.outbound_meeting_time`,
+              outboundDepartureTime: sql`excluded.outbound_departure_time`,
+              outboundReference: sql`excluded.outbound_reference`,
+              outboundSeat: sql`excluded.outbound_seat`,
+              returnMeetingTime: sql`excluded.return_meeting_time`,
+              returnDepartureTime: sql`excluded.return_departure_time`,
+              returnReference: sql`excluded.return_reference`,
+              returnSeat: sql`excluded.return_seat`,
+              outboundDateTime: preserveOrClearByUserId(
+                schema.travelerDetails.outboundDateTime,
+                noTransportIds,
+              ),
+              outboundTimezone: preserveOrClearByUserId(
+                schema.travelerDetails.outboundTimezone,
+                noTransportIds,
+              ),
+              outboundLocation: preserveOrClearByUserId(
+                schema.travelerDetails.outboundLocation,
+                noTransportIds,
+              ),
+              returnDateTime: preserveOrClearByUserId(
+                schema.travelerDetails.returnDateTime,
+                noTransportIds,
+              ),
+              returnTimezone: preserveOrClearByUserId(
+                schema.travelerDetails.returnTimezone,
+                noTransportIds,
+              ),
+              returnLocation: preserveOrClearByUserId(
+                schema.travelerDetails.returnLocation,
+                noTransportIds,
+              ),
+              carpoolPreference: preserveOrClearByUserId(
+                schema.travelerDetails.carpoolPreference,
+                transportIds,
+              ),
+              parkingPreference: preserveOrClearByUserId(
+                schema.travelerDetails.parkingPreference,
+                transportIds,
+              ),
+              updatedAt: sql`excluded.updated_at`,
+            },
+          });
+      }
+      for (const chunk of chunks(assignmentsToInsert, 50)) {
+        await transaction.insert(schema.roomAssignments).values(chunk);
+      }
+
+      const affectedRooms = [...changedRoomIds].map((roomId) => {
+        const roomSnapshot = roomById.get(roomId);
+        if (!roomSnapshot) throw new RoomCompositionChangedError();
         const genders = new Set(
-          occupants
+          (projectedGendersByRoom.get(roomId) ?? [])
             .map((occupant) => occupant.gender)
             .filter((gender): gender is "M" | "F" => gender !== null),
         );
@@ -420,32 +486,55 @@ export async function importParticipants(
             : genders.size > 1
               ? "mixed"
               : "single_gender";
-        const roomSnapshot = roomById.get(roomId);
-        // Roll back the whole import if a room changed after preflight.
-        const [updatedRoom] = roomSnapshot
-          ? await transaction
-              .update(schema.rooms)
-              .set({
-                compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
-                genderPolicy,
-              })
-              .where(
-                and(
-                  eq(schema.rooms.tripId, tripId),
-                  eq(schema.rooms.id, roomId),
-                  eq(
-                    schema.rooms.compositionVersion,
-                    roomSnapshot.compositionVersion,
-                  ),
-                ),
-              )
-              .returning({ id: schema.rooms.id })
-          : [];
-        if (!updatedRoom) throw new RoomCompositionChangedError();
+        return {
+          id: roomId,
+          compositionVersion: roomSnapshot.compositionVersion,
+          genderPolicy,
+        };
+      });
+      for (const chunk of chunks(affectedRooms, 50)) {
+        const updatedRooms = await transaction
+          .update(schema.rooms)
+          .set({
+            compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
+            genderPolicy: caseById(schema.rooms.id, chunk, "genderPolicy"),
+          })
+          .where(
+            and(
+              eq(schema.rooms.tripId, tripId),
+              inArray(
+                schema.rooms.id,
+                chunk.map(({ id }) => id),
+              ),
+              eq(
+                schema.rooms.compositionVersion,
+                caseById(schema.rooms.id, chunk, "compositionVersion"),
+              ),
+            ),
+          )
+          .returning({ id: schema.rooms.id });
+        if (updatedRooms.length !== chunk.length) {
+          throw new RoomCompositionChangedError();
+        }
       }
       return { created, updated, assigned };
     });
   } catch (error) {
+    if (error instanceof DuplicateNormalizedEmailError) {
+      return {
+        created: 0,
+        updated: 0,
+        assigned: 0,
+        errors: [
+          {
+            row: 1,
+            field: "Email",
+            message:
+              "Plusieurs comptes utilisent cette adresse sans tenir compte des majuscules. Corrigez les comptes avant de relancer l’import.",
+          },
+        ],
+      };
+    }
     if (!(error instanceof RoomCompositionChangedError)) throw error;
     return {
       created: 0,
@@ -465,3 +554,32 @@ export async function importParticipants(
 }
 
 class RoomCompositionChangedError extends Error {}
+
+class DuplicateNormalizedEmailError extends Error {}
+
+function chunks<T>(values: readonly T[], size: number) {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
+}
+
+function caseById<T extends { id: string }, K extends Exclude<keyof T, "id">>(
+  column: SQLWrapper,
+  rows: readonly T[],
+  key: K,
+): SQL<T[K]> {
+  return sql<T[K]>`CASE ${column} ${sql.join(
+    rows.map((row) => sql`WHEN ${row.id} THEN ${row[key]}`),
+    sql` `,
+  )} ELSE ${column} END`;
+}
+
+function preserveOrClearByUserId(column: SQLWrapper, clearUserIds: string[]) {
+  if (clearUserIds.length === 0) return sql`${column}`;
+  return sql`CASE WHEN ${schema.travelerDetails.userId} IN (${sql.join(
+    clearUserIds.map((userId) => sql`${userId}`),
+    sql`, `,
+  )}) THEN NULL ELSE ${column} END`;
+}
