@@ -122,8 +122,8 @@ export async function parseParticipantWorkbook(data: ArrayBuffer) {
     return { participants: [] as ImportedParticipant[], errors };
 
   const participantRows: number[] = [];
-  for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
-    const row = sheet.getRow(rowNumber);
+  sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber < 2) return;
     if (
       participantImportHeaders.some((header) =>
         cellText(row.getCell(headerIndex.get(header) ?? 0)),
@@ -131,7 +131,7 @@ export async function parseParticipantWorkbook(data: ArrayBuffer) {
     ) {
       participantRows.push(rowNumber);
     }
-  }
+  });
   if (participantRows.length === 0) {
     return {
       participants: [] as ImportedParticipant[],

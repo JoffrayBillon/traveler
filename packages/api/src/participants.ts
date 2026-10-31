@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import type { AppDatabase } from "./auth";
 import type {
   ImportedParticipant,
@@ -14,21 +14,47 @@ export async function importParticipants(
 ) {
   const errors: ParticipantImportError[] = [];
   const emails = participants.map((participant) => participant.email);
+  const normalizedEmails = emails.map((email) => email.trim().toLowerCase());
   const existingUsers = emails.length
     ? await database
         .select({ id: schema.users.id, email: schema.users.email })
         .from(schema.users)
-        .where(inArray(schema.users.email, emails))
+        .where(
+          or(
+            ...normalizedEmails.map((email) =>
+              eq(sql<string>`lower(${schema.users.email})`, email),
+            ),
+          ),
+        )
     : [];
-  const userByEmail = new Map(
-    existingUsers.map((user) => [user.email, user.id]),
-  );
+  const userByEmail = new Map<string, string>();
+  const duplicateEmails = new Set<string>();
+  for (const user of existingUsers) {
+    const email = user.email.trim().toLowerCase();
+    if (userByEmail.has(email) && userByEmail.get(email) !== user.id) {
+      duplicateEmails.add(email);
+    } else {
+      userByEmail.set(email, user.id);
+    }
+  }
+  for (const email of duplicateEmails) {
+    const participant = participants.find(
+      (item) => item.email.trim().toLowerCase() === email,
+    );
+    errors.push({
+      row: participant?.row ?? 1,
+      field: "Email",
+      message:
+        "Plusieurs comptes utilisent cette adresse sans tenir compte des majuscules. Corrigez les comptes avant de relancer l’import.",
+    });
+  }
   const rooms = await database
     .select({
       id: schema.rooms.id,
       name: schema.rooms.name,
       capacity: schema.rooms.capacity,
       genderPolicy: schema.rooms.genderPolicy,
+      compositionVersion: schema.rooms.compositionVersion,
     })
     .from(schema.rooms)
     .where(eq(schema.rooms.tripId, tripId));
@@ -84,7 +110,9 @@ export async function importParticipants(
   );
   const changedGenderRoomRows = new Map<string, number>();
   for (const participant of participants) {
-    const existingUserId = userByEmail.get(participant.email);
+    const existingUserId = userByEmail.get(
+      participant.email.trim().toLowerCase(),
+    );
     const assignedRoomId = existingUserId
       ? assignmentByUser.get(existingUserId)
       : undefined;
@@ -116,7 +144,9 @@ export async function importParticipants(
     }
   }
   for (const participant of participants) {
-    const existingUserId = userByEmail.get(participant.email);
+    const existingUserId = userByEmail.get(
+      participant.email.trim().toLowerCase(),
+    );
     if (!participant.initialRoomName) continue;
     const room = roomByName.get(
       participant.initialRoomName.toLocaleLowerCase("fr-FR"),
@@ -167,55 +197,177 @@ export async function importParticipants(
   }
   if (errors.length) return { errors, created: 0, updated: 0, assigned: 0 };
 
-  const result = await database.transaction(async (transaction) => {
-    let created = 0;
-    let updated = 0;
-    let assigned = 0;
-    const changedGenderRoomIds = new Set<string>();
-    for (const participant of participants) {
-      const [existingUser] = await transaction
-        .select({ id: schema.users.id })
-        .from(schema.users)
-        .where(eq(schema.users.email, participant.email))
-        .limit(1);
-      const userId = existingUser?.id ?? randomUUID();
-      const now = new Date();
-      if (!existingUser) {
-        await transaction.insert(schema.users).values({
-          id: userId,
-          name: `${participant.firstName} ${participant.lastName}`,
-          email: participant.email,
-          emailVerified: false,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-      const [membership] = await transaction
-        .select({
-          id: schema.tripMemberships.id,
-          role: schema.tripMemberships.role,
-          gender: schema.tripMemberships.gender,
-        })
-        .from(schema.tripMemberships)
-        .where(
-          and(
-            eq(schema.tripMemberships.tripId, tripId),
-            eq(schema.tripMemberships.userId, userId),
-          ),
-        )
-        .limit(1);
-      if (membership) {
-        await transaction
-          .update(schema.tripMemberships)
-          .set({
+  let result: { created: number; updated: number; assigned: number };
+  try {
+    result = await database.transaction(async (transaction) => {
+      let created = 0;
+      let updated = 0;
+      let assigned = 0;
+      const changedRoomIds = new Set(changedGenderRoomRows.keys());
+      for (const participant of participants) {
+        const [existingUser] = await transaction
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(
+            eq(
+              sql<string>`lower(${schema.users.email})`,
+              participant.email.trim().toLowerCase(),
+            ),
+          )
+          .limit(1);
+        const userId = existingUser?.id ?? randomUUID();
+        const now = new Date();
+        if (!existingUser) {
+          await transaction.insert(schema.users).values({
+            id: userId,
+            name: `${participant.firstName} ${participant.lastName}`,
+            email: participant.email,
+            emailVerified: false,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+        const [membership] = await transaction
+          .select({
+            id: schema.tripMemberships.id,
+            role: schema.tripMemberships.role,
+            gender: schema.tripMemberships.gender,
+          })
+          .from(schema.tripMemberships)
+          .where(
+            and(
+              eq(schema.tripMemberships.tripId, tripId),
+              eq(schema.tripMemberships.userId, userId),
+            ),
+          )
+          .limit(1);
+        if (membership) {
+          await transaction
+            .update(schema.tripMemberships)
+            .set({
+              firstName: participant.firstName,
+              lastName: participant.lastName,
+              gender: participant.gender,
+            })
+            .where(eq(schema.tripMemberships.id, membership.id));
+          if (membership.gender !== participant.gender) {
+            const [assignment] = await transaction
+              .select({ roomId: schema.roomAssignments.roomId })
+              .from(schema.roomAssignments)
+              .where(
+                and(
+                  eq(schema.roomAssignments.tripId, tripId),
+                  eq(schema.roomAssignments.userId, userId),
+                ),
+              )
+              .limit(1);
+            if (assignment) changedRoomIds.add(assignment.roomId);
+          }
+          updated += 1;
+        } else {
+          await transaction.insert(schema.tripMemberships).values({
+            id: randomUUID(),
+            tripId,
+            userId,
+            role: "traveler",
             firstName: participant.firstName,
             lastName: participant.lastName,
             gender: participant.gender,
-          })
-          .where(eq(schema.tripMemberships.id, membership.id));
-        if (membership.gender !== participant.gender) {
-          const [assignment] = await transaction
-            .select({ roomId: schema.roomAssignments.roomId })
+          });
+          created += 1;
+        }
+
+        const isNoTransport = participant.transportMode === "none";
+        const importedDetails = {
+          activityProfile: participant.activityProfile,
+          skiDayThree: participant.skiDayThree,
+          transportMode: participant.transportMode,
+          departureCity: isNoTransport ? null : participant.departureCity,
+          outboundDateTime: null,
+          outboundTimezone: null,
+          outboundMeetingTime: isNoTransport
+            ? null
+            : participant.outboundMeetingTime,
+          outboundDepartureTime: isNoTransport
+            ? null
+            : participant.outboundDepartureTime,
+          outboundReference: isNoTransport
+            ? null
+            : participant.outboundReference,
+          outboundSeat: isNoTransport ? null : participant.outboundSeat,
+          returnDateTime: null,
+          returnTimezone: null,
+          returnMeetingTime: isNoTransport
+            ? null
+            : participant.returnMeetingTime,
+          returnDepartureTime: isNoTransport
+            ? null
+            : participant.returnDepartureTime,
+          returnReference: isNoTransport ? null : participant.returnReference,
+          returnSeat: isNoTransport ? null : participant.returnSeat,
+          ...(isNoTransport
+            ? { outboundLocation: null, returnLocation: null }
+            : {}),
+          ...(!isNoTransport
+            ? { carpoolPreference: null, parkingPreference: null }
+            : {}),
+          updatedAt: now,
+        };
+        const importedUpdate = {
+          activityProfile: participant.activityProfile,
+          skiDayThree: participant.skiDayThree,
+          transportMode: participant.transportMode,
+          departureCity: isNoTransport ? null : participant.departureCity,
+          outboundMeetingTime: isNoTransport
+            ? null
+            : participant.outboundMeetingTime,
+          outboundDepartureTime: isNoTransport
+            ? null
+            : participant.outboundDepartureTime,
+          outboundReference: isNoTransport
+            ? null
+            : participant.outboundReference,
+          outboundSeat: isNoTransport ? null : participant.outboundSeat,
+          returnMeetingTime: isNoTransport
+            ? null
+            : participant.returnMeetingTime,
+          returnDepartureTime: isNoTransport
+            ? null
+            : participant.returnDepartureTime,
+          returnReference: isNoTransport ? null : participant.returnReference,
+          returnSeat: isNoTransport ? null : participant.returnSeat,
+          ...(!isNoTransport
+            ? { carpoolPreference: null, parkingPreference: null }
+            : {}),
+          ...(isNoTransport
+            ? {
+                outboundDateTime: null,
+                outboundTimezone: null,
+                outboundLocation: null,
+                returnDateTime: null,
+                returnTimezone: null,
+                returnLocation: null,
+              }
+            : {}),
+          updatedAt: now,
+        };
+        await transaction
+          .insert(schema.travelerDetails)
+          .values({ tripId, userId, ...importedDetails })
+          .onConflictDoUpdate({
+            target: [
+              schema.travelerDetails.tripId,
+              schema.travelerDetails.userId,
+            ],
+            set: importedUpdate,
+          });
+
+        if (participant.initialRoomName) {
+          const importedRoom = roomByName.get(
+            participant.initialRoomName.toLocaleLowerCase("fr-FR"),
+          );
+          const [currentAssignment] = await transaction
+            .select({ id: schema.roomAssignments.id })
             .from(schema.roomAssignments)
             .where(
               and(
@@ -224,178 +376,88 @@ export async function importParticipants(
               ),
             )
             .limit(1);
-          if (assignment) changedGenderRoomIds.add(assignment.roomId);
+          if (importedRoom && !currentAssignment) {
+            await transaction.insert(schema.roomAssignments).values({
+              id: randomUUID(),
+              tripId,
+              roomId: importedRoom.id,
+              userId,
+            });
+            assigned += 1;
+            changedRoomIds.add(importedRoom.id);
+          }
         }
-        updated += 1;
-      } else {
-        await transaction.insert(schema.tripMemberships).values({
-          id: randomUUID(),
-          tripId,
-          userId,
-          role: "traveler",
-          firstName: participant.firstName,
-          lastName: participant.lastName,
-          gender: participant.gender,
-        });
-        created += 1;
       }
-
-      const isNoTransport = participant.transportMode === "none";
-      const importedDetails = {
-        activityProfile: participant.activityProfile,
-        skiDayThree: participant.skiDayThree,
-        transportMode: participant.transportMode,
-        departureCity: isNoTransport ? null : participant.departureCity,
-        outboundDateTime: null,
-        outboundTimezone: null,
-        outboundMeetingTime: isNoTransport
-          ? null
-          : participant.outboundMeetingTime,
-        outboundDepartureTime: isNoTransport
-          ? null
-          : participant.outboundDepartureTime,
-        outboundReference: isNoTransport ? null : participant.outboundReference,
-        outboundSeat: isNoTransport ? null : participant.outboundSeat,
-        returnDateTime: null,
-        returnTimezone: null,
-        returnMeetingTime: isNoTransport ? null : participant.returnMeetingTime,
-        returnDepartureTime: isNoTransport
-          ? null
-          : participant.returnDepartureTime,
-        returnReference: isNoTransport ? null : participant.returnReference,
-        returnSeat: isNoTransport ? null : participant.returnSeat,
-        ...(isNoTransport
-          ? { outboundLocation: null, returnLocation: null }
-          : {}),
-        ...(!isNoTransport
-          ? { carpoolPreference: null, parkingPreference: null }
-          : {}),
-        updatedAt: now,
-      };
-      const importedUpdate = {
-        activityProfile: participant.activityProfile,
-        skiDayThree: participant.skiDayThree,
-        transportMode: participant.transportMode,
-        departureCity: isNoTransport ? null : participant.departureCity,
-        outboundMeetingTime: isNoTransport
-          ? null
-          : participant.outboundMeetingTime,
-        outboundDepartureTime: isNoTransport
-          ? null
-          : participant.outboundDepartureTime,
-        outboundReference: isNoTransport ? null : participant.outboundReference,
-        outboundSeat: isNoTransport ? null : participant.outboundSeat,
-        returnMeetingTime: isNoTransport ? null : participant.returnMeetingTime,
-        returnDepartureTime: isNoTransport
-          ? null
-          : participant.returnDepartureTime,
-        returnReference: isNoTransport ? null : participant.returnReference,
-        returnSeat: isNoTransport ? null : participant.returnSeat,
-        ...(!isNoTransport
-          ? { carpoolPreference: null, parkingPreference: null }
-          : {}),
-        ...(isNoTransport
-          ? {
-              outboundDateTime: null,
-              outboundTimezone: null,
-              outboundLocation: null,
-              returnDateTime: null,
-              returnTimezone: null,
-              returnLocation: null,
-            }
-          : {}),
-        updatedAt: now,
-      };
-      await transaction
-        .insert(schema.travelerDetails)
-        .values({ tripId, userId, ...importedDetails })
-        .onConflictDoUpdate({
-          target: [
-            schema.travelerDetails.tripId,
-            schema.travelerDetails.userId,
-          ],
-          set: importedUpdate,
-        });
-
-      if (participant.initialRoomName) {
-        const importedRoom = roomByName.get(
-          participant.initialRoomName.toLocaleLowerCase("fr-FR"),
-        );
-        const [currentAssignment] = await transaction
-          .select({ id: schema.roomAssignments.id })
+      for (const roomId of changedRoomIds) {
+        const occupants = await transaction
+          .select({ gender: schema.tripMemberships.gender })
           .from(schema.roomAssignments)
+          .innerJoin(
+            schema.tripMemberships,
+            and(
+              eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
+              eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
+            ),
+          )
           .where(
             and(
               eq(schema.roomAssignments.tripId, tripId),
-              eq(schema.roomAssignments.userId, userId),
+              eq(schema.roomAssignments.roomId, roomId),
             ),
-          )
-          .limit(1);
-        if (importedRoom && !currentAssignment) {
-          await transaction.insert(schema.roomAssignments).values({
-            id: randomUUID(),
-            tripId,
-            roomId: importedRoom.id,
-            userId,
-          });
-          assigned += 1;
-          await transaction
-            .update(schema.rooms)
-            .set({
-              compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
-              genderPolicy:
-                participant.gender === "M" || participant.gender === "F"
-                  ? "single_gender"
-                  : "unset",
-            })
-            .where(
-              and(
-                eq(schema.rooms.tripId, tripId),
-                eq(schema.rooms.id, importedRoom.id),
-              ),
-            );
-        }
+          );
+        const genders = new Set(
+          occupants
+            .map((occupant) => occupant.gender)
+            .filter((gender): gender is "M" | "F" => gender !== null),
+        );
+        const genderPolicy =
+          genders.size === 0
+            ? "unset"
+            : genders.size > 1
+              ? "mixed"
+              : "single_gender";
+        const roomSnapshot = roomById.get(roomId);
+        // Roll back the whole import if a room changed after preflight.
+        const [updatedRoom] = roomSnapshot
+          ? await transaction
+              .update(schema.rooms)
+              .set({
+                compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
+                genderPolicy,
+              })
+              .where(
+                and(
+                  eq(schema.rooms.tripId, tripId),
+                  eq(schema.rooms.id, roomId),
+                  eq(
+                    schema.rooms.compositionVersion,
+                    roomSnapshot.compositionVersion,
+                  ),
+                ),
+              )
+              .returning({ id: schema.rooms.id })
+          : [];
+        if (!updatedRoom) throw new RoomCompositionChangedError();
       }
-    }
-    for (const roomId of changedGenderRoomIds) {
-      const occupants = await transaction
-        .select({ gender: schema.tripMemberships.gender })
-        .from(schema.roomAssignments)
-        .innerJoin(
-          schema.tripMemberships,
-          and(
-            eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
-            eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
-          ),
-        )
-        .where(
-          and(
-            eq(schema.roomAssignments.tripId, tripId),
-            eq(schema.roomAssignments.roomId, roomId),
-          ),
-        );
-      const genders = new Set(
-        occupants
-          .map((occupant) => occupant.gender)
-          .filter((gender): gender is "M" | "F" => gender !== null),
-      );
-      const genderPolicy =
-        genders.size === 0
-          ? "unset"
-          : genders.size > 1
-            ? "mixed"
-            : "single_gender";
-      await transaction
-        .update(schema.rooms)
-        .set({
-          compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
-          genderPolicy,
-        })
-        .where(
-          and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)),
-        );
-    }
-    return { created, updated, assigned };
-  });
+      return { created, updated, assigned };
+    });
+  } catch (error) {
+    if (!(error instanceof RoomCompositionChangedError)) throw error;
+    return {
+      created: 0,
+      updated: 0,
+      assigned: 0,
+      errors: [
+        {
+          row: 1,
+          field: "ChambreInitiale",
+          message:
+            "La composition d’une chambre a changé pendant l’import. Vérifiez le rooming puis relancez l’import.",
+        },
+      ],
+    };
+  }
   return { ...result, errors: [] as ParticipantImportError[] };
 }
+
+class RoomCompositionChangedError extends Error {}

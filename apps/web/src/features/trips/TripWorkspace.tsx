@@ -9,7 +9,7 @@ import {
 } from "../../components/ui";
 import {
   formatBytes,
-  formatDate,
+  formatJourneyDate,
   roleLabel,
   ticketLabel,
   transportLabel,
@@ -354,20 +354,4 @@ function CarpoolPreferences({
       )}
     </section>
   );
-}
-
-function formatJourneyDate(
-  dateTime: string | null | undefined,
-  departureTime: string | null | undefined,
-) {
-  if (!dateTime) return formatDate(departureTime);
-  const date = new Date(dateTime);
-  if (Number.isNaN(date.getTime())) return dateTime;
-  const dateLabel = new Intl.DateTimeFormat("fr-FR", {
-    dateStyle: "medium",
-  }).format(date);
-  const timeLabel =
-    departureTime ??
-    new Intl.DateTimeFormat("fr-FR", { timeStyle: "short" }).format(date);
-  return `${dateLabel} · ${timeLabel}`;
 }

@@ -101,7 +101,23 @@ function TravelerApp() {
   useEffect(() => {
     if (previousPath.current === location.pathname) return;
     previousPath.current = location.pathname;
-    mainRef.current?.focus();
+    const main = mainRef.current;
+    if (!main) return;
+    const focusHeading = () => {
+      const route = [
+        ...main.querySelectorAll<HTMLElement>("[data-route-path]"),
+      ].find((element) => element.dataset.routePath === location.pathname);
+      const heading = route?.querySelector<HTMLElement>("[data-route-heading]");
+      if (!heading) return false;
+      heading.focus();
+      return true;
+    };
+    if (focusHeading()) return;
+    const observer = new MutationObserver(() => {
+      if (focusHeading()) observer.disconnect();
+    });
+    observer.observe(main, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, [location.pathname]);
 
   const refreshProfile = useCallback(async () => {
@@ -237,6 +253,7 @@ function TravelerApp() {
   );
 
   const updateTripName = useCallback((tripId: string, tripName: string) => {
+    profileRequestId.current += 1;
     setProfile((current) =>
       current
         ? {
@@ -306,6 +323,7 @@ function TravelerApp() {
           ref={mainRef}
           className="flex flex-1 items-center"
           id="main"
+          aria-label="Contenu de la page"
           tabIndex={-1}
         >
           {profileStatus === "checking" ? (
@@ -323,6 +341,7 @@ function TravelerApp() {
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 className="min-h-px"
+                data-route-path={location.pathname}
                 key={location.pathname}
                 initial={
                   reduceMotion
@@ -430,6 +449,9 @@ function TripRoute({ profile }: { profile: TravelerProfile }) {
       className="mx-auto my-12 mb-20 w-[min(100%-3rem,1120px)] max-[760px]:my-6 max-[760px]:mb-12 max-[760px]:w-[min(100%-2rem,1120px)]"
       aria-label={trip.tripName}
     >
+      <h1 className="sr-only" data-route-heading tabIndex={-1}>
+        {trip.tripName}
+      </h1>
       <div className="mb-8 flex w-full items-center justify-between gap-4 max-[480px]:items-start max-[480px]:flex-col">
         <Link
           className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] no-underline hover:text-[var(--forest-bright)]"
@@ -488,6 +510,8 @@ function NotFound() {
       <h1
         className="my-5 text-[clamp(2rem,4vw,3.4rem)] font-bold leading-tight tracking-[-0.06em] text-[var(--ink)]"
         id="not-found-title"
+        data-route-heading
+        tabIndex={-1}
       >
         Ce chemin ne mène nulle part.
       </h1>

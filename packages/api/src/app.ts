@@ -1078,15 +1078,16 @@ export function createApp(
 
     const parsed = await parseTravelerDetails(context.req.raw);
     if (!parsed.ok) return context.json({ error: "invalid_details" }, 400);
-    const result = validateTravelerDetails(parsed.value);
+    const details = synchronizeDepartureTimes(parsed.value);
+    const result = validateTravelerDetails(details);
     if (result) return context.json({ error: result }, 400);
 
     await services.database
       .insert(schema.travelerDetails)
-      .values({ tripId, userId: targetUserId, ...parsed.value })
+      .values({ tripId, userId: targetUserId, ...details })
       .onConflictDoUpdate({
         target: [schema.travelerDetails.tripId, schema.travelerDetails.userId],
-        set: { ...parsed.value, updatedAt: new Date() },
+        set: { ...details, updatedAt: new Date() },
       });
 
     return context.json({ status: "saved" });
@@ -1341,7 +1342,10 @@ export function createApp(
           {
             status: 429,
             headers: {
-              "Retry-After": response.headers.get("Retry-After") ?? "30",
+              "Retry-After":
+                response.headers.get("Retry-After") ??
+                response.headers.get("X-Retry-After") ??
+                "30",
             },
           },
         );
@@ -1590,7 +1594,7 @@ export function createApp(
   return app;
 }
 
-type TravelerDetailsInput = {
+export type TravelerDetailsInput = {
   activityProfile: "ski" | "spa" | null;
   skiDayThree: boolean;
   transportMode: "train" | "flight" | "none" | null;
@@ -1743,17 +1747,21 @@ function isValidTravelTime(value: string | null) {
   return value === null || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
-function isValidTravelDateTime(value: string | null) {
+export function isValidTravelDateTime(value: string | null) {
   if (value === null) return true;
   const match =
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?$/.exec(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|([+-]\d{2}:\d{2}))?$/.exec(
       value,
     );
   if (!match) return false;
-  const [, year, month, day, hour, minute, second = "0"] = match;
-  const daysInMonth = new Date(
-    Date.UTC(Number(year), Number(month), 0),
-  ).getUTCDate();
+  const [, year, month, day, hour, minute, second = "0", offset] = match;
+  const daysInMonthDate = new Date(0);
+  daysInMonthDate.setUTCFullYear(Number(year), Number(month), 0);
+  const daysInMonth = daysInMonthDate.getUTCDate();
+  const offsetMatch = offset?.match(/^([+-])(\d{2}):(\d{2})$/);
+  const validOffset =
+    !offsetMatch ||
+    (Number(offsetMatch[2]) <= 23 && Number(offsetMatch[3]) <= 59);
   return (
     Number(month) >= 1 &&
     Number(month) <= 12 &&
@@ -1761,8 +1769,36 @@ function isValidTravelDateTime(value: string | null) {
     Number(day) <= daysInMonth &&
     Number(hour) <= 23 &&
     Number(minute) <= 59 &&
-    Number(second) <= 59
+    Number(second) <= 59 &&
+    validOffset
   );
+}
+
+export function synchronizeDepartureTimes(details: TravelerDetailsInput) {
+  return {
+    ...details,
+    outboundDateTime: withDepartureTime(
+      details.outboundDateTime,
+      details.outboundDepartureTime,
+    ),
+    returnDateTime: withDepartureTime(
+      details.returnDateTime,
+      details.returnDepartureTime,
+    ),
+  };
+}
+
+function withDepartureTime(
+  dateTime: string | null,
+  departureTime: string | null,
+) {
+  if (!dateTime || !departureTime) return dateTime;
+  const match =
+    /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/.exec(
+      dateTime,
+    );
+  if (!match) return dateTime;
+  return `${match[1]}T${departureTime}:00${match[2] ?? ""}`;
 }
 
 function isValidTimezone(value: string | null) {
@@ -1811,6 +1847,21 @@ async function handleMagicLinkRequest(
   if (options.awaitProcessing) {
     try {
       const response = await processRequest();
+      if (response.status === 429) {
+        return Response.json(
+          { error: "rate_limited" },
+          {
+            status: 429,
+            headers: {
+              "Cache-Control": "no-store",
+              "Retry-After":
+                response.headers.get("Retry-After") ??
+                response.headers.get("X-Retry-After") ??
+                "30",
+            },
+          },
+        );
+      }
       if (!response.ok) {
         return Response.json(
           { error: "email_delivery_failed" },

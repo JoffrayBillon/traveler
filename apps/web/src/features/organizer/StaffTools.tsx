@@ -99,7 +99,14 @@ export function StaffTools({
 
   async function uploadTicket(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!travelerId || !ticketKind || !ticketFile) return;
+    if (!travelerId || !ticketKind) {
+      setMessage("Choisissez un voyageur et un trajet avant de téléverser.");
+      return;
+    }
+    if (!ticketFile) {
+      setMessage("Choisissez un fichier de billet à téléverser.");
+      return;
+    }
     if (ticketFile.size > 4 * 1024 * 1024) {
       setMessage("Le fichier dépasse la limite de 4 Mo.");
       return;
@@ -125,7 +132,10 @@ export function StaffTools({
 
   async function importParticipants(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!importFile) return;
+    if (!importFile) {
+      setMessage("Choisissez un classeur Excel à importer.");
+      return;
+    }
     if (importFile.size > 4 * 1024 * 1024) {
       setMessage("Le classeur Excel ne doit pas dépasser 4 Mo.");
       return;
@@ -785,7 +795,11 @@ export function StaffTools({
         </>
       )}
       {message && (
-        <p className={messageStyles()} role="status" aria-live="polite">
+        <p
+          className={`${messageStyles()} whitespace-pre-line`}
+          role="status"
+          aria-live="polite"
+        >
           {message}
         </p>
       )}

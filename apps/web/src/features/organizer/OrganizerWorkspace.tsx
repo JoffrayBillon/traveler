@@ -1,5 +1,5 @@
 import { ArrowLeft, Settings2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { eyebrowStyles } from "../../components/ui";
 import { StaffTools } from "./StaffTools";
@@ -16,6 +16,9 @@ export function OrganizerWorkspace({
   onTripNameChange: (name: string) => void;
 }) {
   const [tripName, setTripName] = useState(initialTripName);
+  useEffect(() => {
+    setTripName(initialTripName);
+  }, [initialTripName]);
   return (
     <section
       className="mx-auto my-12 mb-20 w-[min(100%-3rem,1120px)] max-[760px]:my-6 max-[760px]:mb-12 max-[760px]:w-[min(100%-2rem,1120px)]"
@@ -36,6 +39,8 @@ export function OrganizerWorkspace({
           <h1
             className="my-1 text-[clamp(2rem,4vw,3.4rem)] tracking-[-0.06em]"
             id="organizer-title"
+            data-route-heading
+            tabIndex={-1}
           >
             Espace organisation
           </h1>

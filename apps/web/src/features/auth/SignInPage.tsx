@@ -37,6 +37,8 @@ export function SignInPage({
         <h1
           className="my-5 text-[clamp(3rem,6.7vw,5.7rem)] font-bold leading-[0.98] tracking-[-0.075em] text-[var(--ink)] max-[760px]:text-[clamp(3rem,12vw,4.6rem)]"
           id="welcome-title"
+          data-route-heading
+          tabIndex={-1}
         >
           La montagne
           <br />

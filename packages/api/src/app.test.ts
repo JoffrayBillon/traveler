@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createApp } from "./app";
+import type { TravelerDetailsInput } from "./app";
+import {
+  createApp,
+  isValidTravelDateTime,
+  synchronizeDepartureTimes,
+} from "./app";
 import { createDatabaseProvider } from "./database";
 
 describe("API boundaries", () => {
@@ -61,6 +66,30 @@ describe("API boundaries", () => {
     const app = createApp(() => undefined);
     const response = await app.request("/api/health", { method: "POST" });
     expect(response.status).toBe(404);
+  });
+});
+
+describe("travel date-time validation", () => {
+  it("validates numeric timezone offsets and years below 100", () => {
+    expect(isValidTravelDateTime("2026-12-31T20:00+23:59")).toBe(true);
+    expect(isValidTravelDateTime("2026-12-31T20:00+99:99")).toBe(false);
+    expect(isValidTravelDateTime("0000-02-29T20:00Z")).toBe(true);
+    expect(isValidTravelDateTime("0099-02-29T20:00Z")).toBe(false);
+  });
+
+  it("keeps the date and explicit time fields synchronized", () => {
+    const details = {
+      outboundDateTime: "2026-12-24T06:30:00+01:00",
+      outboundDepartureTime: "08:15",
+      returnDateTime: null,
+      returnDepartureTime: null,
+    } as TravelerDetailsInput;
+
+    expect(synchronizeDepartureTimes(details)).toMatchObject({
+      outboundDateTime: "2026-12-24T08:15:00+01:00",
+      outboundDepartureTime: "08:15",
+      returnDateTime: null,
+    });
   });
 });
 

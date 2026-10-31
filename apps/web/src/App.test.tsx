@@ -98,7 +98,11 @@ describe("application shell", () => {
     expect(screen.getByRole("link", { name: /Ski 2027/ })).toBeInTheDocument();
 
     await user.click(screen.getByRole("link", { name: "Mon compte" }));
-    await waitFor(() => expect(screen.getByRole("main")).toHaveFocus());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Mina Manager" }),
+      ).toHaveFocus(),
+    );
     expect(await screen.findByText("manager@example.com")).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: "Se déconnecter" }),

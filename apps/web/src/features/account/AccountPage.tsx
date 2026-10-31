@@ -34,6 +34,8 @@ export function AccountPage({
           <h1
             className="col-span-full my-1 text-[clamp(2rem,4vw,3.4rem)] tracking-[-0.06em]"
             id="account-title"
+            data-route-heading
+            tabIndex={-1}
           >
             {profile.user.name}
           </h1>

@@ -208,30 +208,38 @@ export function RoomingPanel({
   }
 
   async function respond(requestId: string, approve: boolean) {
-    const response = await fetch(
-      `/api/trips/${encodeURIComponent(tripId)}/room-requests/${encodeURIComponent(requestId)}/consent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approve }),
-      },
-    );
-    const result = (await response.json().catch(() => ({}))) as {
-      error?: string;
-      status?: string;
-    };
-    if (!response.ok) {
-      setMessage(roomErrorLabel[result.error ?? ""] ?? "L’opération a échoué.");
-      return;
+    try {
+      const response = await fetch(
+        `/api/trips/${encodeURIComponent(tripId)}/room-requests/${encodeURIComponent(requestId)}/consent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approve }),
+        },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        status?: string;
+      };
+      if (!response.ok) {
+        setMessage(
+          roomErrorLabel[result.error ?? ""] ?? "L’opération a échoué.",
+        );
+        return;
+      }
+      setMessage(
+        result.status === "stale"
+          ? "La composition de la chambre a changé. Cette demande n’a pas été appliquée."
+          : approve
+            ? "Votre accord a été enregistré."
+            : "La demande a été refusée.",
+      );
+      await refresh();
+    } catch {
+      setMessage(
+        "Votre réponse n’a pas pu être envoyée. Vérifiez votre connexion puis réessayez.",
+      );
     }
-    setMessage(
-      result.status === "stale"
-        ? "La composition de la chambre a changé. Cette demande n’a pas été appliquée."
-        : approve
-          ? "Votre accord a été enregistré."
-          : "La demande a été refusée.",
-    );
-    await refresh();
   }
 
   async function createRoom(event: FormEvent<HTMLFormElement>) {

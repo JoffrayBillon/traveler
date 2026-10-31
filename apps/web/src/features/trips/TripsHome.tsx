@@ -20,6 +20,8 @@ export function TripsHome({ profile }: { profile: TravelerProfile }) {
           <h1
             className="mt-5 text-[clamp(2.7rem,5vw,4.4rem)] font-bold leading-none tracking-[-0.075em] text-[var(--ink)] max-[760px]:text-[clamp(2.5rem,10vw,3.6rem)]"
             id="trips-title"
+            data-route-heading
+            tabIndex={-1}
           >
             Bonjour {profile.user.name.split(" ")[0]}
             <span className="text-[var(--sun)]">.</span>

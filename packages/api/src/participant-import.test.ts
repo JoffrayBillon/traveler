@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import ExcelJS from "exceljs";
 import { afterEach, describe, expect, it } from "vitest";
@@ -75,6 +75,56 @@ afterEach(async () => {
 });
 
 describe("participant spreadsheet import", () => {
+  it("does not scan every empty row in a sparse workbook", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Participants");
+    sheet.addRow([...participantImportHeaders]);
+    sheet.addRow(validRow());
+    sheet.getRow(100_000).values = validRow({ Email: "sparse@example.com" });
+
+    const parsed = await parseParticipantWorkbook(
+      new Uint8Array(await workbook.xlsx.writeBuffer()).buffer,
+    );
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.participants).toHaveLength(2);
+  });
+
+  it("matches existing accounts without regard to email casing", async () => {
+    const { database, trip } = await createDatabase();
+    const now = new Date();
+    await database.insert(schema.users).values({
+      id: "uppercase-email-user",
+      name: "Alex Voyageur",
+      email: "Alex@Example.com",
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const [caseInsensitiveMatch] = await database
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(sql<string>`lower(${schema.users.email})`, "alex@example.com"));
+    expect(caseInsensitiveMatch?.id).toBe("uppercase-email-user");
+    const parsed = await parseParticipantWorkbook(
+      await workbookBuffer([validRow({ Email: "alex@example.com" })]),
+    );
+
+    const result = await importParticipants(
+      database,
+      trip.id,
+      parsed.participants,
+    );
+
+    expect(result).toMatchObject({ created: 1, updated: 0, errors: [] });
+    expect(await database.select().from(schema.users)).toHaveLength(1);
+    const [membership] = await database
+      .select({ userId: schema.tripMemberships.userId })
+      .from(schema.tripMemberships)
+      .where(eq(schema.tripMemberships.userId, "uppercase-email-user"));
+    expect(membership?.userId).toBe("uppercase-email-user");
+  });
+
   it("normalizes imported values and reports invalid rows before writing", async () => {
     const parsed = await parseParticipantWorkbook(
       await workbookBuffer([

@@ -2,6 +2,11 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — Review follow-ups — Fix
+
+- Details/impact: improve route focus and profile update ordering, expose missing file selections and rooming network failures, format travel dates independent of browser timezone, bound offset validation, traverse sparse import workbooks efficiently, normalize imported email matching, reject concurrent rooming changes with a composition-version check, pass authentication throttling to managers, and isolate preview ticket paths per Vercel deployment.
+- Test status: Biome, API Vitest (43 tests), web Vitest (19 tests), both workspace typechecks, API build and Vite build passed under Node 24. `pnpm check` cannot run normally in this host because the project requires Node 26; package checks were run directly or with pnpm's engine guard disabled. Re-run the full pipeline under Node 26 before merge.
+
 ## 2026-10-31 — Environment configuration — Centralized validation
 
 - Details/impact: use T3 Env and Zod to validate API and database profiles, aggregate missing and invalid settings without printing values, and report local Blob setup as an optional capability warning. Add `pnpm env:check` for local and deployment diagnosis.
