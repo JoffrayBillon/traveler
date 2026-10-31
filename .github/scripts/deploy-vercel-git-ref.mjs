@@ -116,8 +116,10 @@ for (let attempt = 0; attempt < 90; attempt += 1) {
       parsedUrl.pathname !== "/" ||
       parsedUrl.search ||
       parsedUrl.hash ||
-      !(parsedUrl.hostname.endsWith(".vercel.app") ||
-        parsedUrl.hostname === "traveler.joffraybillon.fr")
+      !(
+        parsedUrl.hostname.endsWith(".vercel.app") ||
+        parsedUrl.hostname === "traveler.joffraybillon.fr"
+      )
     ) {
       throw new Error("Vercel returned an invalid deployment URL");
     }
