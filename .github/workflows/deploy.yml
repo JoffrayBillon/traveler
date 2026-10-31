@@ -44,18 +44,13 @@ jobs:
           package-manager-cache: false
       - name: Install pinned package manager
         run: npm install --global pnpm@11.25.0
-      - name: Install Vercel CLI
-        run: npm install --global vercel@65.8.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Link Vercel project
-        run: vercel link --yes --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       - name: Migrate the production database
-        run: vercel env run --environment=production -- pnpm --filter @traveler/api db:migrate
+        run: pnpm --filter @traveler/api db:migrate
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
       - name: Confirm tested commit is still the main tip
         run: |
           git fetch --no-tags origin main
