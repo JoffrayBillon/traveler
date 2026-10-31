@@ -2,6 +2,11 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — GitHub deployment environments — Rename
+
+- Details/impact: use `development` and `preview` as the GitHub deployment environment names while retaining `production`; keep deployment URLs attached to the completed deploy jobs so GitHub's Deployments interface links to Vercel.
+- Test status: workflow YAML and documentation reviewed; CI validation and successful remote deployments are pending.
+
 ## 2026-10-31 — Database deployments — Add
 
 - Details/impact: make GitHub Actions the only deployment trigger. After successful `main` CI, deploy that exact commit to Vercel Production; keep the checked `dev` deployment and manual feature previews, and publish their URLs to GitHub deployment environments. Disable Vercel automatic Git deployments. Vercel continues to build and apply pending Drizzle migrations before publishing production and `dev`; feature previews without database credentials skip migration. Document migration history, serialization and backward-compatible schema requirements.
