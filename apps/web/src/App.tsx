@@ -1491,6 +1491,7 @@ function RoomingPanel({
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [requests, setRequests] = useState<RoomRequestSummary[]>([]);
   const [targetRoomId, setTargetRoomId] = useState<string | null>(null);
+  const [exchangeEmail, setExchangeEmail] = useState("");
   const [initialTravelerId, setInitialTravelerId] = useState<string | null>(
     null,
   );
@@ -1507,6 +1508,11 @@ function RoomingPanel({
   );
   const availableRooms = rooms.filter(
     (room) => room.id !== ownRoom?.id && room.occupiedCount < room.capacity,
+  );
+  const targetRooms = rooms.filter(
+    (room) =>
+      room.id !== ownRoom?.id &&
+      (room.occupiedCount < room.capacity || Boolean(ownRoom)),
   );
   const isStaff = role !== "traveler";
 
@@ -1581,15 +1587,28 @@ function RoomingPanel({
   async function requestChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!targetRoomId) return;
+    const payload = exchangeEmail.trim()
+      ? {
+          targetRoomId,
+          exchangeWithEmail: exchangeEmail.trim().toLowerCase(),
+        }
+      : {
+          moves: [
+            { userId, expectedRoomId: ownRoom?.id ?? null, targetRoomId },
+          ],
+        };
     const ok = await post(
       `/api/trips/${encodeURIComponent(tripId)}/room-requests`,
-      {
-        moves: [{ userId, expectedRoomId: ownRoom?.id ?? null, targetRoomId }],
-      },
+      payload,
     );
     if (ok) {
-      setMessage("Votre demande de chambre a été enregistrée.");
+      setMessage(
+        exchangeEmail.trim()
+          ? "Votre proposition d’échange a été envoyée aux personnes concernées."
+          : "Votre demande de chambre a été enregistrée.",
+      );
       setTargetRoomId(null);
+      setExchangeEmail("");
       await refresh();
     }
   }
@@ -1726,7 +1745,7 @@ function RoomingPanel({
           ))}
         </div>
       )}
-      {availableRooms.length > 0 && (
+      {targetRooms.length > 0 && (
         <Form className="room-request-form" onSubmit={requestChange}>
           <Select
             className="room-select"
@@ -1742,7 +1761,7 @@ function RoomingPanel({
             </Button>
             <Popover>
               <ListBox className="room-select-listbox">
-                {availableRooms.map((room) => (
+                {targetRooms.map((room) => (
                   <ListBoxItem
                     className="room-select-option"
                     key={room.id}
@@ -1756,8 +1775,21 @@ function RoomingPanel({
               </ListBox>
             </Popover>
           </Select>
+          {ownRoom && (
+            <TextField
+              type="email"
+              value={exchangeEmail}
+              onChange={setExchangeEmail}
+            >
+              <Label>
+                E-mail de la personne avec qui échanger (si la chambre est
+                complète)
+              </Label>
+              <Input autoComplete="email" />
+            </TextField>
+          )}
           <Button type="submit" className="secondary-action">
-            Envoyer ma demande
+            {exchangeEmail.trim() ? "Proposer l’échange" : "Envoyer ma demande"}
           </Button>
         </Form>
       )}
@@ -1907,6 +1939,8 @@ const roomErrorLabel: Record<string, string> = {
   room_change_requires_consents:
     "Un changement de chambre nécessite le consentement des personnes concernées.",
   consent_not_required: "Vous n’êtes pas concerné par cette demande.",
+  invalid_room_exchange:
+    "Impossible de retrouver cette personne dans la chambre sélectionnée.",
 };
 
 type TravelerProfile = {

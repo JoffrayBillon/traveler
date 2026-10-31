@@ -767,10 +767,73 @@ export function createApp(
     } catch {
       return context.json({ error: "invalid_room_change" }, 400);
     }
-    const moves =
+    const requestBody =
       body && typeof body === "object"
-        ? (body as Record<string, unknown>).moves
+        ? (body as Record<string, unknown>)
         : undefined;
+    let moves = requestBody?.moves;
+    const targetRoomId = requestBody?.targetRoomId;
+    const exchangeWithEmail = requestBody?.exchangeWithEmail;
+    if (
+      typeof targetRoomId === "string" &&
+      typeof exchangeWithEmail === "string" &&
+      exchangeWithEmail.trim()
+    ) {
+      const [requesterAssignment] = await services.database
+        .select({ roomId: schema.roomAssignments.roomId })
+        .from(schema.roomAssignments)
+        .where(
+          and(
+            eq(schema.roomAssignments.tripId, tripId),
+            eq(schema.roomAssignments.userId, session.user.id),
+          ),
+        )
+        .limit(1);
+      const [exchangePerson] = await services.database
+        .select({
+          userId: schema.tripMemberships.userId,
+          roomId: schema.roomAssignments.roomId,
+        })
+        .from(schema.tripMemberships)
+        .innerJoin(
+          schema.users,
+          eq(schema.tripMemberships.userId, schema.users.id),
+        )
+        .innerJoin(
+          schema.roomAssignments,
+          and(
+            eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
+            eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
+          ),
+        )
+        .where(
+          and(
+            eq(schema.tripMemberships.tripId, tripId),
+            eq(schema.roomAssignments.roomId, targetRoomId),
+            sql`lower(${schema.users.email}) = ${exchangeWithEmail.trim().toLowerCase()}`,
+          ),
+        )
+        .limit(1);
+      if (
+        !requesterAssignment ||
+        !exchangePerson ||
+        exchangePerson.userId === session.user.id
+      ) {
+        return context.json({ error: "invalid_room_exchange" }, 409);
+      }
+      moves = [
+        {
+          userId: session.user.id,
+          expectedRoomId: requesterAssignment.roomId,
+          targetRoomId,
+        },
+        {
+          userId: exchangePerson.userId,
+          expectedRoomId: targetRoomId,
+          targetRoomId: requesterAssignment.roomId,
+        },
+      ];
+    }
     if (
       !Array.isArray(moves) ||
       moves.some(

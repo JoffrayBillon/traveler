@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
@@ -307,6 +308,83 @@ describe("invite-only magic-link authentication", () => {
       .get("set-cookie")
       ?.split(";")[0];
     expect(travelerCookie).toBeTruthy();
+
+    await services.database.insert(schema.rooms).values([
+      {
+        id: "manager-room",
+        tripId: trip.id,
+        name: "101",
+        capacity: 1,
+        genderPolicy: "unset",
+      },
+      {
+        id: "traveler-room",
+        tripId: trip.id,
+        name: "102",
+        capacity: 1,
+        genderPolicy: "single_gender",
+      },
+    ]);
+    await services.database.insert(schema.roomAssignments).values([
+      {
+        id: "manager-assignment",
+        tripId: trip.id,
+        roomId: "manager-room",
+        userId: manager.userId,
+      },
+      {
+        id: "traveler-assignment",
+        tripId: trip.id,
+        roomId: "traveler-room",
+        userId: travelerId,
+      },
+    ]);
+    const exchange = await app.request(`/api/trips/${trip.id}/room-requests`, {
+      method: "POST",
+      headers: {
+        Cookie: managerCookie as string,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        targetRoomId: "traveler-room",
+        exchangeWithEmail: "TRAVELER@example.com",
+      }),
+    });
+    expect(exchange.status).toBe(201);
+    const exchangeResult = (await exchange.json()) as {
+      request: { id: string; status: string; requiredConsents: string[] };
+    };
+    expect(exchangeResult.request).toMatchObject({
+      status: "pending",
+      requiredConsents: [manager.userId, travelerId].sort(),
+    });
+    const consent = await app.request(
+      `/api/trips/${trip.id}/room-requests/${exchangeResult.request.id}/consent`,
+      {
+        method: "POST",
+        headers: {
+          Cookie: travelerCookie as string,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ approve: true }),
+      },
+    );
+    expect(consent.status).toBe(200);
+    expect(await consent.json()).toMatchObject({ status: "applied" });
+    const exchangeAssignments = await services.database
+      .select({
+        userId: schema.roomAssignments.userId,
+        roomId: schema.roomAssignments.roomId,
+      })
+      .from(schema.roomAssignments)
+      .where(eq(schema.roomAssignments.tripId, trip.id));
+    expect(exchangeAssignments).toEqual(
+      expect.arrayContaining([
+        { userId: manager.userId, roomId: "traveler-room" },
+        { userId: travelerId, roomId: "manager-room" },
+      ]),
+    );
+
     await services.database.insert(schema.transportTickets).values({
       id: "private-ticket",
       tripId: trip.id,

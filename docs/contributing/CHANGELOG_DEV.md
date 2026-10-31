@@ -15,7 +15,12 @@ Use one entry per coherent technical change: date, module, action, details/impac
 ## 2026-10-31 — Staff travel details — Add
 
 - Details/impact: let companions and managers edit a participant's activity, ski-day option and both transport legs, including dates, timezone, meeting and departure times, locations, references and seats. Choosing no booked transport clears journey fields; switching to a booked mode clears carpool preferences.
-- Test status: `pnpm check` passed (Biome, both workspace typechecks, 25 API tests plus the Node distribution test, 14 web tests, and both production builds); PR CI for this follow-up commit is pending.
+- Test status: `pnpm check` passed (Biome, both workspace typechecks, 25 API tests plus the Node distribution test, 14 web tests, and both production builds); PR CI run 62 passed.
+
+## 2026-10-31 — Room exchanges — Add
+
+- Details/impact: allow a traveler with an assigned room to propose a reciprocal exchange by entering the other participant's email. Resolve the other participant only within the same trip, require consent from both travelers and everyone in a room that becomes mixed, then apply the exchange atomically. Other travelers' room rosters remain private.
+- Test status: `pnpm check` passed (Biome, both workspace typechecks, 25 API tests plus the Node distribution test, 14 web tests, and both production builds); PR CI for this commit is pending.
 
 ## 2026-10-31 — Brevo email delivery — Replace SMTP with API
 
