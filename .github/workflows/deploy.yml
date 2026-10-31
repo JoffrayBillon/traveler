@@ -16,7 +16,11 @@ concurrency:
 jobs:
   deploy:
     name: Migrate and deploy Production
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment:
@@ -52,6 +56,14 @@ jobs:
         run: vercel env run --environment=production -- pnpm --filter @traveler/api db:migrate
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Confirm tested commit is still the main tip
+        run: |
+          git fetch --no-tags origin main
+          current_main_sha="$(git rev-parse FETCH_HEAD)"
+          if [ "$current_main_sha" != "$DEPLOY_SHA" ]; then
+            echo "Refusing stale deployment: main is now $current_main_sha." >&2
+            exit 1
+          fi
       - name: Deploy the tested main commit
         id: deploy
         run: node .github/scripts/deploy-vercel-git-ref.mjs

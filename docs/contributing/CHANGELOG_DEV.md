@@ -78,5 +78,5 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 ## 2026-10-31 — Deployment stages — Change
 
-- Separate quality checks, migration and deployment into dependent jobs for `dev`; keep Production migration/deploy steps in one protected job so one approval gates both.
+- Separate quality checks, migration and deployment into dependent jobs for `dev`; keep Production migration/deploy steps in one protected job so one approval gates both, and reject stale or non-push production CI runs.
 - Test status: pending workflow checks.
