@@ -89,31 +89,6 @@ export async function parseParticipantWorkbook(data: ArrayBuffer) {
       ],
     };
   }
-  if (sheet.rowCount < 2) {
-    return {
-      participants: [] as ImportedParticipant[],
-      errors: [
-        {
-          row: 1,
-          field: "fichier",
-          message: "La feuille ne contient aucune ligne participant.",
-        },
-      ],
-    };
-  }
-  if (sheet.rowCount > 501) {
-    return {
-      participants: [] as ImportedParticipant[],
-      errors: [
-        {
-          row: 502,
-          field: "fichier",
-          message: "Le fichier dépasse la limite de 500 participants.",
-        },
-      ],
-    };
-  }
-
   const headerCells = sheet.getRow(1).values as unknown[];
   const headerIndex = new Map<string, number>();
   for (let column = 1; column < headerCells.length; column += 1) {
@@ -146,9 +121,45 @@ export async function parseParticipantWorkbook(data: ArrayBuffer) {
   if (errors.length)
     return { participants: [] as ImportedParticipant[], errors };
 
+  const participantRows: number[] = [];
+  for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
+    const row = sheet.getRow(rowNumber);
+    if (
+      participantImportHeaders.some((header) =>
+        cellText(row.getCell(headerIndex.get(header) ?? 0)),
+      )
+    ) {
+      participantRows.push(rowNumber);
+    }
+  }
+  if (participantRows.length === 0) {
+    return {
+      participants: [] as ImportedParticipant[],
+      errors: [
+        {
+          row: 1,
+          field: "fichier",
+          message: "La feuille ne contient aucune ligne participant.",
+        },
+      ],
+    };
+  }
+  if (participantRows.length > 500) {
+    return {
+      participants: [] as ImportedParticipant[],
+      errors: [
+        {
+          row: participantRows[500] ?? 1,
+          field: "fichier",
+          message: "Le fichier dépasse la limite de 500 participants.",
+        },
+      ],
+    };
+  }
+
   const participants: ImportedParticipant[] = [];
   const emailRows = new Map<string, number>();
-  for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
+  for (const rowNumber of participantRows) {
     const row = sheet.getRow(rowNumber);
     const value = (header: (typeof participantImportHeaders)[number]) =>
       cellText(row.getCell(headerIndex.get(header) ?? 0));
@@ -354,11 +365,12 @@ function normalizeBoolean(value: string): boolean | null {
 function normalizeTime(value: string): string | null | false {
   if (!value) return null;
   const normalized = value.replace(/\s+/g, "");
-  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(normalized);
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(normalized);
   if (!match) return false;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) return false;
+  const seconds = Number(match[3] ?? 0);
+  if (hours > 23 || minutes > 59 || seconds > 59) return false;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 

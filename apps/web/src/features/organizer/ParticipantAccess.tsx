@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "react-aria-components";
+import { Button, messageStyles } from "../../components/ui";
 
 type ParticipantAccessRecord = {
   userId: string;
@@ -51,7 +51,15 @@ export function ParticipantAccess({ tripId }: { tripId: string }) {
         { method: "POST" },
       );
       if (response.status === 429) {
-        setMessage("Un lien vient d’être envoyé. Réessayez dans 30 secondes.");
+        const retryAfter = Number.parseInt(
+          response.headers.get("Retry-After") ?? "",
+          10,
+        );
+        const seconds =
+          Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 30;
+        setMessage(
+          `Un lien vient d’être envoyé. Réessayez dans ${seconds} secondes.`,
+        );
         return;
       }
       if (!response.ok) throw new Error("Unable to send sign-in link");
@@ -64,14 +72,18 @@ export function ParticipantAccess({ tripId }: { tripId: string }) {
   }
 
   return (
-    <section
-      className="participant-access"
-      aria-labelledby="participant-access-title"
-    >
-      <div className="section-heading">
+    <section className="my-4" aria-labelledby="participant-access-title">
+      <div className="mb-5 flex items-start justify-between gap-4 max-[420px]:flex-col">
         <div>
-          <h4 id="participant-access-title">Accès des participants</h4>
-          <p>Suivez leur première connexion et renvoyez un lien si besoin.</p>
+          <h4
+            className="mb-1 text-base font-bold"
+            id="participant-access-title"
+          >
+            Accès des participants
+          </h4>
+          <p className="m-0 text-sm leading-relaxed text-[var(--muted)]">
+            Suivez leur première connexion et renvoyez un lien si besoin.
+          </p>
         </div>
       </div>
       {status === "loading" ? (
@@ -79,24 +91,31 @@ export function ParticipantAccess({ tripId }: { tripId: string }) {
       ) : status === "error" ? (
         <p role="alert">La liste des participants est indisponible.</p>
       ) : participants.length === 0 ? (
-        <p className="empty-state">Aucun participant importé pour ce voyage.</p>
+        <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">
+          Aucun participant importé pour ce voyage.
+        </p>
       ) : (
-        <ul className="participant-access-list">
+        <ul className="m-0 grid list-none gap-3 p-0">
           {participants.map((participant) => (
-            <li key={participant.userId}>
-              <div className="participant-access-person">
+            <li
+              className="flex items-center justify-between gap-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 max-[480px]:items-stretch max-[480px]:flex-col"
+              key={participant.userId}
+            >
+              <div className="grid min-w-0 gap-1">
                 <strong>
                   {participant.firstName} {participant.lastName}
                 </strong>
-                <span>{participant.email}</span>
-                <span className="detail-label">
+                <span className="break-words text-sm text-[var(--muted)]">
+                  {participant.email}
+                </span>
+                <span className="text-xs text-[var(--quiet)]">
                   {participant.lastLoginAt
                     ? `Dernière connexion le ${formatLoginDate(participant.lastLoginAt)}`
                     : "Pas encore connecté"}
                 </span>
               </div>
               <Button
-                className="secondary-action"
+                appearance="secondary"
                 onPress={() => void sendLoginLink(participant.userId)}
                 isDisabled={sendingId !== null}
               >
@@ -111,7 +130,7 @@ export function ParticipantAccess({ tripId }: { tripId: string }) {
         </ul>
       )}
       {message && (
-        <p className="form-message" role="status" aria-live="polite">
+        <p className={messageStyles()} role="status" aria-live="polite">
           {message}
         </p>
       )}

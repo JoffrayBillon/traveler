@@ -187,4 +187,57 @@ describe("room change consent", () => {
     const [persisted] = await database.select().from(schema.roomChangeRequests);
     expect(persisted?.status).toBe("stale");
   });
+
+  it("does not block a valid request because an unrelated room is over capacity", async () => {
+    const { database, trip } = await createFixture();
+    await database.insert(schema.rooms).values({
+      id: "room-overfull",
+      tripId: trip.id,
+      name: "Chambre déjà en anomalie",
+      capacity: 1,
+      genderPolicy: "single_gender",
+    });
+    const now = new Date();
+    await database.insert(schema.users).values({
+      id: "diana",
+      name: "Diana",
+      email: "diana@example.com",
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await database.insert(schema.tripMemberships).values({
+      id: "membership-diana",
+      tripId: trip.id,
+      userId: "diana",
+      role: "traveler",
+      firstName: "Diana",
+      lastName: "Dune",
+      gender: "F",
+    });
+    await database.insert(schema.roomAssignments).values([
+      {
+        id: "assignment-overfull-alice",
+        tripId: trip.id,
+        roomId: "room-overfull",
+        userId: "alice",
+      },
+      {
+        id: "assignment-overfull-diana",
+        tripId: trip.id,
+        roomId: "room-overfull",
+        userId: "diana",
+      },
+    ]);
+
+    await expect(
+      createRoomingStore(database).createRequest(trip.id, "cara", [
+        {
+          userId: "cara",
+          expectedRoomId: "room-two",
+          targetRoomId: "room-one",
+        },
+      ]),
+    ).resolves.toMatchObject({ status: "pending" });
+  });
 });

@@ -1,6 +1,6 @@
 # Local development
 
-Install Node.js 24 (tested with the version in `.node-version`) and pnpm 11.25.0. If pnpm is missing, run `npm install --global pnpm@11.25.0`. No third-party account is needed to build or test the current shell.
+Install Node.js 26.13.0 LTS (the version in `.node-version`) and pnpm 11.25.0. If pnpm is missing, run `npm install --global pnpm@11.25.0`. No third-party account is needed to build or test the current shell.
 
 From the repository root:
 

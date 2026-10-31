@@ -119,6 +119,7 @@ export function createRoomingStore(database: AppDatabase) {
         }
         const projectedCount = new Map<string, number>();
         for (const roomId of afterByUser.values()) {
+          if (!affectedRoomIds.has(roomId)) continue;
           projectedCount.set(roomId, (projectedCount.get(roomId) ?? 0) + 1);
         }
         for (const [roomId, count] of projectedCount) {
@@ -315,12 +316,14 @@ async function applyApprovedRequest(
   for (const move of payload.moves)
     currentByUser.set(move.userId, move.targetRoomId);
   const capacities = new Map(rooms.map((room) => [room.id, room.capacity]));
+  const affectedRoomIds = new Set(roomIds);
   const finalCounts = new Map<string, number>();
   for (const roomId of currentByUser.values())
     finalCounts.set(roomId, (finalCounts.get(roomId) ?? 0) + 1);
   if (
     [...finalCounts].some(
-      ([roomId, count]) => count > (capacities.get(roomId) ?? 0),
+      ([roomId, count]) =>
+        affectedRoomIds.has(roomId) && count > (capacities.get(roomId) ?? 0),
     )
   ) {
     throw new RoomingError("room_capacity_exceeded");

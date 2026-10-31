@@ -2,6 +2,26 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — Node runtime — Upgrade
+
+- Details/impact: set the local and CI runtime to Node 26.13.0 LTS and declare `26.x` in both the monorepo and Vercel app manifests; GitHub Actions `setup-node` downloads the version when it is absent from the runner cache.
+- Test status: Node 26.13.0 verified locally; `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed under Node 26. Vitest was not run.
+
+## 2026-10-31 — Web UI styles — Refactor
+
+- Details/impact: replace the loose `ui-classes.ts` string collection with small per-component files in `components/ui`, using a React Aria button wrapper and typed Tailwind Variants recipes; centralize CSS reduced-motion behavior in one `prefers-reduced-motion` media query.
+- Test status: `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; automated tests were not run.
+
+## 2026-10-31 — Dependencies — Update
+
+- Details/impact: update Biome `2.6.3` → `2.6.4`, Vercel Blob `2.5.0` → `2.8.2`, Lucide React `1.64.0` → `1.66.0`, Motion `14.8.0` → `14.9.0`, Tailwind Variants `4.0.0` → `4.0.1`, and `@types/node` `24.19.2` → `26.6.6`. Add exact-version age-gate exceptions for the two just-published frontend packages; all their other versions and all other packages remain subject to the 24-hour delay.
+- Test status: with the updated versions and Node 26, frozen install, lint, typecheck, and build passed. Vitest was not run.
+
+## 2026-10-31 — Ticket storage — Isolate environment paths
+
+- Details/impact: keep one private Vercel Blob store and prefix ticket paths by environment; preview paths also include the URL-encoded deployment branch, and local paths use `local/`.
+- Test status: `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; automated tests were not run.
+
 ## 2026-10-31 — Trip operations — Add
 
 - Details/impact: add trip-scoped travel details, role-authorized traveler management, idempotent XLSX import that preserves staff-entered data, private ticket upload/download, room creation and assignment, consent-based versioned room changes, private rooming export and React Aria controls in the trip dashboard. Vercel Blob uses the connected store's OIDC credentials; local development uses a static token.

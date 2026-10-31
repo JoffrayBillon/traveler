@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import { Hono } from "hono";
 import type { AuthServices } from "./auth";
 import { createAuthServicesProvider, isTrustedAuthOrigin } from "./auth";
+import { createTicketBlobPath } from "./blob-path";
 import { createDatabaseProvider } from "./database";
 import {
   parseParticipantWorkbook,
@@ -899,15 +900,20 @@ export function createApp(
         and(
           eq(schema.roomChangeRequests.tripId, tripId),
           eq(schema.roomChangeRequests.status, "pending"),
+          ...(actor.role === "traveler"
+            ? [
+                sql`EXISTS (
+                  SELECT 1
+                  FROM json_each(${schema.roomChangeRequests.requiredConsentsJson}) AS consent
+                  WHERE consent.value = ${session.user.id}
+                )`,
+              ]
+            : []),
         ),
       )
       .orderBy(schema.roomChangeRequests.createdAt)
       .limit(100);
-    const relevant = records.filter((record) => {
-      if (actor.role !== "traveler") return true;
-      const required = JSON.parse(record.requiredConsentsJson) as string[];
-      return required.includes(session.user.id);
-    });
+    const relevant = records;
     const userIds = new Set<string>();
     const roomIds = new Set<string>();
     for (const record of relevant) {
@@ -1327,6 +1333,7 @@ export function createApp(
             callbackURL: `/trips/${encodeURIComponent(tripId)}`,
           }),
         }),
+        { awaitProcessing: true },
       );
       if (response.status === 429)
         return context.json(
@@ -1338,6 +1345,9 @@ export function createApp(
             },
           },
         );
+      if (!response.ok) {
+        return context.json({ error: "email_delivery_failed" }, 503);
+      }
       return context.json({ status: "accepted" }, 202);
     },
   );
@@ -1499,7 +1509,7 @@ export function createApp(
     }
 
     const id = randomUUID();
-    const blobPath = `trips/${tripId}/travelers/${targetUserId}/${id}`;
+    const blobPath = createTicketBlobPath(tripId, targetUserId, id);
     let blobCreated = false;
     try {
       await put(blobPath, file, {
@@ -1672,6 +1682,28 @@ function validateTravelerDetails(details: TravelerDetailsInput) {
   ) {
     return "invalid_transport_mode";
   }
+  if (
+    ![details.outboundDateTime, details.returnDateTime].every(
+      isValidTravelDateTime,
+    )
+  ) {
+    return "invalid_travel_datetime";
+  }
+  if (
+    ![
+      details.outboundMeetingTime,
+      details.outboundDepartureTime,
+      details.returnMeetingTime,
+      details.returnDepartureTime,
+    ].every(isValidTravelTime)
+  ) {
+    return "invalid_travel_time";
+  }
+  if (
+    ![details.outboundTimezone, details.returnTimezone].every(isValidTimezone)
+  ) {
+    return "invalid_travel_timezone";
+  }
   if (details.skiDayThree && details.activityProfile !== "ski") {
     return "ski_day_requires_ski_profile";
   }
@@ -1707,9 +1739,46 @@ function validateTravelerDetails(details: TravelerDetailsInput) {
   return null;
 }
 
+function isValidTravelTime(value: string | null) {
+  return value === null || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function isValidTravelDateTime(value: string | null) {
+  if (value === null) return true;
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?$/.exec(
+      value,
+    );
+  if (!match) return false;
+  const [, year, month, day, hour, minute, second = "0"] = match;
+  const daysInMonth = new Date(
+    Date.UTC(Number(year), Number(month), 0),
+  ).getUTCDate();
+  return (
+    Number(month) >= 1 &&
+    Number(month) <= 12 &&
+    Number(day) >= 1 &&
+    Number(day) <= daysInMonth &&
+    Number(hour) <= 23 &&
+    Number(minute) <= 59 &&
+    Number(second) <= 59
+  );
+}
+
+function isValidTimezone(value: string | null) {
+  if (value === null) return true;
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function handleMagicLinkRequest(
   services: AuthServices,
   request: Request,
+  options: { awaitProcessing?: boolean } = {},
 ) {
   const normalized = await normalizeMagicLinkRequest(request);
   if (normalized.email) {
@@ -1731,30 +1800,48 @@ async function handleMagicLinkRequest(
     }
   }
 
-  try {
-    const task = Promise.resolve()
-      .then(() => services.auth.handler(normalized.request))
-      .then((response) => {
-        if (response.status >= 500) {
-          console.error(
-            "Magic link request processing failed.",
-            response.status,
-          );
-        }
-      })
-      .catch((error: unknown) => {
-        console.error(
-          "Magic link request processing failed.",
-          error instanceof Error ? error.name : "UnknownError",
+  const processRequest = async () => {
+    const response = await services.auth.handler(normalized.request);
+    if (response.status >= 500) {
+      console.error("Magic link request processing failed.", response.status);
+    }
+    return response;
+  };
+
+  if (options.awaitProcessing) {
+    try {
+      const response = await processRequest();
+      if (!response.ok) {
+        return Response.json(
+          { error: "email_delivery_failed" },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
         );
-      });
-    services.scheduleBackgroundTask(task);
-  } catch (error) {
-    console.error(
-      "Magic link request processing failed.",
-      error instanceof Error ? error.name : "UnknownError",
+      }
+    } catch (error) {
+      console.error(
+        "Magic link request processing failed.",
+        error instanceof Error ? error.name : "UnknownError",
+      );
+      return Response.json(
+        { error: "email_delivery_failed" },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    return Response.json(
+      { status: "accepted" },
+      { status: 202, headers: { "Cache-Control": "no-store" } },
     );
   }
+
+  const task = Promise.resolve()
+    .then(processRequest)
+    .catch((error: unknown) => {
+      console.error(
+        "Magic link request processing failed.",
+        error instanceof Error ? error.name : "UnknownError",
+      );
+    });
+  services.scheduleBackgroundTask(task);
 
   // Acknowledge before account lookup so membership cannot be inferred by timing.
   return Response.json(

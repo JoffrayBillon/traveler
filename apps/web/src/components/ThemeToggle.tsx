@@ -1,5 +1,6 @@
 import { Moon, Sun } from "lucide-react";
 import { ToggleButton } from "react-aria-components";
+import { buttonStyles } from "./ui";
 
 export function ThemeToggle({
   isDark,
@@ -10,8 +11,8 @@ export function ThemeToggle({
 }) {
   return (
     <ToggleButton
-      aria-label={isDark ? "Activer le thème clair" : "Activer le thème sombre"}
-      className="theme-toggle"
+      aria-label="Mode sombre"
+      className={buttonStyles({ appearance: "toggle" })}
       isSelected={isDark}
       onChange={onChange}
     >
@@ -20,7 +21,7 @@ export function ThemeToggle({
       ) : (
         <Moon aria-hidden="true" size={17} />
       )}
-      <span>{isDark ? "Clair" : "Sombre"}</span>
+      <span>Mode sombre</span>
     </ToggleButton>
   );
 }

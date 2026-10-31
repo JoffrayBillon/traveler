@@ -60,7 +60,11 @@ describe("ParticipantAccess", () => {
           ],
         }),
       })
-      .mockResolvedValueOnce({ ok: false, status: 429 });
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        headers: new Headers({ "Retry-After": "5" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
     render(<ParticipantAccess tripId="trip-1" />);
 
@@ -69,7 +73,7 @@ describe("ParticipantAccess", () => {
     );
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Un lien vient d’être envoyé. Réessayez dans 30 secondes.",
+      "Un lien vient d’être envoyé. Réessayez dans 5 secondes.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

@@ -6,7 +6,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { magicLink } from "better-auth/plugins";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { drizzle } from "drizzle-orm/libsql";
 import { createDatabaseClient } from "./database";
@@ -114,7 +114,6 @@ export function createAuth(
   database: AppDatabase,
   env: NodeJS.ProcessEnv,
   sendEmail?: MagicLinkSender,
-  scheduleTask: BackgroundTaskScheduler = scheduleBackgroundTask,
 ): Auth<BetterAuthOptions> {
   if (
     !sendEmail &&
@@ -225,14 +224,15 @@ export function createAuth(
         storeToken: "hashed",
         rateLimit: { window: 60, max: 5 },
         sendMagicLink: async ({ email, url }) => {
-          const delivery = deliverLoginLink(email, url).catch(
-            (error: unknown) => {
-              const details =
-                error instanceof Error ? error.name : "UnknownError";
-              console.error("Magic link email delivery failed.", details);
-            },
-          );
-          scheduleTask(delivery);
+          try {
+            await deliverLoginLink(email, url);
+          } catch (error) {
+            console.error(
+              "Magic link email delivery failed.",
+              error instanceof Error ? error.name : "UnknownError",
+            );
+            throw error;
+          }
         },
       }),
     ],
@@ -245,16 +245,13 @@ export function createAuth(
               .from(schema.tripMemberships)
               .where(eq(schema.tripMemberships.userId, session.userId));
             if (memberships.length === 0) return false;
+            return true;
+          },
+          after: async (session) => {
             await database
               .update(schema.tripMemberships)
               .set({ lastLoginAt: new Date() })
-              .where(
-                inArray(
-                  schema.tripMemberships.id,
-                  memberships.map((membership) => membership.id),
-                ),
-              );
-            return true;
+              .where(eq(schema.tripMemberships.userId, session.userId));
           },
         },
       },
@@ -283,7 +280,7 @@ export function createAuthServicesProvider(
     try {
       const database = drizzle({ client, schema });
       services = {
-        auth: createAuth(database, env, undefined, scheduleBackgroundTask),
+        auth: createAuth(database, env),
         database,
         scheduleBackgroundTask,
       };

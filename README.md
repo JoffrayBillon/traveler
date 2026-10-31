@@ -4,7 +4,7 @@ Personal trip management, starting with a ski trip. The app supports invite-only
 
 ## Run locally
 
-Install Node.js 24 (tested with 24.17.0) and pnpm 11.25.0, then from the repository root:
+Install Node.js 26.13.0 LTS (the version in `.node-version`) and pnpm 11.25.0, then from the repository root:
 
 ```sh
 pnpm install --frozen-lockfile

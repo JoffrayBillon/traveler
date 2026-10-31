@@ -35,6 +35,7 @@ export async function importParticipants(
   const roomByName = new Map(
     rooms.map((room) => [room.name.trim().toLocaleLowerCase("fr-FR"), room]),
   );
+  const roomById = new Map(rooms.map((room) => [room.id, room]));
   const assignments = await database
     .select({
       userId: schema.roomAssignments.userId,
@@ -75,7 +76,47 @@ export async function importParticipants(
     string,
     { userId: string; gender: "M" | "F" }[]
   >();
+  const projectedGendersByRoom = new Map(
+    [...occupantsByRoom].map(([roomId, occupants]) => [
+      roomId,
+      occupants.map((occupant) => ({ ...occupant })),
+    ]),
+  );
+  const changedGenderRoomRows = new Map<string, number>();
   for (const participant of participants) {
+    const existingUserId = userByEmail.get(participant.email);
+    const assignedRoomId = existingUserId
+      ? assignmentByUser.get(existingUserId)
+      : undefined;
+    if (!existingUserId || !assignedRoomId) continue;
+    const occupants = projectedGendersByRoom.get(assignedRoomId) ?? [];
+    const occupant = occupants.find(
+      (person) => person.userId === existingUserId,
+    );
+    if (occupant && occupant.gender !== participant.gender) {
+      occupant.gender = participant.gender;
+      projectedGendersByRoom.set(assignedRoomId, occupants);
+      changedGenderRoomRows.set(assignedRoomId, participant.row);
+    }
+  }
+  for (const [roomId, row] of changedGenderRoomRows) {
+    const room = roomById.get(roomId);
+    const genders = new Set(
+      (projectedGendersByRoom.get(roomId) ?? [])
+        .map((person) => person.gender)
+        .filter((gender): gender is "M" | "F" => gender !== null),
+    );
+    if (room && room.genderPolicy !== "mixed" && genders.size > 1) {
+      errors.push({
+        row,
+        field: "Genre",
+        message:
+          "Cette modification rendrait la chambre mixte et nécessite le consentement des personnes concernées.",
+      });
+    }
+  }
+  for (const participant of participants) {
+    const existingUserId = userByEmail.get(participant.email);
     if (!participant.initialRoomName) continue;
     const room = roomByName.get(
       participant.initialRoomName.toLocaleLowerCase("fr-FR"),
@@ -88,9 +129,8 @@ export async function importParticipants(
       });
       continue;
     }
-    const existingUserId = userByEmail.get(participant.email);
     if (existingUserId && assignmentByUser.has(existingUserId)) continue;
-    const currentOccupants = occupantsByRoom.get(room.id) ?? [];
+    const currentOccupants = projectedGendersByRoom.get(room.id) ?? [];
     const importedOccupants = projectedRoomAssignments.get(room.id) ?? [];
     if (
       currentOccupants.length + importedOccupants.length + 1 >
@@ -131,6 +171,7 @@ export async function importParticipants(
     let created = 0;
     let updated = 0;
     let assigned = 0;
+    const changedGenderRoomIds = new Set<string>();
     for (const participant of participants) {
       const [existingUser] = await transaction
         .select({ id: schema.users.id })
@@ -153,6 +194,7 @@ export async function importParticipants(
         .select({
           id: schema.tripMemberships.id,
           role: schema.tripMemberships.role,
+          gender: schema.tripMemberships.gender,
         })
         .from(schema.tripMemberships)
         .where(
@@ -171,6 +213,19 @@ export async function importParticipants(
             gender: participant.gender,
           })
           .where(eq(schema.tripMemberships.id, membership.id));
+        if (membership.gender !== participant.gender) {
+          const [assignment] = await transaction
+            .select({ roomId: schema.roomAssignments.roomId })
+            .from(schema.roomAssignments)
+            .where(
+              and(
+                eq(schema.roomAssignments.tripId, tripId),
+                eq(schema.roomAssignments.userId, userId),
+              ),
+            )
+            .limit(1);
+          if (assignment) changedGenderRoomIds.add(assignment.roomId);
+        }
         updated += 1;
       } else {
         await transaction.insert(schema.tripMemberships).values({
@@ -301,6 +356,44 @@ export async function importParticipants(
             );
         }
       }
+    }
+    for (const roomId of changedGenderRoomIds) {
+      const occupants = await transaction
+        .select({ gender: schema.tripMemberships.gender })
+        .from(schema.roomAssignments)
+        .innerJoin(
+          schema.tripMemberships,
+          and(
+            eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
+            eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
+          ),
+        )
+        .where(
+          and(
+            eq(schema.roomAssignments.tripId, tripId),
+            eq(schema.roomAssignments.roomId, roomId),
+          ),
+        );
+      const genders = new Set(
+        occupants
+          .map((occupant) => occupant.gender)
+          .filter((gender): gender is "M" | "F" => gender !== null),
+      );
+      const genderPolicy =
+        genders.size === 0
+          ? "unset"
+          : genders.size > 1
+            ? "mixed"
+            : "single_gender";
+      await transaction
+        .update(schema.rooms)
+        .set({
+          compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
+          genderPolicy,
+        })
+        .where(
+          and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)),
+        );
     }
     return { created, updated, assigned };
   });

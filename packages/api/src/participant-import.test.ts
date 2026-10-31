@@ -99,6 +99,38 @@ describe("participant spreadsheet import", () => {
     );
   });
 
+  it("accepts valid time values, rejects invalid seconds, and ignores blank formatted rows", async () => {
+    const parsed = await parseParticipantWorkbook(
+      await workbookBuffer([
+        validRow({ Aller_HeureRDV: "7:05" }),
+        validRow({
+          Email: "invalid-seconds@example.com",
+          Aller_HeureRDV: "08:30:99",
+        }),
+        ...Array.from({ length: 510 }, () => Array<string>(17).fill("")),
+      ]),
+    );
+
+    expect(parsed.participants).toHaveLength(0);
+    expect(parsed.errors).toEqual([
+      expect.objectContaining({
+        row: 3,
+        field: "Aller_HeureRDV",
+        message: "L’heure doit être au format HH:mm.",
+      }),
+    ]);
+
+    const blankRowsOnly = await parseParticipantWorkbook(
+      await workbookBuffer([
+        validRow({ Aller_HeureRDV: "7:05" }),
+        ...Array.from({ length: 510 }, () => Array<string>(17).fill("")),
+      ]),
+    );
+    expect(blankRowsOnly.errors).toEqual([]);
+    expect(blankRowsOnly.participants).toHaveLength(1);
+    expect(blankRowsOnly.participants[0]?.outboundMeetingTime).toBe("07:05");
+  });
+
   it("upserts membership data while preserving staff tickets, locations and room assignment", async () => {
     const { database, trip } = await createDatabase();
     const now = new Date();
@@ -191,6 +223,86 @@ describe("participant spreadsheet import", () => {
     );
     expect(await database.select().from(schema.roomAssignments)).toHaveLength(
       1,
+    );
+  });
+
+  it("preserves room consent rules when imported gender changes", async () => {
+    const { database, trip } = await createDatabase();
+    await database.insert(schema.rooms).values({
+      id: "room-consent",
+      tripId: trip.id,
+      name: "Chambre consentement",
+      capacity: 4,
+      genderPolicy: "single_gender",
+    });
+    const initial = await parseParticipantWorkbook(
+      await workbookBuffer([
+        validRow({ ChambreInitiale: "Chambre consentement" }),
+        validRow({
+          Prenom: "Bea",
+          Email: "bea@example.com",
+          ChambreInitiale: "Chambre consentement",
+        }),
+      ]),
+    );
+    expect(initial.errors).toEqual([]);
+    await importParticipants(database, trip.id, initial.participants);
+    const [roomBefore] = await database
+      .select()
+      .from(schema.rooms)
+      .where(eq(schema.rooms.id, "room-consent"));
+
+    const singleChange = await parseParticipantWorkbook(
+      await workbookBuffer([validRow({ Genre: "M", ChambreInitiale: "" })]),
+    );
+    expect(
+      await importParticipants(database, trip.id, singleChange.participants),
+    ).toMatchObject({
+      created: 0,
+      updated: 0,
+      assigned: 0,
+      errors: [expect.objectContaining({ field: "Genre" })],
+    });
+    const [unchangedMembership] = await database
+      .select({ gender: schema.tripMemberships.gender })
+      .from(schema.tripMemberships)
+      .innerJoin(
+        schema.users,
+        eq(schema.tripMemberships.userId, schema.users.id),
+      )
+      .where(eq(schema.users.email, "alex@example.com"));
+    expect(unchangedMembership?.gender).toBe("F");
+    const [roomAfterRejectedChange] = await database
+      .select()
+      .from(schema.rooms)
+      .where(eq(schema.rooms.id, "room-consent"));
+    expect(roomAfterRejectedChange).toMatchObject({
+      genderPolicy: "single_gender",
+      compositionVersion: roomBefore?.compositionVersion,
+    });
+
+    const groupChange = await parseParticipantWorkbook(
+      await workbookBuffer([
+        validRow({ Genre: "M", ChambreInitiale: "" }),
+        validRow({
+          Prenom: "Bea",
+          Email: "bea@example.com",
+          Genre: "M",
+          ChambreInitiale: "",
+        }),
+      ]),
+    );
+    expect(groupChange.errors).toEqual([]);
+    expect(
+      await importParticipants(database, trip.id, groupChange.participants),
+    ).toMatchObject({ updated: 2, errors: [] });
+    const [roomAfterApprovedGroupChange] = await database
+      .select()
+      .from(schema.rooms)
+      .where(eq(schema.rooms.id, "room-consent"));
+    expect(roomAfterApprovedGroupChange?.genderPolicy).toBe("single_gender");
+    expect(roomAfterApprovedGroupChange?.compositionVersion).toBe(
+      (roomBefore?.compositionVersion ?? 0) + 1,
     );
   });
 });

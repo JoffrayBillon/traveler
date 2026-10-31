@@ -1,6 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import {
-  Button,
   Checkbox,
   Form,
   Input,
@@ -12,6 +11,14 @@ import {
   SelectValue,
   TextField,
 } from "react-aria-components";
+import {
+  Button,
+  buttonStyles,
+  checkboxStyles,
+  listBoxStyles,
+  messageStyles,
+  textFieldStyles,
+} from "../../components/ui";
 import { ParticipantAccess } from "./ParticipantAccess";
 import type { StaffTraveler } from "./types";
 
@@ -256,7 +263,7 @@ export function StaffTools({
       traveler
         ? {
             activityProfile: traveler.activityProfile,
-            skiDayThree: traveler.skiDayThree,
+            skiDayThree: traveler.skiDayThree ?? false,
             transportMode: traveler.transportMode,
             departureCity: traveler.departureCity,
             outboundDateTime: traveler.outboundDateTime,
@@ -281,29 +288,39 @@ export function StaffTools({
   }
 
   return (
-    <section className="staff-tools" aria-labelledby="staff-tools-title">
-      <div className="section-heading">
+    <section className="mt-7" aria-labelledby="staff-tools-title">
+      <div className="mb-5 flex items-start justify-between gap-4 max-[420px]:flex-col">
         <div>
-          <h3 id="staff-tools-title">Outils d’organisation</h3>
-          <p>Transport, rooming et données des participants.</p>
+          <h3 className="mb-1 text-lg font-bold" id="staff-tools-title">
+            Outils d’organisation
+          </h3>
+          <p className="m-0 text-sm leading-relaxed text-[var(--muted)]">
+            Transport, rooming et données des participants.
+          </p>
         </div>
       </div>
-      <Form className="staff-tool-card" onSubmit={uploadTicket}>
-        <h4>Ajouter un titre de transport</h4>
+      <Form
+        className="my-3 grid grid-cols-2 items-end gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 max-[420px]:grid-cols-1"
+        onSubmit={uploadTicket}
+      >
+        <h4 className="col-span-full mb-0 text-base font-bold">
+          Ajouter un titre de transport
+        </h4>
         <Select
+          className="grid min-w-0 gap-2"
           selectedKey={travelerId}
           onSelectionChange={(key) => setTravelerId(key ? String(key) : null)}
           isRequired
         >
-          <Label>Voyageur</Label>
-          <Button className="select-trigger">
+          <Label className={textFieldStyles().label()}>Voyageur</Label>
+          <Button appearance="select">
             <SelectValue />
           </Button>
           <Popover>
-            <ListBox className="room-select-listbox">
+            <ListBox className={listBoxStyles().list()}>
               {travelers.map((person) => (
                 <ListBoxItem
-                  className="room-select-option"
+                  className={listBoxStyles().item()}
                   key={person.userId}
                   id={person.userId}
                   textValue={`${person.firstName} ${person.lastName}`}
@@ -315,56 +332,66 @@ export function StaffTools({
           </Popover>
         </Select>
         <Select
+          className="grid min-w-0 gap-2"
           selectedKey={ticketKind}
           onSelectionChange={(key) => setTicketKind(key ? String(key) : null)}
           isRequired
         >
-          <Label>Trajet</Label>
-          <Button className="select-trigger">
+          <Label className={textFieldStyles().label()}>Trajet</Label>
+          <Button appearance="select">
             <SelectValue />
           </Button>
           <Popover>
-            <ListBox className="room-select-listbox">
-              <ListBoxItem className="room-select-option" id="outbound">
+            <ListBox className={listBoxStyles().list()}>
+              <ListBoxItem className={listBoxStyles().item()} id="outbound">
                 Aller
               </ListBoxItem>
-              <ListBoxItem className="room-select-option" id="return">
+              <ListBoxItem className={listBoxStyles().item()} id="return">
                 Retour
               </ListBoxItem>
-              <ListBoxItem className="room-select-option" id="other">
+              <ListBoxItem className={listBoxStyles().item()} id="other">
                 Autre document
               </ListBoxItem>
             </ListBox>
           </Popover>
         </Select>
-        <label className="file-picker">
+        <label className="col-span-full grid gap-2 text-sm text-[var(--muted)]">
           Fichier PDF, PNG ou JPEG (4 Mo max)
           <input
+            className="max-w-full text-[var(--ink)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-soft)] file:px-3 file:py-2 file:font-semibold file:text-[var(--ink)]"
             type="file"
             accept="application/pdf,image/jpeg,image/png"
             onChange={(event) => setTicketFile(event.target.files?.[0] ?? null)}
           />
         </label>
-        <Button className="secondary-action" type="submit">
+        <Button appearance="secondary" type="submit">
           Téléverser le billet
         </Button>
       </Form>
-      <Form className="staff-tool-card" onSubmit={saveTravelerDetails}>
-        <h4>Informations de voyageur et de transport</h4>
+      <Form
+        className="my-3 grid grid-cols-2 items-end gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 max-[420px]:grid-cols-1"
+        onSubmit={saveTravelerDetails}
+      >
+        <h4 className="col-span-full mb-0 text-base font-bold">
+          Informations de voyageur et de transport
+        </h4>
         <Select
+          className="grid min-w-0 gap-2"
           selectedKey={detailsTravelerId}
           onSelectionChange={selectDetailsTraveler}
           isRequired
         >
-          <Label>Voyageur à mettre à jour</Label>
-          <Button className="select-trigger">
+          <Label className={textFieldStyles().label()}>
+            Voyageur à mettre à jour
+          </Label>
+          <Button appearance="select">
             <SelectValue />
           </Button>
           <Popover>
-            <ListBox className="room-select-listbox">
+            <ListBox className={listBoxStyles().list()}>
               {travelers.map((person) => (
                 <ListBoxItem
-                  className="room-select-option"
+                  className={listBoxStyles().item()}
                   key={person.userId}
                   id={person.userId}
                   textValue={`${person.firstName} ${person.lastName}`}
@@ -376,6 +403,7 @@ export function StaffTools({
           </Popover>
         </Select>
         <Select
+          className="grid min-w-0 gap-2"
           selectedKey={detailsDraft?.activityProfile ?? null}
           onSelectionChange={(key) => {
             if (key === "spa") changeDetails("skiDayThree", false);
@@ -386,16 +414,16 @@ export function StaffTools({
           }}
           isDisabled={!detailsDraft}
         >
-          <Label>Formule</Label>
-          <Button className="select-trigger">
+          <Label className={textFieldStyles().label()}>Formule</Label>
+          <Button appearance="select">
             <SelectValue />
           </Button>
           <Popover>
-            <ListBox className="room-select-listbox">
-              <ListBoxItem className="room-select-option" id="ski">
+            <ListBox className={listBoxStyles().list()}>
+              <ListBoxItem className={listBoxStyles().item()} id="ski">
                 Ski
               </ListBoxItem>
-              <ListBoxItem className="room-select-option" id="spa">
+              <ListBoxItem className={listBoxStyles().item()} id="spa">
                 Spa
               </ListBoxItem>
             </ListBox>
@@ -403,6 +431,7 @@ export function StaffTools({
         </Select>
         {detailsDraft?.activityProfile === "ski" && (
           <Checkbox
+            className={checkboxStyles()}
             isSelected={detailsDraft.skiDayThree}
             onChange={(checked) => changeDetails("skiDayThree", checked)}
           >
@@ -410,6 +439,7 @@ export function StaffTools({
           </Checkbox>
         )}
         <Select
+          className="grid min-w-0 gap-2"
           selectedKey={detailsDraft?.transportMode ?? null}
           onSelectionChange={(key) =>
             changeDetails(
@@ -421,19 +451,19 @@ export function StaffTools({
           }
           isDisabled={!detailsDraft}
         >
-          <Label>Transport réservé</Label>
-          <Button className="select-trigger">
+          <Label className={textFieldStyles().label()}>Transport réservé</Label>
+          <Button appearance="select">
             <SelectValue />
           </Button>
           <Popover>
-            <ListBox className="room-select-listbox">
-              <ListBoxItem className="room-select-option" id="train">
+            <ListBox className={listBoxStyles().list()}>
+              <ListBoxItem className={listBoxStyles().item()} id="train">
                 Train
               </ListBoxItem>
-              <ListBoxItem className="room-select-option" id="flight">
+              <ListBoxItem className={listBoxStyles().item()} id="flight">
                 Avion
               </ListBoxItem>
-              <ListBoxItem className="room-select-option" id="none">
+              <ListBoxItem className={listBoxStyles().item()} id="none">
                 Aucun
               </ListBoxItem>
             </ListBox>
@@ -442,149 +472,198 @@ export function StaffTools({
         {detailsDraft && detailsDraft.transportMode !== "none" && (
           <>
             <TextField
+              className="grid min-w-0 gap-2"
               value={detailsDraft.departureCity ?? ""}
               onChange={(value) =>
                 changeDetails("departureCity", value || null)
               }
               isDisabled={!detailsDraft}
             >
-              <Label>Ville de départ</Label>
-              <Input />
+              <Label className={textFieldStyles().label()}>
+                Ville de départ
+              </Label>
+              <Input className={textFieldStyles().input()} />
             </TextField>
-            <div className="staff-leg-fields">
-              <h5>Aller</h5>
+            <div className="col-span-full grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-4 max-[420px]:grid-cols-1">
+              <h5 className="col-span-full m-0 text-lg font-semibold text-[var(--forest)]">
+                Aller
+              </h5>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.outboundDateTime ?? ""}
                 onChange={(value) =>
                   changeDetails("outboundDateTime", value || null)
                 }
               >
-                <Label>Date et heure</Label>
-                <Input type="datetime-local" />
+                <Label className={textFieldStyles().label()}>
+                  Date et heure
+                </Label>
+                <Input
+                  className={textFieldStyles().input()}
+                  type="datetime-local"
+                />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.outboundTimezone ?? ""}
                 onChange={(value) =>
                   changeDetails("outboundTimezone", value || null)
                 }
               >
-                <Label>Fuseau horaire</Label>
-                <Input placeholder="Europe/Paris" />
+                <Label className={textFieldStyles().label()}>
+                  Fuseau horaire
+                </Label>
+                <Input
+                  className={textFieldStyles().input()}
+                  placeholder="Europe/Paris"
+                />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.outboundMeetingTime ?? ""}
                 onChange={(value) =>
                   changeDetails("outboundMeetingTime", value || null)
                 }
               >
-                <Label>Heure de rendez-vous</Label>
-                <Input type="time" />
+                <Label className={textFieldStyles().label()}>
+                  Heure de rendez-vous
+                </Label>
+                <Input className={textFieldStyles().input()} type="time" />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.outboundDepartureTime ?? ""}
                 onChange={(value) =>
                   changeDetails("outboundDepartureTime", value || null)
                 }
               >
-                <Label>Heure de départ</Label>
-                <Input type="time" />
+                <Label className={textFieldStyles().label()}>
+                  Heure de départ
+                </Label>
+                <Input className={textFieldStyles().input()} type="time" />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.outboundLocation ?? ""}
                 onChange={(value) =>
                   changeDetails("outboundLocation", value || null)
                 }
               >
-                <Label>Lieu / gare</Label>
-                <Input />
+                <Label className={textFieldStyles().label()}>Lieu / gare</Label>
+                <Input className={textFieldStyles().input()} />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.outboundReference ?? ""}
                 onChange={(value) =>
                   changeDetails("outboundReference", value || null)
                 }
               >
-                <Label>Référence</Label>
-                <Input />
+                <Label className={textFieldStyles().label()}>Référence</Label>
+                <Input className={textFieldStyles().input()} />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.outboundSeat ?? ""}
                 onChange={(value) =>
                   changeDetails("outboundSeat", value || null)
                 }
               >
-                <Label>Place</Label>
-                <Input />
+                <Label className={textFieldStyles().label()}>Place</Label>
+                <Input className={textFieldStyles().input()} />
               </TextField>
             </div>
-            <div className="staff-leg-fields">
-              <h5>Retour</h5>
+            <div className="col-span-full grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-4 max-[420px]:grid-cols-1">
+              <h5 className="col-span-full m-0 text-lg font-semibold text-[var(--forest)]">
+                Retour
+              </h5>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.returnDateTime ?? ""}
                 onChange={(value) =>
                   changeDetails("returnDateTime", value || null)
                 }
               >
-                <Label>Date et heure</Label>
-                <Input type="datetime-local" />
+                <Label className={textFieldStyles().label()}>
+                  Date et heure
+                </Label>
+                <Input
+                  className={textFieldStyles().input()}
+                  type="datetime-local"
+                />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.returnTimezone ?? ""}
                 onChange={(value) =>
                   changeDetails("returnTimezone", value || null)
                 }
               >
-                <Label>Fuseau horaire</Label>
-                <Input placeholder="Europe/Paris" />
+                <Label className={textFieldStyles().label()}>
+                  Fuseau horaire
+                </Label>
+                <Input
+                  className={textFieldStyles().input()}
+                  placeholder="Europe/Paris"
+                />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.returnMeetingTime ?? ""}
                 onChange={(value) =>
                   changeDetails("returnMeetingTime", value || null)
                 }
               >
-                <Label>Heure de rendez-vous</Label>
-                <Input type="time" />
+                <Label className={textFieldStyles().label()}>
+                  Heure de rendez-vous
+                </Label>
+                <Input className={textFieldStyles().input()} type="time" />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.returnDepartureTime ?? ""}
                 onChange={(value) =>
                   changeDetails("returnDepartureTime", value || null)
                 }
               >
-                <Label>Heure de départ</Label>
-                <Input type="time" />
+                <Label className={textFieldStyles().label()}>
+                  Heure de départ
+                </Label>
+                <Input className={textFieldStyles().input()} type="time" />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.returnLocation ?? ""}
                 onChange={(value) =>
                   changeDetails("returnLocation", value || null)
                 }
               >
-                <Label>Lieu / gare</Label>
-                <Input />
+                <Label className={textFieldStyles().label()}>Lieu / gare</Label>
+                <Input className={textFieldStyles().input()} />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.returnReference ?? ""}
                 onChange={(value) =>
                   changeDetails("returnReference", value || null)
                 }
               >
-                <Label>Référence</Label>
-                <Input />
+                <Label className={textFieldStyles().label()}>Référence</Label>
+                <Input className={textFieldStyles().input()} />
               </TextField>
               <TextField
+                className="grid min-w-0 gap-2"
                 value={detailsDraft.returnSeat ?? ""}
                 onChange={(value) => changeDetails("returnSeat", value || null)}
               >
-                <Label>Place</Label>
-                <Input />
+                <Label className={textFieldStyles().label()}>Place</Label>
+                <Input className={textFieldStyles().input()} />
               </TextField>
             </div>
           </>
         )}
         <Button
-          className="secondary-action"
+          appearance="secondary"
           type="submit"
           isDisabled={!detailsTravelerId || !detailsDraft}
         >
@@ -594,67 +673,98 @@ export function StaffTools({
       {isManager && (
         <>
           <ParticipantAccess tripId={tripId} />
-          <Form className="staff-tool-card" onSubmit={saveTripName}>
-            <h4>Informations du voyage</h4>
+          <Form
+            className="my-3 grid grid-cols-2 items-end gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 max-[420px]:grid-cols-1"
+            onSubmit={saveTripName}
+          >
+            <h4 className="col-span-full mb-0 text-base font-bold">
+              Informations du voyage
+            </h4>
             <TextField
+              className="grid min-w-0 gap-2"
               value={editableTripName}
               onChange={setEditableTripName}
               isRequired
             >
-              <Label>Nom du voyage</Label>
-              <Input maxLength={120} />
+              <Label className={textFieldStyles().label()}>Nom du voyage</Label>
+              <Input className={textFieldStyles().input()} maxLength={120} />
             </TextField>
-            <Button className="secondary-action" type="submit">
+            <Button appearance="secondary" type="submit">
               Enregistrer
             </Button>
           </Form>
-          <Form className="staff-tool-card" onSubmit={appointCompanion}>
-            <h4>Nommer un accompagnateur</h4>
+          <Form
+            className="my-3 grid grid-cols-2 items-end gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 max-[420px]:grid-cols-1"
+            onSubmit={appointCompanion}
+          >
+            <h4 className="col-span-full mb-0 text-base font-bold">
+              Nommer un accompagnateur
+            </h4>
             <TextField
+              className="grid min-w-0 gap-2"
               value={companionFirstName}
               onChange={setCompanionFirstName}
               isRequired
             >
-              <Label>Prénom</Label>
-              <Input autoComplete="given-name" />
+              <Label className={textFieldStyles().label()}>Prénom</Label>
+              <Input
+                className={textFieldStyles().input()}
+                autoComplete="given-name"
+              />
             </TextField>
             <TextField
+              className="grid min-w-0 gap-2"
               value={companionLastName}
               onChange={setCompanionLastName}
               isRequired
             >
-              <Label>Nom</Label>
-              <Input autoComplete="family-name" />
+              <Label className={textFieldStyles().label()}>Nom</Label>
+              <Input
+                className={textFieldStyles().input()}
+                autoComplete="family-name"
+              />
             </TextField>
             <TextField
+              className="grid min-w-0 gap-2"
               type="email"
               value={companionEmail}
               onChange={setCompanionEmail}
               isRequired
             >
-              <Label>Adresse e-mail</Label>
-              <Input autoComplete="email" />
+              <Label className={textFieldStyles().label()}>
+                Adresse e-mail
+              </Label>
+              <Input
+                className={textFieldStyles().input()}
+                autoComplete="email"
+              />
             </TextField>
-            <Button className="secondary-action" type="submit">
+            <Button appearance="secondary" type="submit">
               Ajouter l’accompagnateur
             </Button>
           </Form>
-          <Form className="staff-tool-card" onSubmit={importParticipants}>
-            <h4>Importer les participants</h4>
-            <p>
+          <Form
+            className="my-3 grid grid-cols-2 items-end gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 max-[420px]:grid-cols-1"
+            onSubmit={importParticipants}
+          >
+            <h4 className="col-span-full mb-0 text-base font-bold">
+              Importer les participants
+            </h4>
+            <p className="col-span-full m-0 text-sm leading-relaxed text-[var(--muted)]">
               Import `.xlsx` jusqu’à 500 lignes. Une erreur bloque toute
               l’importation; une réimportation conserve les billets et chambres
               déjà gérés.
             </p>
             <a
-              className="ticket-download"
+              className={buttonStyles({ appearance: "secondary" })}
               href={`/api/trips/${encodeURIComponent(tripId)}/participants/template`}
             >
               Télécharger le modèle Excel
             </a>
-            <label className="file-picker">
+            <label className="col-span-full grid gap-2 text-sm text-[var(--muted)]">
               Classeur participants .xlsx
               <input
+                className="max-w-full text-[var(--ink)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-soft)] file:px-3 file:py-2 file:font-semibold file:text-[var(--ink)]"
                 type="file"
                 accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 onChange={(event) =>
@@ -662,12 +772,12 @@ export function StaffTools({
                 }
               />
             </label>
-            <Button className="secondary-action" type="submit">
+            <Button appearance="secondary" type="submit">
               Valider et importer
             </Button>
           </Form>
           <a
-            className="ticket-download"
+            className={buttonStyles({ appearance: "secondary" })}
             href={`/api/trips/${encodeURIComponent(tripId)}/rooms/export`}
           >
             Exporter le rooming Excel
@@ -675,7 +785,7 @@ export function StaffTools({
         </>
       )}
       {message && (
-        <p className="form-message" role="status" aria-live="polite">
+        <p className={messageStyles()} role="status" aria-live="polite">
           {message}
         </p>
       )}

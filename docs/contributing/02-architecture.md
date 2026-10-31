@@ -8,6 +8,8 @@ The API package emits declarations with TypeScript and bundles its runtime entry
 
 The Vercel entry point has an isolated `api/tsconfig.json` with Web API libraries and no frontend ambient type packages. Web typechecking checks both frontend and function configurations. A native Node subprocess test resolves the compiled workspace package from the web directory and verifies health and error responses; this complements, rather than replaces, remote function invocation checks.
 
+The shared web UI lives in `apps/web/src/components/ui`: React Aria wrappers preserve accessible interaction behavior, and Tailwind Variants recipes define reusable styles and typed visual variants. Keep view-specific layout classes in their feature components; promote styles to shared recipes only when they represent a repeated UI pattern.
+
 Use runtime validation at trust boundaries and database constraints for durable invariants; TypeScript types alone are not validation. Separate global identity from membership and role within a trip. Every future room, option, ticket and request is scoped to its trip; reject IDs from another trip. Authorize every server operation rather than relying on hidden buttons.
 
 One same-origin deployment serves static frontend assets and `/api/*`. The development proxy preserves that contract locally. `GET /api/health` is public liveness only, has no external dependencies and must reveal no configuration. `GET /api/ready` checks Turso with `SELECT 1`, returning a generic `503` when credentials are missing or the database is unreachable. Unknown API paths return JSON errors rather than the SPA document. Vercel Functions run in Paris (`cdg1`), close to the EU Turso database.

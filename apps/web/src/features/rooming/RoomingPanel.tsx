@@ -1,6 +1,11 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
 import {
-  Button,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
   Form,
   Input,
   Label,
@@ -11,6 +16,12 @@ import {
   SelectValue,
   TextField,
 } from "react-aria-components";
+import {
+  Button,
+  listBoxStyles,
+  messageStyles,
+  textFieldStyles,
+} from "../../components/ui";
 import type { StaffTraveler } from "../organizer/types";
 
 type RoomSummary = {
@@ -68,6 +79,7 @@ export function RoomingPanel({
   >([]);
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
+  const latestRefreshId = useRef(0);
   const ownRoom = rooms.find((room) =>
     room.occupants.some((person) => person.userId === userId),
   );
@@ -79,9 +91,16 @@ export function RoomingPanel({
       room.id !== ownRoom?.id &&
       (room.occupiedCount < room.capacity || Boolean(ownRoom)),
   );
+  const selectedTargetRoom = rooms.find((room) => room.id === targetRoomId);
+  const exchangeRequired = Boolean(
+    ownRoom &&
+      selectedTargetRoom &&
+      selectedTargetRoom.occupiedCount >= selectedTargetRoom.capacity,
+  );
   const isStaff = role !== "traveler";
 
   const refresh = useCallback(async () => {
+    const refreshId = ++latestRefreshId.current;
     setStatus("loading");
     try {
       const [roomResponse, requestResponse, travelerResponse] =
@@ -105,32 +124,38 @@ export function RoomingPanel({
       )
         throw new Error();
       const roomData = (await roomResponse.json()) as { rooms: RoomSummary[] };
+      const requestData = (await requestResponse.json()) as {
+        requests: RoomRequestSummary[];
+      };
+      const travelerData = travelerResponse
+        ? ((await travelerResponse.json()) as { travelers: StaffTraveler[] })
+        : null;
+      if (refreshId !== latestRefreshId.current) return;
       setRooms(roomData.rooms);
-      setRequests(
-        ((await requestResponse.json()) as { requests: RoomRequestSummary[] })
-          .requests,
-      );
-      if (travelerResponse) {
-        const data = (await travelerResponse.json()) as {
-          travelers: StaffTraveler[];
-        };
+      setRequests(requestData.requests);
+      if (travelerData) {
         const assigned = new Set(
           roomData.rooms.flatMap((room) =>
             room.occupants.map((occupant) => occupant.userId),
           ),
         );
         setUnassignedTravelers(
-          data.travelers.filter((person) => !assigned.has(person.userId)),
+          travelerData.travelers.filter(
+            (person) => !assigned.has(person.userId),
+          ),
         );
       }
       setStatus("ready");
     } catch {
-      setStatus("error");
+      if (refreshId === latestRefreshId.current) setStatus("error");
     }
   }, [tripId, isStaff]);
 
   useEffect(() => {
     void refresh();
+    return () => {
+      latestRefreshId.current += 1;
+    };
   }, [refresh]);
 
   async function post(path: string, body: unknown) {
@@ -152,6 +177,10 @@ export function RoomingPanel({
   async function requestChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!targetRoomId) return;
+    if (exchangeRequired && !exchangeEmail.trim()) {
+      setMessage("Indiquez l’e-mail de la personne avec qui échanger.");
+      return;
+    }
     const payload = exchangeEmail.trim()
       ? {
           targetRoomId,
@@ -179,18 +208,30 @@ export function RoomingPanel({
   }
 
   async function respond(requestId: string, approve: boolean) {
-    const ok = await post(
+    const response = await fetch(
       `/api/trips/${encodeURIComponent(tripId)}/room-requests/${encodeURIComponent(requestId)}/consent`,
-      { approve },
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approve }),
+      },
     );
-    if (ok) {
-      setMessage(
-        approve
+    const result = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      status?: string;
+    };
+    if (!response.ok) {
+      setMessage(roomErrorLabel[result.error ?? ""] ?? "L’opération a échoué.");
+      return;
+    }
+    setMessage(
+      result.status === "stale"
+        ? "La composition de la chambre a changé. Cette demande n’a pas été appliquée."
+        : approve
           ? "Votre accord a été enregistré."
           : "La demande a été refusée.",
-      );
-      await refresh();
-    }
+    );
+    await refresh();
   }
 
   async function createRoom(event: FormEvent<HTMLFormElement>) {
@@ -239,37 +280,41 @@ export function RoomingPanel({
 
   if (status === "loading")
     return (
-      <section className="rooming-section" aria-busy="true">
+      <section className="mt-7" aria-busy="true">
         <p role="status">Chargement du rooming…</p>
       </section>
     );
   if (status === "error")
     return (
-      <section className="rooming-section">
-        <h3>Chambres</h3>
+      <section className="mt-7">
+        <h3 className="mb-1 text-lg font-bold">Chambres</h3>
         <p role="alert">
           La répartition des chambres est momentanément indisponible.
         </p>
       </section>
     );
   return (
-    <section className="rooming-section" aria-labelledby="rooming-title">
-      <div className="section-heading">
+    <section className="mt-7" aria-labelledby="rooming-title">
+      <div className="mb-5 flex items-start justify-between gap-4 max-[420px]:flex-col">
         <div>
-          <h3 id="rooming-title">Chambres</h3>
-          <p>Votre chambre et les demandes en attente.</p>
+          <h3 className="mb-1 text-lg font-bold" id="rooming-title">
+            Chambres
+          </h3>
+          <p className="m-0 text-sm leading-relaxed text-[var(--muted)]">
+            Votre chambre et les demandes en attente.
+          </p>
         </div>
       </div>
       {ownRoom ? (
-        <article className="room-card">
-          <div>
-            <span className="detail-label">Votre chambre</span>
-            <strong>{ownRoom.name}</strong>
+        <article className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
+          <div className="grid gap-2">
+            <span className="text-xs text-[var(--quiet)]">Votre chambre</span>
+            <strong className="text-lg">{ownRoom.name}</strong>
           </div>
-          <span className="count-pill">
+          <span className="mt-3 inline-block rounded-full border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--muted)]">
             {ownRoom.occupiedCount}/{ownRoom.capacity} places
           </span>
-          <ul>
+          <ul className="mb-0 mt-3 list-inside list-disc space-y-1 leading-relaxed text-[var(--muted)]">
             {ownRoom.occupants.map((person) => (
               <li key={person.userId}>
                 {person.firstName} {person.lastName}
@@ -279,24 +324,27 @@ export function RoomingPanel({
           </ul>
         </article>
       ) : (
-        <p className="empty-state">
+        <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">
           Aucune chambre ne vous a encore été attribuée.
         </p>
       )}
       {isStaff && (
-        <div className="room-admin-list">
-          <h4>Répartition actuelle</h4>
+        <div className="mt-6 grid gap-3">
+          <h4 className="mb-0 text-base font-bold">Répartition actuelle</h4>
           {rooms.map((room) => (
-            <article className="room-card" key={room.id}>
-              <div>
-                <span className="detail-label">
+            <article
+              className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4"
+              key={room.id}
+            >
+              <div className="grid gap-2">
+                <span className="text-xs text-[var(--quiet)]">
                   {room.occupiedCount}/{room.capacity} places
                   {room.genderPolicy === "mixed" ? " · mixte validée" : ""}
                 </span>
-                <strong>{room.name}</strong>
+                <strong className="text-lg">{room.name}</strong>
               </div>
               {room.occupants.length ? (
-                <ul>
+                <ul className="mb-0 mt-3 list-inside list-disc space-y-1 leading-relaxed text-[var(--muted)]">
                   {room.occupants.map((person) => (
                     <li key={person.userId}>
                       {person.firstName} {person.lastName}
@@ -304,31 +352,38 @@ export function RoomingPanel({
                   ))}
                 </ul>
               ) : (
-                <p className="detail-label">Chambre vide</p>
+                <p className="mb-0 mt-3 text-xs text-[var(--quiet)]">
+                  Chambre vide
+                </p>
               )}
             </article>
           ))}
         </div>
       )}
       {targetRooms.length > 0 && (
-        <Form className="room-request-form" onSubmit={requestChange}>
+        <Form
+          className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 max-[420px]:grid-cols-1"
+          onSubmit={requestChange}
+        >
           <Select
-            className="room-select"
+            className="grid min-w-0 gap-2"
             selectedKey={targetRoomId}
             onSelectionChange={(key) =>
               setTargetRoomId(key ? String(key) : null)
             }
             isRequired
           >
-            <Label>Demander une place dans une autre chambre</Label>
-            <Button className="select-trigger">
+            <Label className={textFieldStyles().label()}>
+              Demander une place dans une autre chambre
+            </Label>
+            <Button appearance="select">
               <SelectValue />
             </Button>
             <Popover>
-              <ListBox className="room-select-listbox">
+              <ListBox className={listBoxStyles().list()}>
                 {targetRooms.map((room) => (
                   <ListBoxItem
-                    className="room-select-option"
+                    className={listBoxStyles().item()}
                     key={room.id}
                     id={room.id}
                     textValue={room.name}
@@ -342,36 +397,44 @@ export function RoomingPanel({
           </Select>
           {ownRoom && (
             <TextField
+              className="grid min-w-0 gap-2"
               type="email"
               value={exchangeEmail}
               onChange={setExchangeEmail}
+              isRequired={exchangeRequired}
             >
-              <Label>
-                E-mail de la personne avec qui échanger (si la chambre est
-                complète)
+              <Label className={textFieldStyles().label()}>
+                E-mail de la personne avec qui échanger
+                {exchangeRequired ? " (obligatoire)" : " (facultatif)"}
               </Label>
-              <Input autoComplete="email" />
+              <Input
+                className={textFieldStyles().input()}
+                autoComplete="email"
+              />
             </TextField>
           )}
-          <Button type="submit" className="secondary-action">
+          <Button type="submit" appearance="secondary">
             {exchangeEmail.trim() ? "Proposer l’échange" : "Envoyer ma demande"}
           </Button>
         </Form>
       )}
       {requests.length > 0 && (
-        <div className="room-requests">
-          <h4>Demandes à valider</h4>
+        <div className="mt-7">
+          <h4 className="mb-2 text-base font-bold">Demandes à valider</h4>
           {requests.map((request) => {
             const ownConsent = request.requiredConsents.find(
               (consent) => consent.userId === userId,
             );
             return (
-              <article className="request-card" key={request.id}>
-                <p>
+              <article
+                className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4"
+                key={request.id}
+              >
+                <p className="m-0 leading-relaxed text-[var(--muted)]">
                   {request.requester?.firstName} {request.requester?.lastName}{" "}
                   demande un changement de chambre.
                 </p>
-                <ul>
+                <ul className="mb-0 mt-3 list-inside list-disc space-y-1 leading-relaxed text-[var(--muted)]">
                   {request.moves.map((move) => (
                     <li key={move.userId}>
                       {move.person?.firstName} {move.person?.lastName} :{" "}
@@ -380,15 +443,15 @@ export function RoomingPanel({
                   ))}
                 </ul>
                 {ownConsent && !ownConsent.approved && (
-                  <div className="request-actions">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button
-                      className="secondary-action"
+                      appearance="secondary"
                       onPress={() => void respond(request.id, true)}
                     >
                       J’accepte
                     </Button>
                     <Button
-                      className="text-action"
+                      appearance="quiet"
                       onPress={() => void respond(request.id, false)}
                     >
                       Je refuse
@@ -396,7 +459,7 @@ export function RoomingPanel({
                   </div>
                 )}
                 {ownConsent?.approved && (
-                  <p className="consent-state">
+                  <p className="mt-3 text-sm text-[var(--success)]">
                     Votre accord est enregistré ·{" "}
                     {
                       request.requiredConsents.filter(
@@ -412,41 +475,66 @@ export function RoomingPanel({
         </div>
       )}
       {isStaff && (
-        <div className="room-admin">
-          <h4>Créer une chambre</h4>
-          <Form className="room-request-form" onSubmit={createRoom}>
-            <TextField value={roomName} onChange={setRoomName} isRequired>
-              <Label>Nom de la chambre</Label>
-              <Input placeholder="Ex. 101" maxLength={80} />
+        <div className="mt-7">
+          <h4 className="mb-2 text-base font-bold">Créer une chambre</h4>
+          <Form
+            className="mt-4 grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3 max-[420px]:grid-cols-1"
+            onSubmit={createRoom}
+          >
+            <TextField
+              className="grid min-w-0 gap-2"
+              value={roomName}
+              onChange={setRoomName}
+              isRequired
+            >
+              <Label className={textFieldStyles().label()}>
+                Nom de la chambre
+              </Label>
+              <Input
+                className={textFieldStyles().input()}
+                placeholder="Ex. 101"
+                maxLength={80}
+              />
             </TextField>
             <TextField
+              className="grid min-w-0 gap-2"
               value={roomCapacity}
               onChange={setRoomCapacity}
               isRequired
             >
-              <Label>Capacité</Label>
-              <Input type="number" min="1" max="12" />
+              <Label className={textFieldStyles().label()}>Capacité</Label>
+              <Input
+                className={textFieldStyles().input()}
+                type="number"
+                min="1"
+                max="12"
+              />
             </TextField>
-            <Button className="secondary-action" type="submit">
+            <Button appearance="secondary" type="submit">
               Créer
             </Button>
           </Form>
           {unassignedTravelers.length > 0 && availableRooms.length > 0 && (
-            <Form className="room-request-form" onSubmit={assignInitialRoom}>
+            <Form
+              className="mt-4 grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3 max-[420px]:grid-cols-1"
+              onSubmit={assignInitialRoom}
+            >
               <Select
                 selectedKey={initialTravelerId}
                 onSelectionChange={selectChange(setInitialTravelerId)}
                 isRequired
               >
-                <Label>Voyageur à placer</Label>
-                <Button className="select-trigger">
+                <Label className={textFieldStyles().label()}>
+                  Voyageur à placer
+                </Label>
+                <Button appearance="select">
                   <SelectValue />
                 </Button>
                 <Popover>
-                  <ListBox className="room-select-listbox">
+                  <ListBox className={listBoxStyles().list()}>
                     {unassignedTravelers.map((person) => (
                       <ListBoxItem
-                        className="room-select-option"
+                        className={listBoxStyles().item()}
                         key={person.userId}
                         id={person.userId}
                         textValue={`${person.firstName} ${person.lastName}`}
@@ -462,15 +550,17 @@ export function RoomingPanel({
                 onSelectionChange={selectChange(setInitialRoomId)}
                 isRequired
               >
-                <Label>Chambre avec une place libre</Label>
-                <Button className="select-trigger">
+                <Label className={textFieldStyles().label()}>
+                  Chambre avec une place libre
+                </Label>
+                <Button appearance="select">
                   <SelectValue />
                 </Button>
                 <Popover>
-                  <ListBox className="room-select-listbox">
+                  <ListBox className={listBoxStyles().list()}>
                     {availableRooms.map((room) => (
                       <ListBoxItem
-                        className="room-select-option"
+                        className={listBoxStyles().item()}
                         key={room.id}
                         id={room.id}
                         textValue={room.name}
@@ -481,7 +571,7 @@ export function RoomingPanel({
                   </ListBox>
                 </Popover>
               </Select>
-              <Button className="secondary-action" type="submit">
+              <Button appearance="secondary" type="submit">
                 Attribuer
               </Button>
             </Form>
@@ -489,7 +579,7 @@ export function RoomingPanel({
         </div>
       )}
       {message && (
-        <p className="form-message" role="status">
+        <p className={messageStyles()} role="status">
           {message}
         </p>
       )}

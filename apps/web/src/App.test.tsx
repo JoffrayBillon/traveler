@@ -45,19 +45,21 @@ describe("application shell", () => {
     await user.tab();
     await user.tab();
     const toggle = screen.getByRole("button", {
-      name: "Activer le thème sombre",
+      name: "Mode sombre",
     });
     expect(toggle).toHaveFocus();
     expect(toggle).toHaveAttribute("aria-pressed", "false");
     await user.keyboard("{Enter}");
-    expect(
-      screen.getByRole("button", { name: "Activer le thème clair" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Mode sombre" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
     await user.keyboard(" ");
-    expect(
-      screen.getByRole("button", { name: "Activer le thème sombre" }),
-    ).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Mode sombre" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
   });
 
@@ -96,6 +98,7 @@ describe("application shell", () => {
     expect(screen.getByRole("link", { name: /Ski 2027/ })).toBeInTheDocument();
 
     await user.click(screen.getByRole("link", { name: "Mon compte" }));
+    await waitFor(() => expect(screen.getByRole("main")).toHaveFocus());
     expect(await screen.findByText("manager@example.com")).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: "Se déconnecter" }),
@@ -500,10 +503,11 @@ describe("application shell", () => {
       screen.getByText("Paris Gare de Lyon · Réf. ABC123 · Place 12A"),
     ).toBeInTheDocument();
     expect(screen.getByText("billet-aller.pdf · 50 Ko")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Télécharger" })).toHaveAttribute(
-      "href",
-      "/api/trips/trip-1/tickets/ticket-1",
-    );
+    expect(
+      screen.getByRole("link", {
+        name: "Télécharger Aller : billet-aller.pdf",
+      }),
+    ).toHaveAttribute("href", "/api/trips/trip-1/tickets/ticket-1");
   });
 
   it("revalidates the session on focus and clears the profile after a 401", async () => {

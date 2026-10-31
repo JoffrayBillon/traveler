@@ -67,9 +67,6 @@ async function createTestServices(
       database,
       env,
       useDefaultSender ? undefined : (sendEmail ?? (async () => {})),
-      (task) => {
-        backgroundTasks.push(task);
-      },
     ),
   };
 }
@@ -249,6 +246,63 @@ describe("invite-only magic-link authentication", () => {
         }),
       ]),
     });
+  });
+
+  it("reports manager-triggered login email delivery failures", async () => {
+    const sendEmail = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("Brevo unavailable"));
+    const services = await createTestServices(sendEmail);
+    const trip = await createTripsStore(services.database).create("Ski 2027");
+    const manager = await createManagersStore(services.database).create({
+      tripId: trip.id,
+      email: "manager@example.com",
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+    const participantId = "participant-email-failure";
+    const now = new Date();
+    await services.database.insert(schema.users).values({
+      id: participantId,
+      name: "Noé Participant",
+      email: "participant@example.com",
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await services.database.insert(schema.tripMemberships).values({
+      id: "participant-email-failure-membership",
+      tripId: trip.id,
+      userId: participantId,
+      role: "traveler",
+      firstName: "Noé",
+      lastName: "Participant",
+      gender: "M",
+    });
+    const app = createApp(
+      () => services.client,
+      () => services,
+    );
+    await app.request("/api/auth/sign-in/magic-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: authEnv.BETTER_AUTH_URL as string,
+      },
+      body: JSON.stringify({ email: manager.email, callbackURL: "/" }),
+    });
+    await flushBackgroundTasks(services.backgroundTasks);
+    const login = await app.request(sendEmail.mock.calls[0]?.[1] as string);
+    const cookie = login.headers.get("set-cookie")?.split(";")[0] as string;
+
+    const response = await app.request(
+      `/api/trips/${trip.id}/participants/${participantId}/login-link`,
+      { method: "POST", headers: { Cookie: cookie } },
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "email_delivery_failed" });
   });
 
   it("stores staff trip details and exposes them only inside that trip", async () => {
@@ -625,6 +679,38 @@ describe("invite-only magic-link authentication", () => {
     expect(
       await services.database.select().from(schema.travelerDetails),
     ).toHaveLength(0);
+
+    const invalidTime = await app.request(
+      `/api/trips/${trip.id}/travelers/${manager.userId}/details`,
+      {
+        method: "PUT",
+        headers: { Cookie: cookie, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activityProfile: "ski",
+          skiDayThree: false,
+          transportMode: "train",
+          departureCity: "Paris",
+          outboundDateTime: null,
+          outboundTimezone: null,
+          outboundMeetingTime: "99:99",
+          outboundDepartureTime: null,
+          outboundLocation: null,
+          outboundReference: null,
+          outboundSeat: null,
+          returnDateTime: null,
+          returnTimezone: null,
+          returnMeetingTime: null,
+          returnDepartureTime: null,
+          returnLocation: null,
+          returnReference: null,
+          returnSeat: null,
+          carpoolPreference: null,
+          parkingPreference: null,
+        }),
+      },
+    );
+    expect(invalidTime.status).toBe(400);
+    expect(await invalidTime.json()).toEqual({ error: "invalid_travel_time" });
   });
 
   it("uses the stable Vercel branch URL for the magic link and callback", async () => {

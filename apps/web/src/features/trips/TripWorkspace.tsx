@@ -1,5 +1,12 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Button, Checkbox, Form } from "react-aria-components";
+import { Checkbox, Form } from "react-aria-components";
+import {
+  Button,
+  buttonStyles,
+  checkboxStyles,
+  eyebrowStyles,
+  messageStyles,
+} from "../../components/ui";
 import {
   formatBytes,
   formatDate,
@@ -99,26 +106,32 @@ export function TripWorkspace({
 
   const details = data.details;
   return (
-    <div className="trip-workspace">
-      <div className="section-heading">
+    <div className="w-full">
+      <div className="mb-5 flex items-start justify-between gap-4 max-[420px]:flex-col">
         <div>
-          <p className="eyebrow">{data.trip.name}</p>
-          <h2>Votre séjour</h2>
-          <p>Les informations partagées par l’équipe d’organisation.</p>
+          <p className={eyebrowStyles()}>{data.trip.name}</p>
+          <h2 className="mb-1 mt-1 text-2xl font-bold tracking-tight">
+            Votre séjour
+          </h2>
+          <p className="m-0 text-sm leading-relaxed text-[var(--muted)]">
+            Les informations partagées par l’équipe d’organisation.
+          </p>
         </div>
-        <span className="role-chip">{roleLabel[role]}</span>
+        <span className="rounded-full bg-[var(--surface-soft)] px-3 py-2 text-xs font-bold text-[var(--ink)]">
+          {roleLabel[role]}
+        </span>
       </div>
-      <div className="details-grid">
-        <article className="detail-card">
-          <span className="detail-label">Activité</span>
-          <strong>
+      <div className="grid grid-cols-2 gap-3 max-[420px]:grid-cols-1">
+        <article className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
+          <span className="text-xs text-[var(--quiet)]">Activité</span>
+          <strong className="mt-2 block break-words text-base">
             {details?.activityProfile === "ski"
               ? "Ski"
               : details?.activityProfile === "spa"
                 ? "Spa"
                 : "À confirmer"}
           </strong>
-          <p>
+          <p className="mb-0 mt-2 text-sm leading-relaxed text-[var(--muted)]">
             {details?.skiDayThree
               ? "Forfait ski 3 jours"
               : details?.activityProfile === "ski"
@@ -126,25 +139,26 @@ export function TripWorkspace({
                 : ""}
           </p>
         </article>
-        <article className="detail-card">
-          <span className="detail-label">Transport</span>
-          <strong>
+        <article className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
+          <span className="text-xs text-[var(--quiet)]">Transport</span>
+          <strong className="mt-2 block break-words text-base">
             {transportLabel[details?.transportMode ?? ""] ?? "À confirmer"}
           </strong>
-          <p>
+          <p className="mb-0 mt-2 text-sm leading-relaxed text-[var(--muted)]">
             {details?.departureCity ??
               details?.outboundLocation ??
               "Les informations seront ajoutées par l’équipe."}
           </p>
         </article>
-        <article className="detail-card">
-          <span className="detail-label">Aller</span>
-          <strong>
-            {formatDate(
-              details?.outboundDateTime ?? details?.outboundDepartureTime,
+        <article className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
+          <span className="text-xs text-[var(--quiet)]">Aller</span>
+          <strong className="mt-2 block break-words text-base">
+            {formatJourneyDate(
+              details?.outboundDateTime,
+              details?.outboundDepartureTime,
             )}
           </strong>
-          <p>
+          <p className="mb-0 mt-2 text-sm leading-relaxed text-[var(--muted)]">
             {[
               details?.outboundMeetingTime &&
                 `Rendez-vous ${details.outboundMeetingTime}`,
@@ -156,14 +170,15 @@ export function TripWorkspace({
               .join(" · ") || "Informations à venir"}
           </p>
         </article>
-        <article className="detail-card">
-          <span className="detail-label">Retour</span>
-          <strong>
-            {formatDate(
-              details?.returnDateTime ?? details?.returnDepartureTime,
+        <article className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
+          <span className="text-xs text-[var(--quiet)]">Retour</span>
+          <strong className="mt-2 block break-words text-base">
+            {formatJourneyDate(
+              details?.returnDateTime,
+              details?.returnDepartureTime,
             )}
           </strong>
-          <p>
+          <p className="mb-0 mt-2 text-sm leading-relaxed text-[var(--muted)]">
             {[
               details?.returnMeetingTime &&
                 `Rendez-vous ${details.returnMeetingTime}`,
@@ -176,28 +191,41 @@ export function TripWorkspace({
           </p>
         </article>
       </div>
-      <section className="ticket-section" aria-labelledby="tickets-title">
-        <div className="section-heading">
+      <section className="mt-7" aria-labelledby="tickets-title">
+        <div className="mb-5 flex items-start justify-between gap-4 max-[420px]:flex-col">
           <div>
-            <h3 id="tickets-title">Titres de transport</h3>
-            <p>Vos documents sont disponibles uniquement après connexion.</p>
+            <h3 className="mb-1 text-lg font-bold" id="tickets-title">
+              Titres de transport
+            </h3>
+            <p className="m-0 text-sm leading-relaxed text-[var(--muted)]">
+              Vos documents sont disponibles uniquement après connexion.
+            </p>
           </div>
         </div>
         {data.tickets.length === 0 ? (
-          <p className="empty-state">Aucun billet n’a encore été ajouté.</p>
+          <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">
+            Aucun billet n’a encore été ajouté.
+          </p>
         ) : (
-          <ul className="ticket-list">
+          <ul className="m-0 grid list-none gap-2 p-0">
             {data.tickets.map((ticket) => (
-              <li key={ticket.id}>
-                <span>
+              <li
+                className="flex items-center justify-between gap-4 rounded-xl border border-[var(--line)] p-3 max-[420px]:flex-col max-[420px]:items-start"
+                key={ticket.id}
+              >
+                <span className="grid min-w-0 gap-1">
                   <strong>{ticketLabel[ticket.kind]}</strong>
-                  <small>
+                  <small className="break-words text-[var(--muted)]">
                     {ticket.originalName} · {formatBytes(ticket.size)}
                   </small>
                 </span>
                 <a
-                  className="ticket-download"
+                  className={buttonStyles({
+                    appearance: "secondary",
+                    class: "shrink-0",
+                  })}
                   href={`/api/trips/${encodeURIComponent(tripId)}/tickets/${encodeURIComponent(ticket.id)}`}
+                  aria-label={`Télécharger ${ticketLabel[ticket.kind]} : ${ticket.originalName}`}
                 >
                   Télécharger
                 </a>
@@ -246,6 +274,7 @@ function CarpoolPreferences({
   const [carpool, setCarpool] = useState(carpoolPreference ?? false);
   const [parking, setParking] = useState(parkingPreference ?? false);
   const [message, setMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setCarpool(carpoolPreference ?? false);
@@ -254,35 +283,49 @@ function CarpoolPreferences({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch(
-      `/api/trips/${encodeURIComponent(tripId)}/carpool-preferences`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          carpoolPreference: carpool,
-          parkingPreference: carpool && parking,
-        }),
-      },
-    );
-    if (!response.ok) {
+    setIsSaving(true);
+    try {
+      const response = await fetch(
+        `/api/trips/${encodeURIComponent(tripId)}/carpool-preferences`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            carpoolPreference: carpool,
+            parkingPreference: carpool && parking,
+          }),
+        },
+      );
+      if (!response.ok) {
+        setMessage("Vos préférences n’ont pas pu être enregistrées.");
+        return;
+      }
+      onSaved(carpool, carpool && parking);
+      setMessage("Vos préférences ont été enregistrées.");
+    } catch {
       setMessage("Vos préférences n’ont pas pu être enregistrées.");
-      return;
+    } finally {
+      setIsSaving(false);
     }
-    onSaved(carpool, carpool && parking);
-    setMessage("Vos préférences ont été enregistrées.");
   }
 
   return (
-    <section className="carpool-card" aria-labelledby="carpool-title">
-      <h3 id="carpool-title">Sans transport réservé</h3>
-      <p>
+    <section
+      className="mt-7 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4"
+      aria-labelledby="carpool-title"
+    >
+      <h3 className="mb-1 text-lg font-bold" id="carpool-title">
+        Sans transport réservé
+      </h3>
+      <p className="text-sm leading-relaxed text-[var(--muted)]">
         Indiquez si vous cherchez un covoiturage et, si oui, une place de
         parking.
       </p>
-      <Form onSubmit={save}>
+      <Form className="mt-4 grid justify-items-start gap-3" onSubmit={save}>
         <Checkbox
+          className={checkboxStyles()}
           isSelected={carpool}
+          isDisabled={isSaving}
           onChange={(selected) => {
             setCarpool(selected);
             if (!selected) setParking(false);
@@ -291,19 +334,40 @@ function CarpoolPreferences({
           <span>Je viens en covoiturage</span>
         </Checkbox>
         {carpool && (
-          <Checkbox isSelected={parking} onChange={setParking}>
+          <Checkbox
+            className={checkboxStyles()}
+            isSelected={parking}
+            isDisabled={isSaving}
+            onChange={setParking}
+          >
             <span>Je demande une place de parking</span>
           </Checkbox>
         )}
-        <Button className="secondary-action" type="submit">
-          Enregistrer mes préférences
+        <Button appearance="secondary" type="submit" isDisabled={isSaving}>
+          {isSaving ? "Enregistrement…" : "Enregistrer mes préférences"}
         </Button>
       </Form>
       {message && (
-        <p className="form-message" role="status">
+        <p className={messageStyles()} role="status">
           {message}
         </p>
       )}
     </section>
   );
+}
+
+function formatJourneyDate(
+  dateTime: string | null | undefined,
+  departureTime: string | null | undefined,
+) {
+  if (!dateTime) return formatDate(departureTime);
+  const date = new Date(dateTime);
+  if (Number.isNaN(date.getTime())) return dateTime;
+  const dateLabel = new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "medium",
+  }).format(date);
+  const timeLabel =
+    departureTime ??
+    new Intl.DateTimeFormat("fr-FR", { timeStyle: "short" }).format(date);
+  return `${dateLabel} · ${timeLabel}`;
 }
