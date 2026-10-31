@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
-      name: vercel-preview
+      name: preview
       url: ${{ steps.deploy.outputs.url }}
     env:
       DEPLOY_KIND: preview
