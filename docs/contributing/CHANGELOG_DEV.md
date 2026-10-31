@@ -130,3 +130,8 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 - Process magic-link requests in the background after a generic acknowledgement, derive cooldowns from an absolute deadline, and clear stale profiles after a 403 response.
 - Test status: `pnpm check` passed; the existing Biome warning for `GITHUB_REPOSITORY_ID` remains.
+
+## 2026-10-31 — Routed traveler interface and participant access — Change
+
+- Add React Router pages with Motion transitions, feature-based UI modules, Lucide React icons, attributed Unsplash photography and responsive reduced-motion styling. Add manager-only participant access status and email login-link actions, with persisted login timestamps and trip-scoped authorization. Resolve Better Auth URLs against its explicit host allowlist so links created from previews return to the same preview; backfill existing login timestamps from stored sessions.
+- Test status: `pnpm check` passed: Biome, workspace TypeScript checks, 42 Vitest tests plus API distribution test, and production builds. Vite splits route features into lazy-loaded chunks; no oversized entry-chunk warning remains.

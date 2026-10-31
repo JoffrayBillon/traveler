@@ -24,6 +24,10 @@ Send passwordless login messages through Brevo's official Node.js SDK over HTTPS
 
 Public code does not imply an open-source license grant; no license has been chosen. Reassess hosting plans if the owner changes from personal use to professional/commercial use.
 
+## 2026-10-31 — Routed traveler interface — Change
+
+Use React Router for direct, bookmarkable trip/account/organizer pages and Motion for route transitions and subtle dashboard movement. Respect reduced-motion preferences. Split page and domain UI into `features/`, shared components, and formatting/type helpers; use React Aria Components for interactive controls and Lucide React for icons. Keep Unsplash imagery remote with photographer attribution. Better Auth resolves each Vercel deployment host dynamically against the configured host allowlist so sign-in links return to the requesting preview. Manager participant access is enforced by trip-scoped API authorization; first-login timestamps are persisted on trip memberships, and fresh sign-in links are sent to the participant's registered email rather than returned to the browser.
+
 ## 2026-10-31 — Traveler operations — Add
 
 Model trip-scoped traveler details, transport legs, private tickets, rooms, assignments and versioned room-change consent. Managers import validated XLSX workbooks idempotently while preserving staff-entered rooming, transport details, roles and tickets. Companions manage rooms and upload tickets; room requests are authorized per trip and applied atomically once each affected person consents. Store tickets in private Vercel Blob and authorize downloads through the API. Keep import and ticket requests under the Vercel Function payload ceiling; the current application limit is 4 MB. Connect a private Blob store to every Vercel environment; Vercel Functions use the store's OIDC credentials, while local development uses `BLOB_READ_WRITE_TOKEN`.

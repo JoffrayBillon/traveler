@@ -6,7 +6,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { magicLink } from "better-auth/plugins";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { drizzle } from "drizzle-orm/libsql";
 import { createDatabaseClient } from "./database";
@@ -35,6 +35,25 @@ function toOrigin(value: string) {
       ? value
       : `https://${value}`;
   return new URL(url).origin;
+}
+
+function toHost(value: string) {
+  const url =
+    value.startsWith("http://") || value.startsWith("https://")
+      ? value
+      : `https://${value}`;
+  return new URL(url).host;
+}
+
+export function isTrustedAuthOrigin(origin: string, env: NodeJS.ProcessEnv) {
+  try {
+    const requestedOrigin = new URL(origin).origin;
+    return [env.BETTER_AUTH_URL, env.VERCEL_URL, env.VERCEL_BRANCH_URL]
+      .filter((value): value is string => Boolean(value?.trim()))
+      .some((value) => toOrigin(value.trim()) === requestedOrigin);
+  } catch {
+    return false;
+  }
 }
 
 function escapeHtml(value: string) {
@@ -112,8 +131,16 @@ export function createAuth(
       : env.VERCEL_URL
         ? `https://${env.VERCEL_URL.trim()}`
         : undefined);
+  const allowedHosts = [
+    env.BETTER_AUTH_URL,
+    env.VERCEL_URL,
+    env.VERCEL_BRANCH_URL,
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .map(toHost);
   const secret = env.BETTER_AUTH_SECRET?.trim();
-  if (!baseURL || !secret || secret.length < 32) {
+  if (!baseURL || allowedHosts.length === 0 || !secret || secret.length < 32) {
     throw new Error("Authentication configuration is incomplete.");
   }
   const trustedOrigins = [
@@ -140,7 +167,11 @@ export function createAuth(
 
   const options: BetterAuthOptions = {
     appName: "Traveler",
-    baseURL,
+    baseURL: {
+      allowedHosts: [...new Set(allowedHosts)],
+      fallback: baseURL,
+      protocol: "auto",
+    },
     secret,
     trustedOrigins: [...new Set(trustedOrigins)],
     database: drizzleAdapter(database, {
@@ -209,12 +240,21 @@ export function createAuth(
       session: {
         create: {
           before: async (session) => {
-            const membership = await database
+            const memberships = await database
               .select({ id: schema.tripMemberships.id })
               .from(schema.tripMemberships)
-              .where(eq(schema.tripMemberships.userId, session.userId))
-              .limit(1);
-            return membership.length > 0;
+              .where(eq(schema.tripMemberships.userId, session.userId));
+            if (memberships.length === 0) return false;
+            await database
+              .update(schema.tripMemberships)
+              .set({ lastLoginAt: new Date() })
+              .where(
+                inArray(
+                  schema.tripMemberships.id,
+                  memberships.map((membership) => membership.id),
+                ),
+              );
+            return true;
           },
         },
       },

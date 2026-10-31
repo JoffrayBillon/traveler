@@ -4,7 +4,7 @@ import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { Hono } from "hono";
 import type { AuthServices } from "./auth";
-import { createAuthServicesProvider } from "./auth";
+import { createAuthServicesProvider, isTrustedAuthOrigin } from "./auth";
 import { createDatabaseProvider } from "./database";
 import {
   parseParticipantWorkbook,
@@ -1223,6 +1223,124 @@ export function createApp(
       );
     return context.json({ travelers });
   });
+
+  app.get("/api/trips/:tripId/participants/access", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const [actor] = await services.database
+      .select({ role: schema.tripMemberships.role })
+      .from(schema.tripMemberships)
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role !== "manager")
+      return context.json({ error: "forbidden" }, 403);
+    const participants = await services.database
+      .select({
+        userId: schema.tripMemberships.userId,
+        firstName: schema.tripMemberships.firstName,
+        lastName: schema.tripMemberships.lastName,
+        email: schema.users.email,
+        role: schema.tripMemberships.role,
+        lastLoginAt: schema.tripMemberships.lastLoginAt,
+      })
+      .from(schema.tripMemberships)
+      .innerJoin(
+        schema.users,
+        eq(schema.tripMemberships.userId, schema.users.id),
+      )
+      .where(eq(schema.tripMemberships.tripId, tripId))
+      .orderBy(
+        schema.tripMemberships.lastName,
+        schema.tripMemberships.firstName,
+      );
+    return context.json({ participants });
+  });
+
+  app.post(
+    "/api/trips/:tripId/participants/:userId/login-link",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      const services = getAuthServices();
+      if (!services) return context.json({ error: "service_unavailable" }, 503);
+      const session = await getSession(services, context.req.raw.headers);
+      if (!session) return context.json({ error: "unauthorized" }, 401);
+      const tripId = context.req.param("tripId");
+      const targetUserId = context.req.param("userId");
+      const [actor] = await services.database
+        .select({ role: schema.tripMemberships.role })
+        .from(schema.tripMemberships)
+        .where(
+          and(
+            eq(schema.tripMemberships.tripId, tripId),
+            eq(schema.tripMemberships.userId, session.user.id),
+          ),
+        )
+        .limit(1);
+      if (!actor) return context.json({ error: "not_found" }, 404);
+      if (actor.role !== "manager")
+        return context.json({ error: "forbidden" }, 403);
+      const [target] = await services.database
+        .select({ email: schema.users.email })
+        .from(schema.tripMemberships)
+        .innerJoin(
+          schema.users,
+          eq(schema.tripMemberships.userId, schema.users.id),
+        )
+        .where(
+          and(
+            eq(schema.tripMemberships.tripId, tripId),
+            eq(schema.tripMemberships.userId, targetUserId),
+          ),
+        )
+        .limit(1);
+      if (!target) return context.json({ error: "not_found" }, 404);
+
+      const configuredAuthOrigin =
+        process.env.BETTER_AUTH_URL?.trim() ||
+        (process.env.VERCEL_BRANCH_URL
+          ? `https://${process.env.VERCEL_BRANCH_URL.trim()}`
+          : process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL.trim()}`
+            : "http://127.0.0.1:5173");
+      const requestOrigin = context.req.header("origin");
+      const authOrigin =
+        requestOrigin && isTrustedAuthOrigin(requestOrigin, process.env)
+          ? new URL(requestOrigin).origin
+          : configuredAuthOrigin;
+      const response = await handleMagicLinkRequest(
+        services,
+        new Request(`${authOrigin}/api/auth/sign-in/magic-link`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Origin: authOrigin },
+          body: JSON.stringify({
+            email: target.email,
+            callbackURL: `/trips/${encodeURIComponent(tripId)}`,
+          }),
+        }),
+      );
+      if (response.status === 429)
+        return context.json(
+          { error: "rate_limited" },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": response.headers.get("Retry-After") ?? "30",
+            },
+          },
+        );
+      return context.json({ status: "accepted" }, 202);
+    },
+  );
 
   app.get("/api/trips/:tripId/participants/template", async (context) => {
     const services = getAuthServices();

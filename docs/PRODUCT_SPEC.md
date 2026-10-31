@@ -6,11 +6,11 @@ This document combines the [original mission](MISSION_ORIGINAL.md) with the owne
 
 Identity is global; membership and role belong to a trip. A person can participate in several trips with different roles. Options, rooms, assignments, tickets and requests belong to one trip and cannot refer to another trip's members or resources.
 
-| Role                         | Rights within that trip                                                                                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `traveler` — voyageur        | View own trip information, tickets, activity and assigned room/roommates; edit eligible carpool/parking preferences; participate in room change requests/consents. |
-| `companion` — accompagnateur | Retain traveler view; process traveler requests; edit participant activity and transport details, upload transport tickets and manage rooming within the trip.     |
-| `manager` — gestionnaire     | Retain companion capabilities; edit the trip name, import participants and appoint companions.                                                                     |
+| Role                         | Rights within that trip                                                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `traveler` — voyageur        | View own trip information, tickets, activity and assigned room/roommates; edit eligible carpool/parking preferences; participate in room change requests/consents.                    |
+| `companion` — accompagnateur | Retain traveler view; process traveler requests; edit participant activity and transport details, upload transport tickets and manage rooming within the trip.                        |
+| `manager` — gestionnaire     | Retain companion capabilities; edit the trip name, import participants, appoint companions, view each member's sign-in history and send a fresh login link to their registered email. |
 
 No public signup. Imported participants receive access using a passwordless email link and a secure persistent session. Importing an email does not establish email verification. Sign-in emails use the sender identity `BotMail <no-reply@joffraybillon.fr>`; verify the sender/domain in Brevo before the first live send. Define initial manager provisioning and recovery before implementing authentication. Participants do not directly edit activity, transport mode, tickets or room assignment. Later, ski day 3 and ski/spa formula changes can be requested and require administrative approval; these forms are outside the initial foundation.
 

@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 beforeEach(() => {
+  window.history.pushState({}, "", "/");
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 401 }));
 });
 
@@ -22,9 +23,9 @@ describe("application shell", () => {
   it("provides a main landmark and a keyboard skip link", async () => {
     const user = userEvent.setup();
     render(<App />);
-    expect(await screen.findByRole("heading", { level: 2 })).toHaveTextContent(
-      "Votre espace vous attend",
-    );
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /La montagne/ }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveAttribute("id", "main");
     await user.tab();
     expect(
@@ -68,7 +69,7 @@ describe("application shell", () => {
     expect(results.violations).toEqual([]);
   });
 
-  it("provides accessible trip and account tabs for a signed-in member", async () => {
+  it("provides route navigation for a signed-in member", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -86,20 +87,18 @@ describe("application shell", () => {
     const { container } = render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
+      await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Mes voyages" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    expect(screen.getByRole("link", { name: "Mes voyages" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    expect(
-      screen.getByRole("heading", { name: "Ski 2027" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ski 2027/ })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Mon compte" }));
-    expect(screen.getByText("manager@example.com")).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Mon compte" }));
+    expect(await screen.findByText("manager@example.com")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Se déconnecter" }),
+      await screen.findByRole("button", { name: "Se déconnecter" }),
     ).toBeInTheDocument();
     const results = await axe.run(container, {
       rules: { "color-contrast": { enabled: false } },
@@ -190,7 +189,10 @@ describe("application shell", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
 
-    await user.click(await screen.findByRole("tab", { name: "Mon voyage" }));
+    await user.click(await screen.findByRole("link", { name: /Ski 2027/ }));
+    await user.click(
+      await screen.findByRole("link", { name: /Outils d’organisation/ }),
+    );
     expect(
       await screen.findByRole("heading", {
         name: "Informations de voyageur et de transport",
@@ -243,10 +245,12 @@ describe("application shell", () => {
     render(<App />);
 
     await user.type(
-      await screen.findByRole("textbox", { name: "Adresse e-mail" }),
+      await screen.findByRole("textbox", { name: "Votre adresse e-mail" }),
       "traveler@example.com",
     );
-    await user.click(screen.getByRole("button", { name: "Recevoir mon lien" }));
+    await user.click(
+      screen.getByRole("button", { name: "Recevoir mon lien de connexion" }),
+    );
 
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/sign-in/magic-link", {
       method: "POST",
@@ -286,10 +290,12 @@ describe("application shell", () => {
     render(<App />);
 
     await user.type(
-      await screen.findByRole("textbox", { name: "Adresse e-mail" }),
+      await screen.findByRole("textbox", { name: "Votre adresse e-mail" }),
       "traveler@example.com",
     );
-    await user.click(screen.getByRole("button", { name: "Recevoir mon lien" }));
+    await user.click(
+      screen.getByRole("button", { name: "Recevoir mon lien de connexion" }),
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "La connexion est momentanément indisponible.",
@@ -313,10 +319,12 @@ describe("application shell", () => {
     render(<App />);
 
     await user.type(
-      await screen.findByRole("textbox", { name: "Adresse e-mail" }),
+      await screen.findByRole("textbox", { name: "Votre adresse e-mail" }),
       "traveler@example.com",
     );
-    await user.click(screen.getByRole("button", { name: "Recevoir mon lien" }));
+    await user.click(
+      screen.getByRole("button", { name: "Recevoir mon lien de connexion" }),
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Trop de demandes. Réessayez dans 45 secondes.",
@@ -343,12 +351,15 @@ describe("application shell", () => {
       await Promise.resolve();
     });
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Adresse e-mail" }), {
-      target: { value: "traveler@example.com" },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Votre adresse e-mail" }),
+      {
+        target: { value: "traveler@example.com" },
+      },
+    );
     fireEvent.submit(
       screen
-        .getByRole("button", { name: "Recevoir mon lien" })
+        .getByRole("button", { name: "Recevoir mon lien de connexion" })
         .closest("form") as HTMLFormElement,
     );
     await act(async () => {
@@ -364,7 +375,7 @@ describe("application shell", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "Recevoir mon lien" }),
+      screen.getByRole("button", { name: "Recevoir mon lien de connexion" }),
     ).toBeEnabled();
   });
 
@@ -392,17 +403,19 @@ describe("application shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
+      await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
     expect(screen.getByText("Gestionnaire")).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Mon compte" }));
-    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+    await user.click(screen.getByRole("link", { name: "Mon compte" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Se déconnecter" }),
+    );
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/sign-out", {
       method: "POST",
     });
     expect(
       await screen.findByRole("heading", {
-        name: "Votre espace vous attend.",
+        name: /La montagne/,
       }),
     ).toBeInTheDocument();
   });
@@ -476,7 +489,7 @@ describe("application shell", () => {
     );
     render(<App />);
 
-    await user.click(await screen.findByRole("tab", { name: "Mon voyage" }));
+    await user.click(await screen.findByRole("link", { name: /Ski 2027/ }));
 
     expect(
       await screen.findByRole("heading", { name: "Votre séjour" }),
@@ -513,13 +526,13 @@ describe("application shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
+      await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
     window.dispatchEvent(new Event("focus"));
 
     expect(
       await screen.findByRole("heading", {
-        name: "Votre espace vous attend.",
+        name: /La montagne/,
       }),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -545,7 +558,7 @@ describe("application shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
+      await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
@@ -553,7 +566,7 @@ describe("application shell", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Votre espace vous attend.",
+        name: /La montagne/,
       }),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -595,17 +608,19 @@ describe("application shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
+      await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
     });
     await waitFor(() => expect(staleJson).toHaveBeenCalledOnce());
-    await user.click(screen.getByRole("tab", { name: "Mon compte" }));
-    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+    await user.click(screen.getByRole("link", { name: "Mon compte" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Se déconnecter" }),
+    );
     expect(
       await screen.findByRole("heading", {
-        name: "Votre espace vous attend.",
+        name: /La montagne/,
       }),
     ).toBeInTheDocument();
 
@@ -616,7 +631,7 @@ describe("application shell", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Votre espace vous attend.",
+        name: /La montagne/,
       }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Gestionnaire")).not.toBeInTheDocument();

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+/* The route-based shell and its feature pages share this small visual system. */
+
 @theme {
   --font-sans: "Avenir Next", Avenir, "Segoe UI", sans-serif;
 }
@@ -1529,5 +1531,813 @@ main {
 
   .member-tabs [role="tab"][aria-selected="true"]::after {
     background: Highlight;
+  }
+}
+
+/* Traveler 1.0 route layouts */
+#main {
+  flex: 1;
+}
+
+.route-stage {
+  min-height: 1px;
+}
+
+.primary-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.primary-nav a,
+.private-label {
+  padding: 0.65rem 0.85rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.primary-nav a:hover,
+.primary-nav a[aria-current="page"] {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.signin-page {
+  display: grid;
+  width: min(100% - 3rem, 1180px);
+  min-height: min(690px, calc(100dvh - 180px));
+  grid-template-columns: minmax(340px, 0.83fr) minmax(0, 1.17fr);
+  gap: clamp(2rem, 7vw, 6.5rem);
+  align-items: center;
+  margin: 2.2rem auto 3rem;
+}
+
+.signin-content {
+  max-width: 470px;
+  padding-block: 2rem;
+}
+
+.signin-page .signin-eyebrow,
+.trips-home .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--forest-bright);
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.signin-page h1,
+.trips-home h1,
+.not-found h1 {
+  margin: 1.2rem 0 0.8rem;
+  color: var(--ink);
+  font-size: clamp(3.2rem, 6.7vw, 5.7rem);
+  font-weight: 720;
+  letter-spacing: -0.075em;
+  line-height: 0.98;
+}
+
+.signin-page h1 span,
+.trips-home h1 span {
+  color: var(--sun);
+}
+
+.signin-intro {
+  max-width: 390px;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.signin-form {
+  display: grid;
+  gap: 1.15rem;
+  margin-top: 2rem;
+}
+
+.signin-form [data-slot="description"] {
+  display: block;
+  margin-top: 0.55rem;
+  color: var(--quiet);
+  font-size: 0.82rem;
+}
+
+.signin-form [data-slot="label"] {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.signin-form input {
+  width: 100%;
+  min-height: 3.45rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.95rem;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.signin-submit,
+.primary-action {
+  display: inline-flex;
+  min-height: 3.35rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1.2rem;
+  border: 0;
+  border-radius: 0.95rem;
+  background: var(--forest-deep);
+  color: #fff;
+  font-weight: 730;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.signin-submit:hover:not([disabled]),
+.primary-action:hover {
+  background: var(--forest-bright);
+}
+
+.signin-submit[disabled] {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+.signin-message {
+  margin-top: 1rem;
+  color: var(--success);
+  line-height: 1.55;
+}
+
+.signin-message.is-error {
+  color: var(--danger);
+}
+
+.signin-privacy {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 1.5rem;
+  color: var(--quiet);
+  font-size: 0.84rem;
+}
+
+.signin-visual {
+  position: relative;
+  min-height: 570px;
+  overflow: hidden;
+  margin: 0;
+  border-radius: 1.6rem;
+  background: #78939c;
+  box-shadow: var(--shadow);
+  isolation: isolate;
+}
+
+.signin-visual > img,
+.dashboard-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.signin-visual > img {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  object-position: center;
+  animation: photo-arrive 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.signin-visual-overlay {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(8 20 18 / 1%) 30%,
+    rgb(8 20 18 / 72%) 100%
+  );
+}
+
+.signin-visual figcaption {
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
+  left: 2rem;
+  display: grid;
+  gap: 0.65rem;
+  color: white;
+}
+
+.visual-kicker {
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.15em;
+}
+
+.visual-title {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+}
+
+.photo-credit,
+.dashboard-photo-credit {
+  font-size: 0.76rem;
+}
+
+.photo-credit {
+  color: rgb(255 255 255 / 80%);
+}
+
+.visual-index {
+  position: absolute;
+  top: 1.8rem;
+  right: 1.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.signin-visual .visual-index > span {
+  width: 3.5rem;
+  height: 1px;
+  background: rgb(255 255 255 / 70%);
+}
+
+.trips-home,
+.trip-page,
+.organizer-workspace,
+.account-page,
+.not-found {
+  width: min(100% - 3rem, 1120px);
+  margin: 3rem auto 5rem;
+}
+
+.dashboard-hero {
+  position: relative;
+  display: flex;
+  min-height: 330px;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: clamp(2rem, 5vw, 4.5rem);
+  border: 1px solid color-mix(in srgb, var(--line), transparent 18%);
+  border-radius: 1.6rem;
+  background: linear-gradient(
+    118deg,
+    var(--surface) 5%,
+    var(--surface-soft) 100%
+  );
+  box-shadow: var(--shadow);
+  isolation: isolate;
+}
+
+.dashboard-hero-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.dashboard-hero h1 {
+  margin-top: 1.2rem;
+  font-size: clamp(2.7rem, 5vw, 4.4rem);
+}
+
+.dashboard-hero-copy > p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.dashboard-count {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 2rem;
+}
+
+.dashboard-count > span:first-child {
+  font-size: 2.4rem;
+  font-weight: 760;
+  letter-spacing: -0.07em;
+}
+
+.dashboard-count > span:last-child {
+  color: var(--muted);
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.45;
+}
+
+.dashboard-photo {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  right: 0;
+  width: 47%;
+  height: 100%;
+  opacity: 0.9;
+  mask-image: linear-gradient(90deg, transparent, #000 34%);
+}
+
+.dashboard-photo img {
+  object-position: center 42%;
+}
+
+.dashboard-photo-credit {
+  margin: 0.55rem 0 2rem;
+  color: var(--quiet);
+  text-align: right;
+}
+
+.dashboard-photo-credit a {
+  color: inherit;
+}
+
+.dashboard-hero-art {
+  display: none;
+}
+
+.trip-list-heading,
+.organizer-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin: 3rem 0 1.3rem;
+}
+
+.trips-home .trip-list-heading h2 {
+  margin: 0.35rem 0 0;
+  font-size: 2rem;
+  letter-spacing: -0.05em;
+}
+
+.trip-list-heading .eyebrow {
+  margin: 0;
+}
+
+.trip-count-pill,
+.role-chip {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.trip-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-card {
+  min-height: 210px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1.2rem;
+  background: var(--surface);
+  box-shadow: 0 16px 45px rgb(29 52 43 / 6%);
+}
+
+.trip-card-link {
+  display: flex;
+  min-height: 210px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.4rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.trip-card-topline,
+.trip-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.trip-icon-badge,
+.organizer-heading-icon,
+.account-avatar {
+  display: grid;
+  width: 2.9rem;
+  height: 2.9rem;
+  place-items: center;
+  border-radius: 1rem;
+  background: var(--surface-soft);
+  color: var(--forest-bright);
+}
+
+.trip-status {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--quiet);
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.trips-home .trip-status > span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #67a779;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #67a779, transparent 82%);
+}
+
+.trip-card-title {
+  margin-block: 1.5rem;
+  font-size: 1.4rem;
+  font-weight: 720;
+  letter-spacing: -0.04em;
+}
+
+.trip-card-open,
+.trip-page-nav,
+.organizer-link,
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.trip-card-open {
+  color: var(--forest-bright);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.dashboard-tip {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  padding: 1.2rem 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  background: var(--surface);
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.dashboard-tip p {
+  margin: 0;
+}
+
+.tip-icon {
+  color: var(--forest-bright);
+}
+
+.trip-page-nav {
+  width: 100%;
+  justify-content: space-between;
+  margin-bottom: 2.5rem;
+}
+
+.back-link,
+.organizer-link {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.back-link:hover,
+.organizer-link:hover {
+  color: var(--forest-bright);
+}
+
+.organizer-heading {
+  align-items: center;
+  justify-content: flex-start;
+  margin-block: 1.5rem 2rem;
+}
+
+.organizer-heading h1,
+.account-page h1,
+.not-found h1 {
+  margin: 0.3rem 0;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  letter-spacing: -0.06em;
+}
+
+.organizer-heading p:last-child {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.account-page > .back-link,
+.trip-page > .trip-page-nav {
+  margin-bottom: 2rem;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.account-avatar {
+  width: 4rem;
+  height: 4rem;
+  flex: 0 0 auto;
+}
+
+.account-details {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr;
+  gap: 0.35rem 1.5rem;
+  flex: 1;
+}
+
+.account-details .eyebrow,
+.account-details h1 {
+  grid-column: 1 / -1;
+  margin: 0 0 0.3rem;
+}
+
+.account-details .eyebrow {
+  font-size: 0.7rem;
+}
+
+.account-details strong {
+  color: var(--ink);
+}
+
+.sign-out-button,
+.secondary-action {
+  display: inline-flex;
+  min-height: 2.8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.sign-out-button:hover,
+.secondary-action:hover:not([disabled]) {
+  background: var(--surface-soft);
+}
+
+.participant-access-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.participant-access-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--surface);
+}
+
+.participant-access-person {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.participant-access-person > span:not(.detail-label) {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.participant-access-person .detail-label {
+  color: var(--quiet);
+  font-size: 0.78rem;
+}
+
+.loading-panel,
+.not-found {
+  display: grid;
+  min-height: 45vh;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.loading-panel p {
+  color: var(--muted);
+}
+
+.loading-mark {
+  display: grid;
+  width: 3.6rem;
+  height: 3.6rem;
+  place-items: center;
+  border-radius: 1.2rem;
+  background: var(--surface-soft);
+  color: var(--forest-bright);
+  animation: mark-breathe 1.8s ease-in-out infinite;
+}
+
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1.25rem 1.7rem;
+  border-top: 1px solid var(--line);
+  color: var(--quiet);
+  font-size: 0.82rem;
+}
+
+@keyframes photo-arrive {
+  from {
+    transform: scale(1.055);
+    opacity: 0.65;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes mark-breathe {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header,
+  .site-footer {
+    width: min(100% - 2rem, 1180px);
+  }
+
+  .site-header {
+    min-height: 74px;
+  }
+
+  .header-actions {
+    gap: 0.55rem;
+  }
+
+  .primary-nav {
+    gap: 0;
+  }
+
+  .primary-nav a {
+    padding-inline: 0.55rem;
+    font-size: 0.8rem;
+  }
+
+  .signin-page {
+    width: min(100% - 2rem, 560px);
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-block: 1rem 2rem;
+  }
+
+  .signin-content {
+    padding-block: 1rem;
+  }
+
+  .signin-visual {
+    min-height: 330px;
+    grid-row: 1;
+  }
+
+  .signin-page h1 {
+    font-size: clamp(3rem, 12vw, 4.6rem);
+  }
+
+  .trips-home,
+  .trip-page,
+  .organizer-workspace,
+  .account-page,
+  .not-found {
+    width: min(100% - 2rem, 1120px);
+    margin-block: 1.5rem 3rem;
+  }
+
+  .dashboard-hero {
+    min-height: 300px;
+    padding: 1.7rem;
+  }
+
+  .dashboard-photo {
+    width: 72%;
+    opacity: 0.42;
+    mask-image: linear-gradient(90deg, transparent, #000 65%);
+  }
+
+  .dashboard-hero h1 {
+    font-size: clamp(2.5rem, 10vw, 3.6rem);
+  }
+
+  .account-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .account-details {
+    min-width: calc(100% - 6rem);
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .account-details .detail-label:not(:first-child) {
+    margin-top: 0.6rem;
+  }
+
+  .sign-out-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-word {
+    font-size: 1.25rem;
+  }
+
+  .brand-mark {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .theme-toggle {
+    min-height: 40px;
+    padding-inline: 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .private-label {
+    padding-inline: 0.45rem;
+    font-size: 0.75rem;
+  }
+
+  .trip-page-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .trip-list-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-top: 2rem;
+  }
+
+  .participant-access-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .site-footer {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .signin-visual > img,
+  .loading-mark {
+    animation: none;
   }
 }

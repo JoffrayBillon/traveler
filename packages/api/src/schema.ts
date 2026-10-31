@@ -122,6 +122,7 @@ export const tripMemberships = sqliteTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     gender: text("gender", { enum: ["M", "F"] }),
+    lastLoginAt: integer("last_login_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     uniqueIndex("trip_memberships_trip_user_unique").on(

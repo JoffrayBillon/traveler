@@ -79,6 +79,7 @@ async function flushBackgroundTasks(tasks: Promise<unknown>[]) {
 }
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
@@ -134,6 +135,120 @@ describe("invite-only magic-link authentication", () => {
     });
     expect(payload.htmlContent).toContain("href=");
     expect(payload.textContent).toContain("http://127.0.0.1:5173");
+  });
+
+  it("lets managers track first sign-in and send a participant a fresh login link", async () => {
+    vi.stubEnv("BETTER_AUTH_URL", authEnv.BETTER_AUTH_URL as string);
+    vi.stubEnv("VERCEL_URL", "traveler-preview.example.com");
+    vi.stubEnv("VERCEL_BRANCH_URL", "");
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
+    const previewEnv = {
+      ...authEnv,
+      VERCEL_URL: "traveler-preview.example.com",
+    } as NodeJS.ProcessEnv;
+    const services = await createTestServices(sendEmail, previewEnv);
+    const trip = await createTripsStore(services.database).create("Ski 2027");
+    const manager = await createManagersStore(services.database).create({
+      tripId: trip.id,
+      email: "manager@example.com",
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+    const participantId = "participant-not-logged-in";
+    const now = new Date();
+    await services.database.insert(schema.users).values({
+      id: participantId,
+      name: "Noé Participant",
+      email: "participant@example.com",
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await services.database.insert(schema.tripMemberships).values({
+      id: "participant-membership",
+      tripId: trip.id,
+      userId: participantId,
+      role: "traveler",
+      firstName: "Noé",
+      lastName: "Participant",
+      gender: "M",
+    });
+    const app = createApp(
+      () => services.client,
+      () => services,
+    );
+    await app.request("/api/auth/sign-in/magic-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: authEnv.BETTER_AUTH_URL as string,
+      },
+      body: JSON.stringify({ email: manager.email, callbackURL: "/" }),
+    });
+    await flushBackgroundTasks(services.backgroundTasks);
+    const managerSession = await app.request(
+      sendEmail.mock.calls.at(-1)?.[1] as string,
+    );
+    const managerCookie = managerSession.headers
+      .get("set-cookie")
+      ?.split(";")[0] as string;
+
+    const managerList = await app.request(
+      `/api/trips/${trip.id}/participants/access`,
+      { headers: { Cookie: managerCookie } },
+    );
+    expect(managerList.status).toBe(200);
+    expect(await managerList.json()).toMatchObject({
+      participants: expect.arrayContaining([
+        expect.objectContaining({
+          userId: participantId,
+          email: "participant@example.com",
+          lastLoginAt: null,
+        }),
+      ]),
+    });
+
+    const sendLink = await app.request(
+      `/api/trips/${trip.id}/participants/${participantId}/login-link`,
+      {
+        method: "POST",
+        headers: {
+          Cookie: managerCookie,
+          Origin: "https://traveler-preview.example.com",
+        },
+      },
+    );
+    expect(sendLink.status).toBe(202);
+    await flushBackgroundTasks(services.backgroundTasks);
+    expect(sendEmail.mock.calls.at(-1)?.[0]).toBe("participant@example.com");
+    expect(sendEmail.mock.calls.at(-1)?.[1]).toContain(
+      "https://traveler-preview.example.com",
+    );
+
+    const participantSession = await app.request(
+      sendEmail.mock.calls.at(-1)?.[1] as string,
+    );
+    const participantCookie = participantSession.headers
+      .get("set-cookie")
+      ?.split(";")[0] as string;
+    const participantList = await app.request(
+      `/api/trips/${trip.id}/participants/access`,
+      { headers: { Cookie: participantCookie } },
+    );
+    expect(participantList.status).toBe(403);
+
+    const refreshedList = await app.request(
+      `/api/trips/${trip.id}/participants/access`,
+      { headers: { Cookie: managerCookie } },
+    );
+    expect(await refreshedList.json()).toMatchObject({
+      participants: expect.arrayContaining([
+        expect.objectContaining({
+          userId: participantId,
+          lastLoginAt: expect.any(String),
+        }),
+      ]),
+    });
   });
 
   it("stores staff trip details and exposes them only inside that trip", async () => {
