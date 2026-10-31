@@ -4,8 +4,8 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 ## 2026-10-31 — Database deployments — Add
 
-- Details/impact: run pending Drizzle migrations from Vercel's build command after the application build and before publish, for production and the `dev` Preview branch. Keep GitHub checks secretless and keep feature previews without database variables from migrating. Enable Vercel Git auto-deployments for `main` while retaining controlled GitHub workflows for `dev` and feature previews. Document migration history, serialization and backward-compatible schema requirements.
-- Test status: workflow changes reviewed; automated checks not run locally. GitHub CI will validate the workflow on the PR.
+- Details/impact: make GitHub Actions the only deployment trigger. After successful `main` CI, deploy that exact commit to Vercel Production; keep the checked `dev` deployment and manual feature previews, and publish their URLs to GitHub deployment environments. Disable Vercel automatic Git deployments. Vercel continues to build and apply pending Drizzle migrations before publishing production and `dev`; feature previews without database credentials skip migration. Document migration history, serialization and backward-compatible schema requirements.
+- Test status: implementation pending PR CI and Vercel Preview validation; no production deployment or database migration was run during this change.
 
 ## 2026-10-31 — Authentication and traveler shell — Fix
 
