@@ -15,9 +15,6 @@ if (!name) {
   const client = createDatabaseClient();
 
   if (!client) {
-    console.error(
-      "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN before creating a trip.",
-    );
     process.exitCode = 1;
   } else {
     try {

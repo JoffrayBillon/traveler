@@ -2,6 +2,11 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — Environment configuration — Centralized validation
+
+- Details/impact: use T3 Env and Zod to validate API and database profiles, aggregate missing and invalid settings without printing values, and report local Blob setup as an optional capability warning. Add `pnpm env:check` for local and deployment diagnosis.
+- Test status: `pnpm lint`, `pnpm typecheck` and the API suite (36 Vitest tests plus distribution test) passed. Running the CLI directly was blocked in this host by `tsx` calling `os.userInfo()` and receiving `uv_os_get_passwd: ENOMEM`; validation profiles are covered by unit tests.
+
 ## 2026-10-31 — Node runtime — Upgrade
 
 - Details/impact: set the local and CI runtime to Node 26.13.0 LTS and declare `26.x` in both the monorepo and Vercel app manifests; GitHub Actions `setup-node` downloads the version when it is absent from the runner cache.

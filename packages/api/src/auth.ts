@@ -9,7 +9,14 @@ import { magicLink } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { drizzle } from "drizzle-orm/libsql";
-import { createDatabaseClient } from "./database";
+import { createDatabaseClientFromConfiguration } from "./database";
+import {
+  type ApiEnvironment,
+  EnvironmentValidationError,
+  formatEnvironmentReport,
+  getEnvironmentWarnings,
+  validateEnvironment,
+} from "./environment";
 import * as schema from "./schema";
 
 export type AppDatabase = LibSQLDatabase<typeof schema>;
@@ -72,7 +79,10 @@ function escapeHtml(value: string) {
 async function sendLoginLink(
   email: string,
   url: string,
-  env: NodeJS.ProcessEnv,
+  env: {
+    BREVO_API_KEY?: string;
+    BREVO_SENDER_EMAIL?: string;
+  },
 ) {
   const apiKey = env.BREVO_API_KEY?.trim();
   const senderEmail = env.BREVO_SENDER_EMAIL?.trim();
@@ -115,37 +125,35 @@ export function createAuth(
   env: NodeJS.ProcessEnv,
   sendEmail?: MagicLinkSender,
 ): Auth<BetterAuthOptions> {
-  if (
-    !sendEmail &&
-    (!env.BREVO_API_KEY?.trim() || !env.BREVO_SENDER_EMAIL?.trim())
-  ) {
-    throw new Error("Authentication email delivery is not configured.");
-  }
+  const authEnvironment = validateEnvironment(
+    sendEmail ? "auth-injected" : "auth",
+    env,
+  );
   const deliverLoginLink: MagicLinkSender =
-    sendEmail ?? ((email, url) => sendLoginLink(email, url, env));
+    sendEmail ?? ((email, url) => sendLoginLink(email, url, authEnvironment));
   const baseURL =
-    env.BETTER_AUTH_URL?.trim() ||
-    (env.VERCEL_BRANCH_URL
-      ? `https://${env.VERCEL_BRANCH_URL.trim()}`
-      : env.VERCEL_URL
-        ? `https://${env.VERCEL_URL.trim()}`
+    authEnvironment.BETTER_AUTH_URL?.trim() ||
+    (authEnvironment.VERCEL_BRANCH_URL
+      ? `https://${authEnvironment.VERCEL_BRANCH_URL.trim()}`
+      : authEnvironment.VERCEL_URL
+        ? `https://${authEnvironment.VERCEL_URL.trim()}`
         : undefined);
   const allowedHosts = [
-    env.BETTER_AUTH_URL,
-    env.VERCEL_URL,
-    env.VERCEL_BRANCH_URL,
+    authEnvironment.BETTER_AUTH_URL,
+    authEnvironment.VERCEL_URL,
+    authEnvironment.VERCEL_BRANCH_URL,
   ]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
     .map(toHost);
-  const secret = env.BETTER_AUTH_SECRET?.trim();
-  if (!baseURL || allowedHosts.length === 0 || !secret || secret.length < 32) {
-    throw new Error("Authentication configuration is incomplete.");
+  const secret = authEnvironment.BETTER_AUTH_SECRET.trim();
+  if (!baseURL || allowedHosts.length === 0 || !secret) {
+    throw new Error("Validated authentication configuration is incomplete.");
   }
   const trustedOrigins = [
-    env.BETTER_AUTH_URL,
-    env.VERCEL_URL,
-    env.VERCEL_BRANCH_URL,
+    authEnvironment.BETTER_AUTH_URL,
+    authEnvironment.VERCEL_URL,
+    authEnvironment.VERCEL_BRANCH_URL,
   ]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
@@ -269,14 +277,29 @@ export function createAuthServicesProvider(
   return () => {
     if (initialized) return services;
     initialized = true;
-    const client = createDatabaseClient(env);
-    if (
-      !client ||
-      !env.BETTER_AUTH_SECRET?.trim() ||
-      !(env.BETTER_AUTH_URL?.trim() || env.VERCEL_URL?.trim())
-    ) {
+    let configuration: ApiEnvironment;
+    try {
+      configuration = validateEnvironment("api", env);
+    } catch (error) {
+      if (error instanceof EnvironmentValidationError) {
+        console.error(formatEnvironmentReport(error.profile, error.issues));
+      } else {
+        console.error("Could not validate the application environment.");
+      }
       return undefined;
     }
+    const warnings = getEnvironmentWarnings("api", env);
+    if (warnings.length) {
+      console.warn(
+        formatEnvironmentReport(
+          "api",
+          warnings,
+          "Optional environment variables are not configured",
+        ),
+      );
+    }
+    const client = createDatabaseClientFromConfiguration(configuration);
+    if (!client) return undefined;
     try {
       const database = drizzle({ client, schema });
       services = {
@@ -285,7 +308,15 @@ export function createAuthServicesProvider(
         scheduleBackgroundTask,
       };
       return services;
-    } catch {
+    } catch (error) {
+      if (error instanceof EnvironmentValidationError) {
+        console.error(formatEnvironmentReport(error.profile, error.issues));
+      } else {
+        console.error(
+          "Could not initialize authentication services.",
+          error instanceof Error ? error.name : "UnknownError",
+        );
+      }
       return undefined;
     }
   };

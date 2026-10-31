@@ -66,6 +66,7 @@ describe("API boundaries", () => {
 
 describe("Turso configuration", () => {
   it("does not create a client when either credential is missing", () => {
+    const report = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(createDatabaseProvider({})()).toBeUndefined();
     expect(
       createDatabaseProvider({ TURSO_DATABASE_URL: "libsql://dev.turso.io" })(),
@@ -76,6 +77,10 @@ describe("Turso configuration", () => {
         TURSO_AUTH_TOKEN: "development-token",
       })(),
     ).toBeUndefined();
+    expect(report).toHaveBeenCalledTimes(3);
+    expect(report.mock.calls[0]?.[0]).toContain("TURSO_DATABASE_URL");
+    expect(report.mock.calls[0]?.[0]).toContain("TURSO_AUTH_TOKEN");
+    report.mockRestore();
   });
 
   it("creates the client lazily and reuses it", () => {

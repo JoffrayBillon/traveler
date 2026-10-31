@@ -12,7 +12,8 @@
     "test": "turbo run test",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "env:check": "pnpm --filter @traveler/api env:check"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",

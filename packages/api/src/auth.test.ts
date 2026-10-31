@@ -6,7 +6,8 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
-import { createAuth } from "./auth";
+import { createAuth, createAuthServicesProvider } from "./auth";
+import { EnvironmentValidationError } from "./environment";
 import { createManagersStore } from "./managers";
 import * as schema from "./schema";
 import { createTripsStore } from "./trips";
@@ -81,11 +82,34 @@ afterEach(async () => {
 });
 
 describe("invite-only magic-link authentication", () => {
+  it("reports every missing API setting once when services initialize", () => {
+    const report = vi.spyOn(console, "error").mockImplementation(() => {});
+    const getServices = createAuthServicesProvider({});
+
+    expect(getServices()).toBeUndefined();
+    expect(getServices()).toBeUndefined();
+    expect(report).toHaveBeenCalledOnce();
+    expect(report.mock.calls[0]?.[0]).toContain("TURSO_DATABASE_URL");
+    expect(report.mock.calls[0]?.[0]).toContain("BETTER_AUTH_SECRET");
+    expect(report.mock.calls[0]?.[0]).toContain("BREVO_API_KEY");
+    expect(report.mock.calls[0]?.[0]).toContain("BREVO_SENDER_EMAIL");
+    report.mockRestore();
+  });
+
   it("requires Brevo configuration when using its default email sender", async () => {
     const services = await createTestServices(vi.fn());
-    expect(() => createAuth(services.database, authEnv)).toThrow(
-      "Authentication email delivery is not configured.",
-    );
+    try {
+      createAuth(services.database, authEnv);
+      expect.fail("Expected missing Brevo variables to be rejected.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(EnvironmentValidationError);
+      expect((error as EnvironmentValidationError).issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ variable: "BREVO_API_KEY" }),
+          expect.objectContaining({ variable: "BREVO_SENDER_EMAIL" }),
+        ]),
+      );
+    }
   });
 
   it("sends the default login email through Brevo with the expected content", async () => {

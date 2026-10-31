@@ -6,9 +6,6 @@ import { createTripsStore } from "./trips";
 const client = createDatabaseClient();
 
 if (!client) {
-  console.error(
-    "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN before listing trips.",
-  );
   process.exitCode = 1;
 } else {
   try {
