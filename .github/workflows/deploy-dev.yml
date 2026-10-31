@@ -45,36 +45,15 @@ jobs:
       GITHUB_REPOSITORY_ID: ${{ github.event.repository.id }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      VERCEL_CLI_VERSION: 65.2.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          path: source
-          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version-file: source/.node-version
+          node-version-file: .node-version
           package-manager-cache: false
-      - name: Install pinned migration tools
-        run: npm install --global pnpm@11.25.0 "vercel@$VERCEL_CLI_VERSION"
-      - name: Install tested dependencies
-        run: pnpm install --frozen-lockfile
-        working-directory: source
-      - name: Link Vercel project
-        run: vercel link --yes --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_ORG_ID"
-        working-directory: source
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      - name: Apply pending dev database migrations
-        run: vercel env run --environment=preview --git-branch=dev -- pnpm --filter @traveler/api db:migrate
-        working-directory: source
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       - name: Deploy the tested dev commit
         id: deploy
         run: node .github/scripts/deploy-vercel-git-ref.mjs

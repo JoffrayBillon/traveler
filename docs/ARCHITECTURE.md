@@ -6,7 +6,7 @@ Accepted by the owner: a small Turborepo using pnpm; React 19, Vite, Tailwind an
 
 Two workspaces carry actual code: `apps/web` and `packages/api`. React Aria controls live in the web app until sharing warrants a UI package. The API package emits native JavaScript/declarations before the web build so Vercel can trace its runtime export. No empty database/domain/design-system package, microservice or generic workflow engine is introduced.
 
-The foundation now includes a lazy Turso/libSQL client, a read-only readiness probe, and the first minimal `trips` table (`id`, `name`) managed by checked-in Drizzle SQL migrations. Application startup never applies migrations. Dedicated deployment workflows apply pending migrations to the dev database before its deployment and to production before staging a production deployment; feature previews have no database configured and do not migrate. No secret, participant fixture or real trip record is committed.
+The foundation now includes a lazy Turso/libSQL client, a read-only readiness probe, and checked-in Drizzle SQL migrations. Application startup never applies migrations. The Vercel build command applies pending migrations for the production environment and the `dev` Preview branch after the application build succeeds and before the deployment is published. Feature previews skip migrations until they have a database configured. Vercel Git deployments are enabled only for `main`; `dev` and feature branches use the controlled GitHub workflows. No secret, participant fixture or real trip record is committed.
 
 ## 2026-10-27 — Trip persistence foundation
 
