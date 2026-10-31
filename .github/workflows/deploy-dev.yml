@@ -1,8 +1,10 @@
 name: Deploy dev after CI
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
     branches: [dev]
+    types: [completed]
 
 permissions:
   contents: read
@@ -13,23 +15,18 @@ concurrency:
 
 jobs:
   check:
-    name: Quality checks
+    name: Verify successful CI
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'dev' &&
+      github.event.workflow_run.repository.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .node-version
-          package-manager-cache: false
-      - name: Install pinned package manager
-        run: npm install --global pnpm@11.25.0
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Check code and build
-        run: pnpm check
+      - name: Confirm tested commit
+        run: echo "CI passed for $DEPLOY_SHA"
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
   migrate:
     name: Apply dev database migrations
@@ -44,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -76,14 +73,14 @@ jobs:
     env:
       DEPLOY_KIND: development
       DEPLOY_REF: dev
-      DEPLOY_SHA: ${{ github.sha }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
       GITHUB_REPOSITORY_ID: ${{ github.event.repository.id }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: main
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

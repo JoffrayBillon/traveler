@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
   Button,
   Form,
@@ -12,6 +12,9 @@ import {
 const SIGN_IN_COOLDOWN_SECONDS = 30;
 
 export function App() {
+  const profileRequestId = useRef(0);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const [isDark, setIsDark] = useState(false);
   const [profile, setProfile] = useState<TravelerProfile | null>(null);
   const [profileStatus, setProfileStatus] = useState<
@@ -19,38 +22,58 @@ export function App() {
   >("checking");
   const [email, setEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const [message, setMessage] = useState("");
   const [hasError, setHasError] = useState(false);
   const [profileError, setProfileError] = useState("");
 
   useEffect(() => {
-    if (cooldownSeconds === 0) return;
-    const timer = window.setTimeout(() => {
-      setCooldownSeconds((seconds) => Math.max(0, seconds - 1));
-    }, 1000);
-    return () => window.clearTimeout(timer);
-  }, [cooldownSeconds]);
+    if (cooldownUntil === 0) return;
+    function refreshCooldown() {
+      const timestamp = Date.now();
+      setNow(timestamp);
+      if (timestamp >= cooldownUntil) setCooldownUntil(0);
+    }
+    const timer = window.setInterval(refreshCooldown, 1000);
+    window.addEventListener("focus", refreshCooldown);
+    document.addEventListener("visibilitychange", refreshCooldown);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshCooldown);
+      document.removeEventListener("visibilitychange", refreshCooldown);
+    };
+  }, [cooldownUntil]);
+
+  function startCooldown(seconds: number) {
+    setNow(Date.now());
+    setCooldownUntil(Date.now() + seconds * 1000);
+  }
 
   useEffect(() => {
     let active = true;
-    let requestId = 0;
     async function refreshProfile() {
-      const currentRequest = ++requestId;
+      const currentRequest = ++profileRequestId.current;
       try {
         const response = await fetch("/api/me", { cache: "no-store" });
-        if (!active || currentRequest !== requestId) return;
+        if (!active || currentRequest !== profileRequestId.current) return;
         if (response.status === 401) {
+          setProfile(null);
+          setProfileStatus("ready");
+          return;
+        }
+        if (response.status === 403) {
           setProfile(null);
           setProfileStatus("ready");
           return;
         }
         if (!response.ok)
           throw new Error("The traveler profile could not be loaded.");
-        setProfile((await response.json()) as TravelerProfile);
+        const nextProfile = (await response.json()) as TravelerProfile;
+        if (!active || currentRequest !== profileRequestId.current) return;
+        setProfile(nextProfile);
         setProfileStatus("ready");
       } catch {
-        if (active && currentRequest === requestId)
+        if (active && currentRequest === profileRequestId.current)
           setProfileStatus("unavailable");
       }
     }
@@ -89,18 +112,18 @@ export function App() {
         );
         const seconds =
           Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
-        setCooldownSeconds(seconds);
+        startCooldown(seconds);
         setHasError(true);
         setMessage(`Trop de demandes. Réessayez dans ${seconds} secondes.`);
         return;
       }
       if (!response.ok) throw new Error("The sign-in service is unavailable.");
-      setCooldownSeconds(SIGN_IN_COOLDOWN_SECONDS);
+      startCooldown(SIGN_IN_COOLDOWN_SECONDS);
       setMessage(
         "Si cette adresse est autorisée, un lien de connexion vient d’être envoyé.",
       );
     } catch {
-      setCooldownSeconds(SIGN_IN_COOLDOWN_SECONDS);
+      startCooldown(SIGN_IN_COOLDOWN_SECONDS);
       setHasError(true);
       setMessage(
         "La connexion est momentanément indisponible. Réessayez plus tard.",
@@ -115,6 +138,7 @@ export function App() {
     try {
       const response = await fetch("/api/auth/sign-out", { method: "POST" });
       if (!response.ok) throw new Error("Sign-out failed.");
+      profileRequestId.current += 1;
       setProfile(null);
       setProfileStatus("ready");
     } catch {

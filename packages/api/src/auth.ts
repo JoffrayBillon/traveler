@@ -16,11 +16,12 @@ export type AppDatabase = LibSQLDatabase<typeof schema>;
 export type AuthServices = {
   auth: Auth<BetterAuthOptions>;
   database: AppDatabase;
+  scheduleBackgroundTask: BackgroundTaskScheduler;
 };
 export type MagicLinkSender = (email: string, url: string) => Promise<void>;
-export type BackgroundTaskScheduler = (task: Promise<void>) => void;
+export type BackgroundTaskScheduler = (task: Promise<unknown>) => void;
 
-function scheduleBackgroundTask(task: Promise<void>) {
+function scheduleBackgroundTask(task: Promise<unknown>) {
   if (process.env.VERCEL) {
     waitUntil(task);
   } else {
@@ -221,7 +222,11 @@ export function createAuthServicesProvider(
     }
     try {
       const database = drizzle({ client, schema });
-      services = { auth: createAuth(database, env), database };
+      services = {
+        auth: createAuth(database, env, undefined, scheduleBackgroundTask),
+        database,
+        scheduleBackgroundTask,
+      };
       return services;
     } catch {
       return undefined;

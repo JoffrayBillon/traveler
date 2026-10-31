@@ -35,15 +35,22 @@ async function createTestServices(
       if (statement.trim()) await client.execute(statement);
     }
   }
-  const backgroundTasks: Promise<void>[] = [];
+  const backgroundTasks: Promise<unknown>[] = [];
   return {
     client,
     database,
     backgroundTasks,
+    scheduleBackgroundTask: (task: Promise<unknown>) => {
+      backgroundTasks.push(task);
+    },
     auth: createAuth(database, authEnv, sendEmail, (task) => {
       backgroundTasks.push(task);
     }),
   };
+}
+
+async function flushBackgroundTasks(tasks: Promise<unknown>[]) {
+  while (tasks.length > 0) await Promise.all(tasks.splice(0));
 }
 
 afterEach(async () => {
@@ -71,6 +78,7 @@ describe("invite-only magic-link authentication", () => {
     const unknownResponse = await requestLink("unknown@example.com");
     expect(unknownResponse.status).toBe(200);
     expect(await unknownResponse.json()).toEqual({ status: "accepted" });
+    await flushBackgroundTasks(services.backgroundTasks);
     expect(sendEmail).not.toHaveBeenCalled();
     expect(
       await services.database.select().from(schema.verifications),
@@ -87,9 +95,10 @@ describe("invite-only magic-link authentication", () => {
     const invitedResponse = await requestLink("MANAGER@example.com");
     expect(invitedResponse.status).toBe(200);
     expect(await invitedResponse.json()).toEqual({ status: "accepted" });
+    expect(sendEmail).not.toHaveBeenCalled();
+    await flushBackgroundTasks(services.backgroundTasks);
     expect(sendEmail).toHaveBeenCalledOnce();
     expect(sendEmail.mock.calls[0]?.[0]).toBe("manager@example.com");
-    await Promise.all(services.backgroundTasks);
 
     const magicLink = new URL(sendEmail.mock.calls[0]?.[1] ?? "");
     const verificationResponse = await app.request(magicLink.href);
@@ -164,7 +173,7 @@ describe("invite-only magic-link authentication", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "accepted" });
-    await Promise.all(services.backgroundTasks);
+    await flushBackgroundTasks(services.backgroundTasks);
     expect(logError).toHaveBeenCalledWith(
       "Magic link email delivery failed.",
       "Error",
@@ -197,6 +206,7 @@ describe("invite-only magic-link authentication", () => {
     const firstResponse = await requestLink();
     expect(firstResponse.status).toBe(200);
     expect(await firstResponse.json()).toEqual({ status: "accepted" });
+    await flushBackgroundTasks(services.backgroundTasks);
 
     const secondResponse = await requestLink();
     expect(secondResponse.status).toBe(429);

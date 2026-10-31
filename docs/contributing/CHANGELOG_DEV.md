@@ -80,3 +80,8 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 - Separate quality checks, migration and deployment into dependent jobs for `dev`; keep Production migration/deploy steps in one protected job so one approval gates both, and reject stale or non-push production CI runs.
 - Test status: pending workflow checks.
+
+## 2026-10-31 — Authentication response privacy — Fix
+
+- Process magic-link requests in the background after a generic acknowledgement, derive cooldowns from an absolute deadline, and clear stale profiles after a 403 response.
+- Test status: `pnpm check` passed; the existing Biome warning for `GITHUB_REPOSITORY_ID` remains.

@@ -116,21 +116,32 @@ async function handleMagicLinkRequest(
     }
   }
 
-  const response = await services.auth.handler(normalized.request);
-  if (response.status === 429) {
-    return Response.json(
-      { error: "rate_limited" },
-      {
-        status: 429,
-        headers: {
-          "Cache-Control": "no-store",
-          "Retry-After": response.headers.get("X-Retry-After") ?? "60",
-        },
-      },
+  try {
+    const task = Promise.resolve()
+      .then(() => services.auth.handler(normalized.request))
+      .then((response) => {
+        if (response.status >= 500) {
+          console.error(
+            "Magic link request processing failed.",
+            response.status,
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        console.error(
+          "Magic link request processing failed.",
+          error instanceof Error ? error.name : "UnknownError",
+        );
+      });
+    services.scheduleBackgroundTask(task);
+  } catch (error) {
+    console.error(
+      "Magic link request processing failed.",
+      error instanceof Error ? error.name : "UnknownError",
     );
   }
 
-  // Keep the public acknowledgement the same for invited and unknown addresses.
+  // Acknowledge before account lookup so membership cannot be inferred by timing.
   return Response.json(
     { status: "accepted" },
     {

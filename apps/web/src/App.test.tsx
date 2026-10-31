@@ -1,11 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 401 }));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("application shell", () => {
@@ -149,6 +153,48 @@ describe("application shell", () => {
     ).toBeDisabled();
   });
 
+  it("re-enables sign-in based on elapsed time when the tab regains focus", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockImplementation((url: string) =>
+          Promise.resolve(
+            url === "/api/me" ? { status: 401 } : { ok: true, status: 200 },
+          ),
+        ),
+    );
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Adresse e-mail" }), {
+      target: { value: "traveler@example.com" },
+    });
+    fireEvent.submit(
+      screen
+        .getByRole("button", { name: "Recevoir un lien de connexion" })
+        .closest("form") as HTMLFormElement,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByRole("button", { name: "Réessayez dans 30 s" }),
+    ).toBeDisabled();
+
+    await act(async () => {
+      vi.setSystemTime(Date.now() + 31_000);
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Recevoir un lien de connexion" }),
+    ).toBeEnabled();
+  });
+
   it("shows only the signed-in member's trips and supports signing out", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockImplementation((url: string) =>
@@ -217,5 +263,105 @@ describe("application shell", () => {
       }),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears the profile when the session has no trip membership", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          user: {
+            id: "user-1",
+            name: "Mina Manager",
+            email: "manager@example.com",
+          },
+          trips: [{ tripId: "trip-1", tripName: "Ski 2027", role: "manager" }],
+        }),
+      })
+      .mockResolvedValueOnce({ status: 403 });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
+    ).toBeInTheDocument();
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Retrouvez votre espace voyage.",
+      }),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not restore a stale profile response after signing out", async () => {
+    const user = userEvent.setup();
+    let resolveStaleProfile!: (value: {
+      ok: boolean;
+      status: number;
+      json: () => Promise<{
+        user: { id: string; name: string; email: string };
+        trips: { tripId: string; tripName: string; role: "manager" }[];
+      }>;
+    }) => void;
+    const staleProfileResponse = new Promise<{
+      ok: boolean;
+      status: number;
+      json: () => Promise<{
+        user: { id: string; name: string; email: string };
+        trips: { tripId: string; tripName: string; role: "manager" }[];
+      }>;
+    }>((resolve) => {
+      resolveStaleProfile = resolve;
+    });
+    const profile = {
+      user: {
+        id: "user-1",
+        name: "Mina Manager",
+        email: "manager@example.com",
+      },
+      trips: [
+        { tripId: "trip-1", tripName: "Ski 2027", role: "manager" as const },
+      ],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => profile,
+      })
+      .mockReturnValueOnce(staleProfileResponse)
+      .mockResolvedValueOnce({ ok: true, status: 200 });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Bonjour Mina Manager." }),
+    ).toBeInTheDocument();
+    window.dispatchEvent(new Event("focus"));
+    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Retrouvez votre espace voyage.",
+      }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      resolveStaleProfile({ ok: true, status: 200, json: async () => profile });
+      await staleProfileResponse;
+    });
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Retrouvez votre espace voyage.",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Gestionnaire")).not.toBeInTheDocument();
   });
 });
