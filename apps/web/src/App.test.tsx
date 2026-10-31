@@ -107,6 +107,129 @@ describe("application shell", () => {
     expect(results.violations).toEqual([]);
   });
 
+  it("lets companions save transport details for a participant", async () => {
+    const user = userEvent.setup();
+    const travelerDetails = {
+      activityProfile: "ski",
+      skiDayThree: false,
+      transportMode: "train",
+      departureCity: null,
+      outboundDateTime: null,
+      outboundTimezone: null,
+      outboundMeetingTime: null,
+      outboundDepartureTime: null,
+      outboundLocation: null,
+      outboundReference: null,
+      outboundSeat: null,
+      returnDateTime: null,
+      returnTimezone: null,
+      returnMeetingTime: null,
+      returnDepartureTime: null,
+      returnLocation: null,
+      returnReference: null,
+      returnSeat: null,
+      carpoolPreference: null,
+      parkingPreference: null,
+    };
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/me")
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            user: {
+              id: "staff-1",
+              name: "Léa Staff",
+              email: "staff@example.com",
+            },
+            trips: [
+              { tripId: "trip-1", tripName: "Ski 2027", role: "companion" },
+            ],
+          }),
+        });
+      if (url.endsWith("/traveler"))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            trip: { id: "trip-1", name: "Ski 2027" },
+            traveler: {
+              firstName: "Léa",
+              lastName: "Staff",
+              gender: "F",
+              role: "companion",
+            },
+            details: travelerDetails,
+            tickets: [],
+          }),
+        });
+      if (url.endsWith("/rooms"))
+        return Promise.resolve({ ok: true, json: async () => ({ rooms: [] }) });
+      if (url.endsWith("/room-requests"))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ requests: [] }),
+        });
+      if (url.endsWith("/travelers"))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            travelers: [
+              {
+                userId: "traveler-1",
+                firstName: "Alex",
+                lastName: "Voyageur",
+                email: "alex@example.com",
+                role: "traveler",
+                ...travelerDetails,
+              },
+            ],
+          }),
+        });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    await user.click(await screen.findByRole("tab", { name: "Mon voyage" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Informations de voyageur et de transport",
+      }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /Voyageur à mettre à jour/ }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: /Alex Voyageur/ }),
+    );
+    await user.type(
+      await screen.findByRole("textbox", { name: "Ville de départ" }),
+      "Lyon",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Enregistrer les informations" }),
+    );
+
+    const saveCall = fetchMock.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/trips/trip-1/travelers/traveler-1/details" &&
+        (options as RequestInit | undefined)?.method === "PUT",
+    );
+    if (!saveCall) throw new Error("Expected the traveler details update.");
+    expect(
+      JSON.parse((saveCall[1] as RequestInit).body as string),
+    ).toMatchObject({
+      activityProfile: "ski",
+      transportMode: "train",
+      departureCity: "Lyon",
+      carpoolPreference: null,
+      parkingPreference: null,
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Les informations de voyage ont été mises à jour.",
+    );
+  });
+
   it("requests a sign-in link and does not reveal whether the email is invited", async () => {
     const user = userEvent.setup();
     const fetchMock = vi

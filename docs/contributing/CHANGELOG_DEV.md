@@ -12,6 +12,11 @@ Use one entry per coherent technical change: date, module, action, details/impac
 - Details/impact: fail authentication initialization when the default sender lacks `BREVO_API_KEY` or `BREVO_SENDER_EMAIL`, retain injected senders for tests, and document both required variables. Add an integration-level test for the default Brevo SDK payload.
 - Test status: `pnpm --filter @traveler/api exec vitest run src/auth.test.ts` and `pnpm check` passed; live Brevo delivery remains unverified.
 
+## 2026-10-31 — Staff travel details — Add
+
+- Details/impact: let companions and managers edit a participant's activity, ski-day option and both transport legs, including dates, timezone, meeting and departure times, locations, references and seats. Choosing no booked transport clears journey fields; switching to a booked mode clears carpool preferences.
+- Test status: `pnpm check` passed (Biome, both workspace typechecks, 25 API tests plus the Node distribution test, 14 web tests, and both production builds); PR CI for this follow-up commit is pending.
+
 ## 2026-10-31 — Brevo email delivery — Replace SMTP with API
 
 - Details/impact: send login links through Brevo's official Node.js SDK over HTTPS; replace SMTP credentials with an API key and verified sender email; remove Nodemailer; bound retries and timeout; classify API authorization failures and report HTTP statuses without exposing recipients or login URLs.

@@ -779,6 +779,29 @@ type StaffTraveler = {
   lastName: string;
   email: string;
   role: "traveler" | "companion" | "manager";
+} & TravelerDetailsDraft;
+
+type TravelerDetailsDraft = {
+  activityProfile: "ski" | "spa" | null;
+  skiDayThree: boolean;
+  transportMode: "train" | "flight" | "none" | null;
+  departureCity: string | null;
+  outboundDateTime: string | null;
+  outboundTimezone: string | null;
+  outboundMeetingTime: string | null;
+  outboundDepartureTime: string | null;
+  outboundLocation: string | null;
+  outboundReference: string | null;
+  outboundSeat: string | null;
+  returnDateTime: string | null;
+  returnTimezone: string | null;
+  returnMeetingTime: string | null;
+  returnDepartureTime: string | null;
+  returnLocation: string | null;
+  returnReference: string | null;
+  returnSeat: string | null;
+  carpoolPreference: boolean | null;
+  parkingPreference: boolean | null;
 };
 
 function StaffTools({
@@ -794,6 +817,12 @@ function StaffTools({
 }) {
   const [travelers, setTravelers] = useState<StaffTraveler[]>([]);
   const [travelerId, setTravelerId] = useState<string | null>(null);
+  const [detailsTravelerId, setDetailsTravelerId] = useState<string | null>(
+    null,
+  );
+  const [detailsDraft, setDetailsDraft] = useState<TravelerDetailsDraft | null>(
+    null,
+  );
   const [ticketKind, setTicketKind] = useState<string | null>(null);
   const [ticketFile, setTicketFile] = useState<File | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -930,6 +959,93 @@ function StaffTools({
     await refreshTravelers();
   }
 
+  function changeDetails<Key extends keyof TravelerDetailsDraft>(
+    key: Key,
+    value: TravelerDetailsDraft[Key],
+  ) {
+    setDetailsDraft((current) =>
+      current ? { ...current, [key]: value } : current,
+    );
+  }
+
+  async function saveTravelerDetails(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!detailsTravelerId || !detailsDraft) return;
+    const savedDetails =
+      detailsDraft.transportMode === "none"
+        ? {
+            ...detailsDraft,
+            departureCity: null,
+            outboundDateTime: null,
+            outboundTimezone: null,
+            outboundMeetingTime: null,
+            outboundDepartureTime: null,
+            outboundLocation: null,
+            outboundReference: null,
+            outboundSeat: null,
+            returnDateTime: null,
+            returnTimezone: null,
+            returnMeetingTime: null,
+            returnDepartureTime: null,
+            returnLocation: null,
+            returnReference: null,
+            returnSeat: null,
+          }
+        : {
+            ...detailsDraft,
+            carpoolPreference: null,
+            parkingPreference: null,
+          };
+    const response = await fetch(
+      `/api/trips/${encodeURIComponent(tripId)}/travelers/${encodeURIComponent(detailsTravelerId)}/details`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(savedDetails),
+      },
+    );
+    if (!response.ok) {
+      setMessage(
+        "Les informations de voyage n’ont pas pu être enregistrées. Vérifiez que le ski J3 est réservé aux skieurs.",
+      );
+      return;
+    }
+    setMessage("Les informations de voyage ont été mises à jour.");
+    await refreshTravelers();
+  }
+
+  function selectDetailsTraveler(key: string | number | null) {
+    const nextId = key ? String(key) : null;
+    const traveler = travelers.find((person) => person.userId === nextId);
+    setDetailsTravelerId(nextId);
+    setDetailsDraft(
+      traveler
+        ? {
+            activityProfile: traveler.activityProfile,
+            skiDayThree: traveler.skiDayThree,
+            transportMode: traveler.transportMode,
+            departureCity: traveler.departureCity,
+            outboundDateTime: traveler.outboundDateTime,
+            outboundTimezone: traveler.outboundTimezone,
+            outboundMeetingTime: traveler.outboundMeetingTime,
+            outboundDepartureTime: traveler.outboundDepartureTime,
+            outboundLocation: traveler.outboundLocation,
+            outboundReference: traveler.outboundReference,
+            outboundSeat: traveler.outboundSeat,
+            returnDateTime: traveler.returnDateTime,
+            returnTimezone: traveler.returnTimezone,
+            returnMeetingTime: traveler.returnMeetingTime,
+            returnDepartureTime: traveler.returnDepartureTime,
+            returnLocation: traveler.returnLocation,
+            returnReference: traveler.returnReference,
+            returnSeat: traveler.returnSeat,
+            carpoolPreference: traveler.carpoolPreference,
+            parkingPreference: traveler.parkingPreference,
+          }
+        : null,
+    );
+  }
+
   return (
     <section className="staff-tools" aria-labelledby="staff-tools-title">
       <div className="section-heading">
@@ -997,6 +1113,248 @@ function StaffTools({
         </label>
         <Button className="secondary-action" type="submit">
           Téléverser le billet
+        </Button>
+      </Form>
+      <Form className="staff-tool-card" onSubmit={saveTravelerDetails}>
+        <h4>Informations de voyageur et de transport</h4>
+        <Select
+          selectedKey={detailsTravelerId}
+          onSelectionChange={selectDetailsTraveler}
+          isRequired
+        >
+          <Label>Voyageur à mettre à jour</Label>
+          <Button className="select-trigger">
+            <SelectValue />
+          </Button>
+          <Popover>
+            <ListBox className="room-select-listbox">
+              {travelers.map((person) => (
+                <ListBoxItem
+                  className="room-select-option"
+                  key={person.userId}
+                  id={person.userId}
+                  textValue={`${person.firstName} ${person.lastName}`}
+                >
+                  {person.firstName} {person.lastName} · {person.email}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+        <Select
+          selectedKey={detailsDraft?.activityProfile ?? null}
+          onSelectionChange={(key) => {
+            if (key === "spa") changeDetails("skiDayThree", false);
+            changeDetails(
+              "activityProfile",
+              key === "ski" || key === "spa" ? key : null,
+            );
+          }}
+          isDisabled={!detailsDraft}
+        >
+          <Label>Formule</Label>
+          <Button className="select-trigger">
+            <SelectValue />
+          </Button>
+          <Popover>
+            <ListBox className="room-select-listbox">
+              <ListBoxItem className="room-select-option" id="ski">
+                Ski
+              </ListBoxItem>
+              <ListBoxItem className="room-select-option" id="spa">
+                Spa
+              </ListBoxItem>
+            </ListBox>
+          </Popover>
+        </Select>
+        {detailsDraft?.activityProfile === "ski" && (
+          <Checkbox
+            isSelected={detailsDraft.skiDayThree}
+            onChange={(checked) => changeDetails("skiDayThree", checked)}
+          >
+            Ski le troisième jour
+          </Checkbox>
+        )}
+        <Select
+          selectedKey={detailsDraft?.transportMode ?? null}
+          onSelectionChange={(key) =>
+            changeDetails(
+              "transportMode",
+              key === "train" || key === "flight" || key === "none"
+                ? key
+                : null,
+            )
+          }
+          isDisabled={!detailsDraft}
+        >
+          <Label>Transport réservé</Label>
+          <Button className="select-trigger">
+            <SelectValue />
+          </Button>
+          <Popover>
+            <ListBox className="room-select-listbox">
+              <ListBoxItem className="room-select-option" id="train">
+                Train
+              </ListBoxItem>
+              <ListBoxItem className="room-select-option" id="flight">
+                Avion
+              </ListBoxItem>
+              <ListBoxItem className="room-select-option" id="none">
+                Aucun
+              </ListBoxItem>
+            </ListBox>
+          </Popover>
+        </Select>
+        {detailsDraft && detailsDraft.transportMode !== "none" && (
+          <>
+            <TextField
+              value={detailsDraft.departureCity ?? ""}
+              onChange={(value) =>
+                changeDetails("departureCity", value || null)
+              }
+              isDisabled={!detailsDraft}
+            >
+              <Label>Ville de départ</Label>
+              <Input />
+            </TextField>
+            <div className="staff-leg-fields">
+              <h5>Aller</h5>
+              <TextField
+                value={detailsDraft.outboundDateTime ?? ""}
+                onChange={(value) =>
+                  changeDetails("outboundDateTime", value || null)
+                }
+              >
+                <Label>Date et heure</Label>
+                <Input type="datetime-local" />
+              </TextField>
+              <TextField
+                value={detailsDraft.outboundTimezone ?? ""}
+                onChange={(value) =>
+                  changeDetails("outboundTimezone", value || null)
+                }
+              >
+                <Label>Fuseau horaire</Label>
+                <Input placeholder="Europe/Paris" />
+              </TextField>
+              <TextField
+                value={detailsDraft.outboundMeetingTime ?? ""}
+                onChange={(value) =>
+                  changeDetails("outboundMeetingTime", value || null)
+                }
+              >
+                <Label>Heure de rendez-vous</Label>
+                <Input type="time" />
+              </TextField>
+              <TextField
+                value={detailsDraft.outboundDepartureTime ?? ""}
+                onChange={(value) =>
+                  changeDetails("outboundDepartureTime", value || null)
+                }
+              >
+                <Label>Heure de départ</Label>
+                <Input type="time" />
+              </TextField>
+              <TextField
+                value={detailsDraft.outboundLocation ?? ""}
+                onChange={(value) =>
+                  changeDetails("outboundLocation", value || null)
+                }
+              >
+                <Label>Lieu / gare</Label>
+                <Input />
+              </TextField>
+              <TextField
+                value={detailsDraft.outboundReference ?? ""}
+                onChange={(value) =>
+                  changeDetails("outboundReference", value || null)
+                }
+              >
+                <Label>Référence</Label>
+                <Input />
+              </TextField>
+              <TextField
+                value={detailsDraft.outboundSeat ?? ""}
+                onChange={(value) =>
+                  changeDetails("outboundSeat", value || null)
+                }
+              >
+                <Label>Place</Label>
+                <Input />
+              </TextField>
+            </div>
+            <div className="staff-leg-fields">
+              <h5>Retour</h5>
+              <TextField
+                value={detailsDraft.returnDateTime ?? ""}
+                onChange={(value) =>
+                  changeDetails("returnDateTime", value || null)
+                }
+              >
+                <Label>Date et heure</Label>
+                <Input type="datetime-local" />
+              </TextField>
+              <TextField
+                value={detailsDraft.returnTimezone ?? ""}
+                onChange={(value) =>
+                  changeDetails("returnTimezone", value || null)
+                }
+              >
+                <Label>Fuseau horaire</Label>
+                <Input placeholder="Europe/Paris" />
+              </TextField>
+              <TextField
+                value={detailsDraft.returnMeetingTime ?? ""}
+                onChange={(value) =>
+                  changeDetails("returnMeetingTime", value || null)
+                }
+              >
+                <Label>Heure de rendez-vous</Label>
+                <Input type="time" />
+              </TextField>
+              <TextField
+                value={detailsDraft.returnDepartureTime ?? ""}
+                onChange={(value) =>
+                  changeDetails("returnDepartureTime", value || null)
+                }
+              >
+                <Label>Heure de départ</Label>
+                <Input type="time" />
+              </TextField>
+              <TextField
+                value={detailsDraft.returnLocation ?? ""}
+                onChange={(value) =>
+                  changeDetails("returnLocation", value || null)
+                }
+              >
+                <Label>Lieu / gare</Label>
+                <Input />
+              </TextField>
+              <TextField
+                value={detailsDraft.returnReference ?? ""}
+                onChange={(value) =>
+                  changeDetails("returnReference", value || null)
+                }
+              >
+                <Label>Référence</Label>
+                <Input />
+              </TextField>
+              <TextField
+                value={detailsDraft.returnSeat ?? ""}
+                onChange={(value) => changeDetails("returnSeat", value || null)}
+              >
+                <Label>Place</Label>
+                <Input />
+              </TextField>
+            </div>
+          </>
+        )}
+        <Button
+          className="secondary-action"
+          type="submit"
+          isDisabled={!detailsTravelerId || !detailsDraft}
+        >
+          Enregistrer les informations
         </Button>
       </Form>
       {isManager && (
