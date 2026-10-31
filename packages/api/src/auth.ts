@@ -6,10 +6,11 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { magicLink } from "better-auth/plugins";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { drizzle } from "drizzle-orm/libsql";
 import { createDatabaseClientFromConfiguration } from "./database";
+import { normalizeEmail } from "./email";
 import {
   type ApiEnvironment,
   EnvironmentValidationError,
@@ -160,16 +161,27 @@ export function createAuth(
     .map(toOrigin);
 
   const hasMembershipForEmail = async (email: string) => {
-    const membership = await database
+    const normalizedEmail = normalizeEmail(email);
+    const matchingUsers = await database
+      .select({ id: schema.users.id, email: schema.users.email })
+      .from(schema.users)
+      .where(eq(sql<string>`lower(${schema.users.email})`, normalizedEmail))
+      .limit(2);
+    const matchingUser = matchingUsers[0];
+    if (matchingUsers.length !== 1 || !matchingUser) return false;
+    const [membership] = await database
       .select({ id: schema.tripMemberships.id })
       .from(schema.tripMemberships)
-      .innerJoin(
-        schema.users,
-        eq(schema.tripMemberships.userId, schema.users.id),
-      )
-      .where(eq(schema.users.email, email.trim().toLowerCase()))
+      .where(eq(schema.tripMemberships.userId, matchingUser.id))
       .limit(1);
-    return membership.length > 0;
+    if (!membership) return false;
+    if (matchingUser.email !== normalizedEmail) {
+      await database
+        .update(schema.users)
+        .set({ email: normalizedEmail, updatedAt: new Date() })
+        .where(eq(schema.users.id, matchingUser.id));
+    }
+    return true;
   };
 
   const options: BetterAuthOptions = {

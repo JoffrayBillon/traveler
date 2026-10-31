@@ -112,6 +112,87 @@ describe("invite-only magic-link authentication", () => {
     }
   });
 
+  it("normalizes an existing mixed-case address before Better Auth verifies it", async () => {
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
+    const services = await createTestServices(sendEmail);
+    const trip = await createTripsStore(services.database).create("Ski 2027");
+    const now = new Date();
+    await services.database.insert(schema.users).values({
+      id: "mixed-case-user",
+      name: "Alex Voyageur",
+      email: "Alex.Voyageur@Example.com",
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await services.database.insert(schema.tripMemberships).values({
+      id: "mixed-case-membership",
+      tripId: trip.id,
+      userId: "mixed-case-user",
+      role: "traveler",
+      firstName: "Alex",
+      lastName: "Voyageur",
+      gender: "M",
+    });
+    const app = createApp(
+      () => services.client,
+      () => services,
+    );
+
+    const response = await app.request("/api/auth/sign-in/magic-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: authEnv.BETTER_AUTH_URL as string,
+      },
+      body: JSON.stringify({ email: " ALEX.VOYAGEUR@EXAMPLE.COM " }),
+    });
+    await flushBackgroundTasks(services.backgroundTasks);
+
+    expect(response.status).toBe(200);
+    expect(sendEmail).toHaveBeenCalledOnce();
+    expect(sendEmail.mock.calls[0]?.[0]).toBe("alex.voyageur@example.com");
+    const [user] = await services.database
+      .select({ email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, "mixed-case-user"));
+    expect(user?.email).toBe("alex.voyageur@example.com");
+    const verified = await app.request(sendEmail.mock.calls[0]?.[1] as string);
+    expect(verified.headers.get("set-cookie")).toContain(
+      "better-auth.session_token",
+    );
+  });
+
+  it("matches and lowercases a pre-existing manager address", async () => {
+    const { database } = await createTestServices();
+    const trip = await createTripsStore(database).create("Ski 2027");
+    const now = new Date();
+    await database.insert(schema.users).values({
+      id: "existing-manager",
+      name: "Mina Manager",
+      email: "Mina.Manager@Example.com",
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const manager = await createManagersStore(database).create({
+      tripId: trip.id,
+      email: " MINA.MANAGER@EXAMPLE.COM ",
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+
+    expect(manager.userId).toBe("existing-manager");
+    expect(manager.email).toBe("mina.manager@example.com");
+    expect(await database.select().from(schema.users)).toHaveLength(1);
+    const [user] = await database
+      .select({ email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, "existing-manager"));
+    expect(user?.email).toBe("mina.manager@example.com");
+  });
+
   it("sends the default login email through Brevo with the expected content", async () => {
     brevoMock.sendTransacEmail.mockClear();
     const env = {

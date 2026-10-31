@@ -7,6 +7,7 @@ import type { AuthServices } from "./auth";
 import { createAuthServicesProvider, isTrustedAuthOrigin } from "./auth";
 import { createTicketBlobPath } from "./blob-path";
 import { createDatabaseProvider } from "./database";
+import { normalizeEmail } from "./email";
 import {
   parseParticipantWorkbook,
   participantImportHeaders,
@@ -259,7 +260,7 @@ export function createApp(
     const input =
       body && typeof body === "object" ? (body as Record<string, unknown>) : {};
     const email =
-      typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
+      typeof input.email === "string" ? normalizeEmail(input.email) : "";
     const firstName =
       typeof input.firstName === "string" ? input.firstName.trim() : "";
     const lastName =
@@ -276,14 +277,18 @@ export function createApp(
     try {
       const companion = await services.database.transaction(
         async (transaction) => {
-          const [existingUser] = await transaction
-            .select({ id: schema.users.id })
+          const existingUsers = await transaction
+            .select({ id: schema.users.id, email: schema.users.email })
             .from(schema.users)
-            .where(eq(schema.users.email, email))
-            .limit(1);
+            .where(eq(sql<string>`lower(${schema.users.email})`, email))
+            .limit(2);
+          if (existingUsers.length > 1) {
+            throw new Error("duplicate_normalized_email");
+          }
+          const existingUser = existingUsers[0];
           const userId = existingUser?.id ?? randomUUID();
+          const now = new Date();
           if (!existingUser) {
-            const now = new Date();
             await transaction.insert(schema.users).values({
               id: userId,
               name: `${firstName} ${lastName}`,
@@ -292,6 +297,11 @@ export function createApp(
               createdAt: now,
               updatedAt: now,
             });
+          } else if (existingUser.email !== email) {
+            await transaction
+              .update(schema.users)
+              .set({ email, updatedAt: now })
+              .where(eq(schema.users.id, existingUser.id));
           }
           const [membership] = await transaction
             .select({
@@ -334,6 +344,12 @@ export function createApp(
         error.message === "cannot_change_manager_role"
       ) {
         return context.json({ error: "manager_role_is_protected" }, 409);
+      }
+      if (
+        error instanceof Error &&
+        error.message === "duplicate_normalized_email"
+      ) {
+        return context.json({ error: "duplicate_email_accounts" }, 409);
       }
       return context.json({ error: "companion_appointment_failed" }, 503);
     }
@@ -811,7 +827,10 @@ export function createApp(
           and(
             eq(schema.tripMemberships.tripId, tripId),
             eq(schema.roomAssignments.roomId, targetRoomId),
-            sql`lower(${schema.users.email}) = ${exchangeWithEmail.trim().toLowerCase()}`,
+            eq(
+              sql<string>`lower(${schema.users.email})`,
+              normalizeEmail(exchangeWithEmail),
+            ),
           ),
         )
         .limit(1);
@@ -1920,7 +1939,7 @@ async function normalizeMagicLinkRequest(request: Request) {
     return { request };
   }
 
-  const email = body.email.trim().toLowerCase();
+  const email = normalizeEmail(body.email);
   const headers = new Headers(request.headers);
   headers.delete("content-length");
   return {

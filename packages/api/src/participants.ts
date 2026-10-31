@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, or, sql } from "drizzle-orm";
 import type { AppDatabase } from "./auth";
+import { normalizeEmail } from "./email";
 import type {
   ImportedParticipant,
   ParticipantImportError,
@@ -13,8 +14,10 @@ export async function importParticipants(
   participants: ImportedParticipant[],
 ) {
   const errors: ParticipantImportError[] = [];
-  const emails = participants.map((participant) => participant.email);
-  const normalizedEmails = emails.map((email) => email.trim().toLowerCase());
+  const emails = participants.map((participant) =>
+    normalizeEmail(participant.email),
+  );
+  const normalizedEmails = emails;
   const existingUsers = emails.length
     ? await database
         .select({ id: schema.users.id, email: schema.users.email })
@@ -30,7 +33,7 @@ export async function importParticipants(
   const userByEmail = new Map<string, string>();
   const duplicateEmails = new Set<string>();
   for (const user of existingUsers) {
-    const email = user.email.trim().toLowerCase();
+    const email = normalizeEmail(user.email);
     if (userByEmail.has(email) && userByEmail.get(email) !== user.id) {
       duplicateEmails.add(email);
     } else {
@@ -39,7 +42,7 @@ export async function importParticipants(
   }
   for (const email of duplicateEmails) {
     const participant = participants.find(
-      (item) => item.email.trim().toLowerCase() === email,
+      (item) => normalizeEmail(item.email) === email,
     );
     errors.push({
       row: participant?.row ?? 1,
@@ -110,9 +113,7 @@ export async function importParticipants(
   );
   const changedGenderRoomRows = new Map<string, number>();
   for (const participant of participants) {
-    const existingUserId = userByEmail.get(
-      participant.email.trim().toLowerCase(),
-    );
+    const existingUserId = userByEmail.get(normalizeEmail(participant.email));
     const assignedRoomId = existingUserId
       ? assignmentByUser.get(existingUserId)
       : undefined;
@@ -144,9 +145,7 @@ export async function importParticipants(
     }
   }
   for (const participant of participants) {
-    const existingUserId = userByEmail.get(
-      participant.email.trim().toLowerCase(),
-    );
+    const existingUserId = userByEmail.get(normalizeEmail(participant.email));
     if (!participant.initialRoomName) continue;
     const room = roomByName.get(
       participant.initialRoomName.toLocaleLowerCase("fr-FR"),
@@ -206,12 +205,12 @@ export async function importParticipants(
       const changedRoomIds = new Set(changedGenderRoomRows.keys());
       for (const participant of participants) {
         const [existingUser] = await transaction
-          .select({ id: schema.users.id })
+          .select({ id: schema.users.id, email: schema.users.email })
           .from(schema.users)
           .where(
             eq(
               sql<string>`lower(${schema.users.email})`,
-              participant.email.trim().toLowerCase(),
+              normalizeEmail(participant.email),
             ),
           )
           .limit(1);
@@ -221,11 +220,16 @@ export async function importParticipants(
           await transaction.insert(schema.users).values({
             id: userId,
             name: `${participant.firstName} ${participant.lastName}`,
-            email: participant.email,
+            email: normalizeEmail(participant.email),
             emailVerified: false,
             createdAt: now,
             updatedAt: now,
           });
+        } else if (existingUser.email !== normalizeEmail(participant.email)) {
+          await transaction
+            .update(schema.users)
+            .set({ email: normalizeEmail(participant.email), updatedAt: now })
+            .where(eq(schema.users.id, existingUser.id));
         }
         const [membership] = await transaction
           .select({

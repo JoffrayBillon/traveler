@@ -4,8 +4,13 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 ## 2026-10-31 — Review follow-ups — Fix
 
-- Details/impact: improve route focus and profile update ordering, expose missing file selections and rooming network failures, format travel dates independent of browser timezone, bound offset validation, traverse sparse import workbooks efficiently, normalize imported email matching, reject concurrent rooming changes with a composition-version check, pass authentication throttling to managers, and isolate preview ticket paths per Vercel deployment.
+- Details/impact: improve route focus and profile update ordering, expose missing file selections and rooming network failures, format travel dates independent of browser timezone, bound offset validation, traverse sparse import workbooks efficiently, normalize imported email matching, reject concurrent rooming changes with a composition-version check, pass authentication throttling to managers, and namespace preview tickets by branch.
 - Test status: Biome, API Vitest (43 tests), web Vitest (19 tests), both workspace typechecks, API build and Vite build passed under Node 24. `pnpm check` cannot run normally in this host because the project requires Node 26; package checks were run directly or with pnpm's engine guard disabled. Re-run the full pipeline under Node 26 before merge.
+
+## 2026-10-31 — Identity and ticket storage — Normalize
+
+- Details/impact: normalize email addresses to lowercase across authentication, manager/companion provisioning and participant imports, and match existing accounts case-insensitively. Keep preview ticket prefixes stable per branch across deployments so redeployments preserve access to uploaded tickets.
+- Test status: Biome and API suite passed under Node 24 (45 Vitest tests plus distribution test). API build passed as part of the suite. The host warns because project policy requires Node 26; full workspace validation still needs Node 26.
 
 ## 2026-10-31 — Environment configuration — Centralized validation
 

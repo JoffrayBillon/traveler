@@ -107,8 +107,9 @@ describe("participant spreadsheet import", () => {
       .where(eq(sql<string>`lower(${schema.users.email})`, "alex@example.com"));
     expect(caseInsensitiveMatch?.id).toBe("uppercase-email-user");
     const parsed = await parseParticipantWorkbook(
-      await workbookBuffer([validRow({ Email: "alex@example.com" })]),
+      await workbookBuffer([validRow({ Email: "  ALEX@EXAMPLE.COM  " })]),
     );
+    expect(parsed.participants[0]?.email).toBe("alex@example.com");
 
     const result = await importParticipants(
       database,
@@ -123,6 +124,11 @@ describe("participant spreadsheet import", () => {
       .from(schema.tripMemberships)
       .where(eq(schema.tripMemberships.userId, "uppercase-email-user"));
     expect(membership?.userId).toBe("uppercase-email-user");
+    const [user] = await database
+      .select({ email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, "uppercase-email-user"));
+    expect(user?.email).toBe("alex@example.com");
   });
 
   it("normalizes imported values and reports invalid rows before writing", async () => {

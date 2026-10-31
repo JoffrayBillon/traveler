@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { normalizeEmail } from "./email";
 
 export const participantImportHeaders = [
   "Nom",
@@ -169,7 +170,7 @@ export async function parseParticipantWorkbook(data: ArrayBuffer) {
       row: rowNumber,
       firstName: value("Prenom"),
       lastName: value("Nom"),
-      email: value("Email").toLowerCase(),
+      email: normalizeEmail(value("Email")),
       gender: value("Genre").toUpperCase() as "M" | "F",
       activityProfile: normalizeActivity(value("ProfilActivite")),
       skiDayThree: normalizeBoolean(value("OptionSkiJ3")),

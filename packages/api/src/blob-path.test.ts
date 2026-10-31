@@ -2,26 +2,19 @@ import { describe, expect, it } from "vitest";
 import { createTicketBlobPath } from "./blob-path";
 
 describe("ticket blob paths", () => {
-  it("isolates preview deployments within their branch", () => {
+  it("keeps preview ticket paths stable across deployments of the same branch", () => {
     expect(
       createTicketBlobPath("trip", "user", "ticket", {
         VERCEL_ENV: "preview",
         VERCEL_GIT_COMMIT_REF: "feature/rooming",
-        VERCEL_DEPLOYMENT_ID: "dpl_123",
       }),
-    ).toBe(
-      "preview/feature%2Frooming/dpl_123/trips/trip/travelers/user/ticket",
-    );
-  });
-
-  it("uses the unique deployment URL when deployment ID is unavailable", () => {
+    ).toBe("preview/feature%2Frooming/trips/trip/travelers/user/ticket");
     expect(
       createTicketBlobPath("trip", "user", "ticket", {
         VERCEL_ENV: "preview",
-        VERCEL_GIT_COMMIT_REF: "dev",
-        VERCEL_URL: "traveler-abc.vercel.app",
+        VERCEL_GIT_COMMIT_REF: "feature/rooming",
       }),
-    ).toContain("preview/dev/traveler-abc.vercel.app/");
+    ).toBe("preview/feature%2Frooming/trips/trip/travelers/user/ticket");
   });
 
   it("keeps production and local paths in their own namespaces", () => {
