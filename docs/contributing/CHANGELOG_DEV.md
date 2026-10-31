@@ -2,6 +2,16 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — Trip operations — Add
+
+- Details/impact: add trip-scoped travel details, role-authorized traveler management, idempotent XLSX import that preserves staff-entered data, private ticket upload/download, room creation and assignment, consent-based versioned room changes, private rooming export and React Aria controls in the trip dashboard. Vercel Blob uses the connected store's OIDC credentials; local development uses a static token.
+- Test status: `pnpm check` passed (Biome, both workspace typechecks, 23 API tests plus the Node distribution test, 13 web tests, and both production builds). Live Vercel Blob upload/download and mobile device review remain unverified.
+
+## 2026-10-31 — Brevo email configuration — Fix
+
+- Details/impact: fail authentication initialization when the default sender lacks `BREVO_API_KEY` or `BREVO_SENDER_EMAIL`, retain injected senders for tests, and document both required variables. Add an integration-level test for the default Brevo SDK payload.
+- Test status: `pnpm --filter @traveler/api exec vitest run src/auth.test.ts` and `pnpm check` passed; live Brevo delivery remains unverified.
+
 ## 2026-10-31 — Brevo email delivery — Replace SMTP with API
 
 - Details/impact: send login links through Brevo's official Node.js SDK over HTTPS; replace SMTP credentials with an API key and verified sender email; remove Nodemailer; bound retries and timeout; classify API authorization failures and report HTTP statuses without exposing recipients or login URLs.

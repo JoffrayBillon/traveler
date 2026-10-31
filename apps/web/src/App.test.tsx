@@ -284,6 +284,92 @@ describe("application shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("opens a trip workspace with its activity, transport details and private ticket links", async () => {
+    const user = userEvent.setup();
+    const profile = {
+      user: {
+        id: "user-1",
+        name: "Alex Voyageur",
+        email: "traveler@example.com",
+      },
+      trips: [
+        { tripId: "trip-1", tripName: "Ski 2027", role: "traveler" as const },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/me") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => profile,
+          });
+        }
+        if (url === "/api/trips/trip-1/traveler") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              trip: { id: "trip-1", name: "Ski 2027" },
+              traveler: {
+                firstName: "Alex",
+                lastName: "Voyageur",
+                gender: "M",
+                role: "traveler",
+              },
+              details: {
+                activityProfile: "ski",
+                skiDayThree: true,
+                transportMode: "train",
+                outboundDateTime: "2027-02-15T07:30:00.000Z",
+                outboundTimezone: "Europe/Paris",
+                outboundLocation: "Paris Gare de Lyon",
+                outboundReference: "ABC123",
+                outboundSeat: "12A",
+                returnDateTime: null,
+                returnTimezone: null,
+                returnLocation: null,
+                returnReference: null,
+                returnSeat: null,
+                carpoolPreference: null,
+                parkingPreference: null,
+                updatedAt: null,
+              },
+              tickets: [
+                {
+                  id: "ticket-1",
+                  kind: "outbound",
+                  originalName: "billet-aller.pdf",
+                  size: 51200,
+                  createdAt: "2026-10-31T10:00:00.000Z",
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, status: 200 });
+      }),
+    );
+    render(<App />);
+
+    await user.click(await screen.findByRole("tab", { name: "Mon voyage" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Votre séjour" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Forfait ski 3 jours")).toBeInTheDocument();
+    expect(screen.getByText("Train")).toBeInTheDocument();
+    expect(
+      screen.getByText("Paris Gare de Lyon · Réf. ABC123 · Place 12A"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("billet-aller.pdf · 50 Ko")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Télécharger" })).toHaveAttribute(
+      "href",
+      "/api/trips/trip-1/tickets/ticket-1",
+    );
+  });
+
   it("revalidates the session on focus and clears the profile after a 401", async () => {
     const fetchMock = vi
       .fn()

@@ -94,9 +94,17 @@ async function sendLoginLink(
 export function createAuth(
   database: AppDatabase,
   env: NodeJS.ProcessEnv,
-  sendEmail: MagicLinkSender = (email, url) => sendLoginLink(email, url, env),
+  sendEmail?: MagicLinkSender,
   scheduleTask: BackgroundTaskScheduler = scheduleBackgroundTask,
 ): Auth<BetterAuthOptions> {
+  if (
+    !sendEmail &&
+    (!env.BREVO_API_KEY?.trim() || !env.BREVO_SENDER_EMAIL?.trim())
+  ) {
+    throw new Error("Authentication email delivery is not configured.");
+  }
+  const deliverLoginLink: MagicLinkSender =
+    sendEmail ?? ((email, url) => sendLoginLink(email, url, env));
   const baseURL =
     env.BETTER_AUTH_URL?.trim() ||
     (env.VERCEL_BRANCH_URL
@@ -186,11 +194,13 @@ export function createAuth(
         storeToken: "hashed",
         rateLimit: { window: 60, max: 5 },
         sendMagicLink: async ({ email, url }) => {
-          const delivery = sendEmail(email, url).catch((error: unknown) => {
-            const details =
-              error instanceof Error ? error.name : "UnknownError";
-            console.error("Magic link email delivery failed.", details);
-          });
+          const delivery = deliverLoginLink(email, url).catch(
+            (error: unknown) => {
+              const details =
+                error instanceof Error ? error.name : "UnknownError";
+              console.error("Magic link email delivery failed.", details);
+            },
+          );
           scheduleTask(delivery);
         },
       }),

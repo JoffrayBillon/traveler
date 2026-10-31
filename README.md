@@ -1,6 +1,6 @@
 # Traveler
 
-Personal trip management, starting with a ski trip. The repository contains the technical foundation, invite-only passwordless sign-in, trip-scoped roles and an operator command for the first manager. Participant imports, trip dashboards, tickets and room requests are the next product slices.
+Personal trip management, starting with a ski trip. The app supports invite-only passwordless sign-in, trip-scoped roles, participant workbooks, traveler details, rooming requests with consent, staff ticket uploads and rooming exports. The current product contract and remaining rollout questions are in `docs/PRODUCT_SPEC.md`.
 
 ## Run locally
 
@@ -11,7 +11,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open **http://127.0.0.1:5173**. The local Hono API runs on port 3001; Vite proxies `/api` to it. Liveness and the login shell work without credentials; sending a sign-in link requires a development Turso database, a random auth secret, and a Brevo API key. See [local development](docs/contributing/01-local-development.md) for setup and operator commands.
+Open **http://127.0.0.1:5173**. The local Hono API runs on port 3001; Vite proxies `/api` to it. Liveness and the login shell work without credentials; sending a sign-in link requires a development Turso database, a random auth secret, `BREVO_API_KEY` and `BREVO_SENDER_EMAIL`. See [local development](docs/contributing/01-local-development.md) for setup and operator commands.
 
 ```sh
 pnpm check
