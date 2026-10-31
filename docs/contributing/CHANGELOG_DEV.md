@@ -5,7 +5,7 @@ Use one entry per coherent technical change: date, module, action, details/impac
 ## 2026-10-31 — Brevo email delivery — Replace SMTP with API
 
 - Details/impact: send login links through Brevo's official Node.js SDK over HTTPS; replace SMTP credentials with an API key and verified sender email; remove Nodemailer; bound retries and timeout; classify API authorization failures and report HTTP statuses without exposing recipients or login URLs.
-- Test status: lint, typecheck and build could not run because package downloads from the npm registry were denied with `EACCES`; `git diff --check` passed. Live delivery awaits a Brevo API key.
+- Test status: `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; `git diff --check` passed. Live email delivery has not yet been verified.
 
 ## 2026-10-31 — GitHub deployment environments — Rename
 
