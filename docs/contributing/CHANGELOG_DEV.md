@@ -71,3 +71,7 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 - Details/impact: the standalone API test command now builds the distribution before testing it, so it does not depend on a previous Turbo build or read stale output.
 - Test status: `pnpm --filter @traveler/api test` and the full `pnpm check` passed.
+## 2026-10-31 — Deployment migrations — Change
+
+- Run Drizzle migrations as explicit GitHub Actions steps using scoped Vercel environment variables before `dev` and production deployments; keep the Vercel build script focused on building the app.
+- Test status: pending workflow and repository checks.

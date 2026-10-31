@@ -37,6 +37,20 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.25.0
+      - name: Install Vercel CLI
+        run: npm install --global vercel@65.8.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Link Vercel project
+        run: vercel link --yes --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Migrate the production database
+        run: vercel env run --environment=production -- pnpm --filter @traveler/api db:migrate
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       - name: Deploy the tested main commit
         id: deploy
         run: node .github/scripts/deploy-vercel-git-ref.mjs
