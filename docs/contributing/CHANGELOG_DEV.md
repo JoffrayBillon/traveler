@@ -2,6 +2,21 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — Database deployments — Add
+
+- Details/impact: make GitHub Actions the only deployment trigger. After successful `main` CI, deploy that exact commit to Vercel Production; keep the checked `dev` deployment and manual feature previews, and publish their URLs to GitHub deployment environments. Disable Vercel automatic Git deployments. Vercel continues to build and apply pending Drizzle migrations before publishing production and `dev`; feature previews without database credentials skip migration. Document migration history, serialization and backward-compatible schema requirements.
+- Test status: implementation pending PR CI and Vercel Preview validation; no production deployment or database migration was run during this change.
+
+## 2026-10-31 — Authentication and traveler shell — Fix
+
+- Details/impact: schedule magic-link email delivery with Vercel `waitUntil` so SMTP latency does not delay public acknowledgements; report delivery failures privately without logging addresses or links. Remove the fixed 500 ms response delay, add a 30-second client cooldown and a persistent per-email server cooldown, and retain the broader IP limit for abuse protection. Revalidate sessions on focus/visibility, allow long trip names to wrap, and verify a consumed magic link cannot create another session.
+- Test status: `pnpm check` passed (Biome with the pre-existing `GITHUB_REPOSITORY_ID` warning, both typechecks, 15 API tests, 8 web tests, native Node distribution test and both production builds).
+
+## 2026-10-30 — Invite-only authentication — Add
+
+- Details/impact: add Better Auth magic-link login for pre-provisioned trip members, ten-minute single-use hashed tokens, database-backed rate limits, 30-day sessions, trip-scoped membership roles, `/api/me`, a traveler landing view, and an accessible React Aria login form. Add an explicit local first-manager provisioning command and checked-in migrations; startup and CI do not migrate the database.
+- Test status: `pnpm check` passed (Biome, both strict typechecks, 13 API tests, 6 web tests, native Node distribution test and both production builds); Biome retains the pre-existing `GITHUB_REPOSITORY_ID` warning. CI and CodeRabbit review are pending.
+
 ## 2026-10-30 — Trip creation CLI — Fix
 
 - Details/impact: ignore the leading `--` separator forwarded by pnpm so it is not included in the saved trip name; cover separated and unseparated arguments with unit tests.
@@ -56,3 +71,17 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 - Details/impact: the standalone API test command now builds the distribution before testing it, so it does not depend on a previous Turbo build or read stale output.
 - Test status: `pnpm --filter @traveler/api test` and the full `pnpm check` passed.
+## 2026-10-31 — Deployment migrations — Change
+
+- Run Drizzle migrations as explicit GitHub Actions steps using scoped Vercel environment variables before `dev` and production deployments; keep the Vercel build script focused on building the app.
+- Test status: pending workflow and repository checks.
+
+## 2026-10-31 — Deployment stages — Change
+
+- Separate quality checks, migration and deployment into dependent jobs for `dev`; keep Production migration/deploy steps in one protected job so one approval gates both, and reject stale or non-push production CI runs.
+- Test status: pending workflow checks.
+
+## 2026-10-31 — Authentication response privacy — Fix
+
+- Process magic-link requests in the background after a generic acknowledgement, derive cooldowns from an absolute deadline, and clear stale profiles after a 403 response.
+- Test status: `pnpm check` passed; the existing Biome warning for `GITHUB_REPOSITORY_ID` remains.

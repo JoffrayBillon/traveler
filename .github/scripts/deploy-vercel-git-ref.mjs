@@ -18,10 +18,13 @@ const isFeatureBranch = /^(codex|feature)[/][A-Za-z0-9._/-]+$/.test(DEPLOY_REF);
 if (DEPLOY_KIND === "development" && DEPLOY_REF !== "dev") {
   throw new Error("Development deployments must use the dev branch");
 }
+if (DEPLOY_KIND === "production" && DEPLOY_REF !== "main") {
+  throw new Error("Production deployments must use the main branch");
+}
 if (DEPLOY_KIND === "preview" && !isFeatureBranch) {
   throw new Error("Preview deployments require a codex/* or feature/* branch");
 }
-if (!["development", "preview"].includes(DEPLOY_KIND)) {
+if (!["development", "preview", "production"].includes(DEPLOY_KIND)) {
   throw new Error("Unsupported deployment kind");
 }
 if (!/^[0-9a-f]{40}$/i.test(DEPLOY_SHA)) {
@@ -43,6 +46,7 @@ const body = {
     ref: DEPLOY_REF,
     sha: DEPLOY_SHA,
   },
+  ...(DEPLOY_KIND === "production" ? { target: "production" } : {}),
 };
 
 /** Sends an authenticated request to the Vercel API and parses its JSON response. */
@@ -87,7 +91,9 @@ for (let attempt = 0; attempt < 90; attempt += 1) {
     const output = process.env.GITHUB_OUTPUT;
     if (!output) throw new Error("GITHUB_OUTPUT is unavailable");
     const { appendFile } = await import("node:fs/promises");
-    const aliases = Array.isArray(status.alias) ? status.alias : [];
+    const aliases = Array.isArray(status.alias)
+      ? status.alias.filter((alias) => typeof alias === "string")
+      : [];
     const stableDevAlias =
       DEPLOY_KIND === "development"
         ? aliases.find(
@@ -96,17 +102,38 @@ for (let attempt = 0; attempt < 90; attempt += 1) {
               alias.endsWith(".vercel.app"),
           )
         : undefined;
-    const resultUrl = stableDevAlias
-      ? `https://${stableDevAlias}`
-      : deploymentUrl;
+    const productionAlias =
+      DEPLOY_KIND === "production"
+        ? aliases.find((alias) => alias === "traveler.joffraybillon.fr")
+        : undefined;
+    const stableAlias = stableDevAlias ?? productionAlias;
+    const resultUrl = stableAlias ? `https://${stableAlias}` : deploymentUrl;
+    const parsedUrl = new URL(resultUrl);
+    if (
+      parsedUrl.protocol !== "https:" ||
+      parsedUrl.username ||
+      parsedUrl.password ||
+      parsedUrl.pathname !== "/" ||
+      parsedUrl.search ||
+      parsedUrl.hash ||
+      !(
+        parsedUrl.hostname.endsWith(".vercel.app") ||
+        parsedUrl.hostname === "traveler.joffraybillon.fr"
+      )
+    ) {
+      throw new Error("Vercel returned an invalid deployment URL");
+    }
     if (DEPLOY_KIND === "development" && !stableDevAlias) {
       console.warn(
         "Vercel did not return the stable dev branch alias; reporting the unique deployment URL.",
       );
     }
     await appendFile(output, `url=${resultUrl}\n`, "utf8");
-    const environmentLabel =
-      DEPLOY_KIND === "development" ? "Preview for dev" : "Preview";
+    const environmentLabel = {
+      development: "Preview for dev",
+      preview: "Preview",
+      production: "Production",
+    }[DEPLOY_KIND];
     console.log(`Deployment ready (${environmentLabel}): ${resultUrl}`);
     process.exit(0);
   }

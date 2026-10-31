@@ -3,8 +3,8 @@ name: Deploy dev after CI
 on:
   workflow_run:
     workflows: [CI]
-    types: [completed]
     branches: [dev]
+    types: [completed]
 
 permissions:
   contents: read
@@ -14,14 +14,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  check:
+    name: Verify successful CI
     if: >-
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'dev' &&
       github.event.workflow_run.repository.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    steps:
+      - name: Confirm tested commit
+        run: echo "CI passed for $DEPLOY_SHA"
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+
+  migrate:
+    name: Apply dev database migrations
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: vercel-dev
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.25.0
+      - name: Install Vercel CLI
+        run: npm install --global vercel@65.8.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Link Vercel project
+        run: vercel link --yes --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Migrate the dev database
+        run: vercel env run --environment=preview --git-branch=dev -- pnpm --filter @traveler/api db:migrate
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+  deploy:
+    name: Deploy dev to Vercel
+    needs: migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: vercel-dev
       url: ${{ steps.deploy.outputs.url }}
@@ -29,18 +74,20 @@ jobs:
       DEPLOY_KIND: development
       DEPLOY_REF: dev
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
-      GITHUB_REPOSITORY_ID: ${{ github.event.workflow_run.repository.id }}
+      GITHUB_REPOSITORY_ID: ${{ github.event.repository.id }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
+          package-manager-cache: false
       - name: Deploy the tested dev commit
         id: deploy
         run: node .github/scripts/deploy-vercel-git-ref.mjs
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
