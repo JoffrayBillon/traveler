@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createApp } from "./app";
+import type { TravelerDetailsInput } from "./app";
+import {
+  createApp,
+  isValidTravelDateTime,
+  synchronizeDepartureTimes,
+} from "./app";
 import { createDatabaseProvider } from "./database";
 
 describe("API boundaries", () => {
@@ -64,8 +69,33 @@ describe("API boundaries", () => {
   });
 });
 
+describe("travel date-time validation", () => {
+  it("validates numeric timezone offsets and years below 100", () => {
+    expect(isValidTravelDateTime("2026-12-31T20:00+23:59")).toBe(true);
+    expect(isValidTravelDateTime("2026-12-31T20:00+99:99")).toBe(false);
+    expect(isValidTravelDateTime("0000-02-29T20:00Z")).toBe(true);
+    expect(isValidTravelDateTime("0099-02-29T20:00Z")).toBe(false);
+  });
+
+  it("keeps the date and explicit time fields synchronized", () => {
+    const details = {
+      outboundDateTime: "2026-12-24T06:30:00+01:00",
+      outboundDepartureTime: "08:15",
+      returnDateTime: null,
+      returnDepartureTime: null,
+    } as TravelerDetailsInput;
+
+    expect(synchronizeDepartureTimes(details)).toMatchObject({
+      outboundDateTime: "2026-12-24T08:15:00+01:00",
+      outboundDepartureTime: "08:15",
+      returnDateTime: null,
+    });
+  });
+});
+
 describe("Turso configuration", () => {
   it("does not create a client when either credential is missing", () => {
+    const report = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(createDatabaseProvider({})()).toBeUndefined();
     expect(
       createDatabaseProvider({ TURSO_DATABASE_URL: "libsql://dev.turso.io" })(),
@@ -76,6 +106,10 @@ describe("Turso configuration", () => {
         TURSO_AUTH_TOKEN: "development-token",
       })(),
     ).toBeUndefined();
+    expect(report).toHaveBeenCalledTimes(3);
+    expect(report.mock.calls[0]?.[0]).toContain("TURSO_DATABASE_URL");
+    expect(report.mock.calls[0]?.[0]).toContain("TURSO_AUTH_TOKEN");
+    report.mockRestore();
   });
 
   it("creates the client lazily and reuses it", () => {

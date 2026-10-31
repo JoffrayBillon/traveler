@@ -8,5 +8,8 @@ allowBuilds:
   esbuild@0.28.2: true
 
 minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - lucide-react@1.66.0
+  - tailwind-variants@4.0.1
 saveExact: true
 engineStrict: true

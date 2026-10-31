@@ -1,6 +1,6 @@
 # Local development
 
-Install Node.js 24 (tested with the version in `.node-version`) and pnpm 11.25.0. If pnpm is missing, run `npm install --global pnpm@11.25.0`. No third-party account is needed to build or test the current shell.
+Install Node.js 26.13.0 LTS (the version in `.node-version`) and pnpm 11.25.0. If pnpm is missing, run `npm install --global pnpm@11.25.0`. No third-party account is needed to build or test the current shell.
 
 From the repository root:
 
@@ -11,11 +11,15 @@ pnpm dev
 
 Open `http://127.0.0.1:5173`. Vite proxies `/api` to the local Hono server at `http://127.0.0.1:3001`; `/api/health` reports liveness and `/api/ready` checks the database connection. Both servers bind to loopback. Stop both with Ctrl+C. Ports are intentionally fixed to avoid a silently broken proxy.
 
-To check database readiness locally, create `.env.local` from `.env.example` and fill it only with the **development** Turso URL and token. The API loads this file when it starts. If the Development variables are configured in Vercel, an authorized project user can link the local `apps/web` directory and run `vercel env pull ../../.env.local --environment=development --yes` from there instead of sending the file around. This replaces the target file and writes plaintext credentials to the local, gitignored `.env.local`; access to the Vercel project is required. Never use production credentials locally; Vercel Preview for the `dev` branch has its own development database variables. Without database configuration, `/api/ready` returns `503` while `/api/health` remains available. Login also needs `BETTER_AUTH_SECRET` (at least 32 random characters), `BETTER_AUTH_URL` (the browser origin, `http://127.0.0.1:5173` locally), and Brevo SMTP variables. On Vercel, `VERCEL_URL` supplies the deployment origin if `BETTER_AUTH_URL` is unset; `VERCEL_BRANCH_URL` is also trusted for branch aliases. The sender must be verified in Brevo before live mail can be delivered.
+Run `pnpm env:check` from the repository root to validate the complete API configuration. It reports every missing or invalid setting together without printing values. Use `pnpm env:check -- database` to validate only Turso settings for migrations and database administration commands. The API profile requires Turso, Better Auth and Brevo; missing local Blob credentials are reported as a warning because only ticket uploads are unavailable. Vercel deployments use the connected Blob store's OIDC credentials.
+
+To check database readiness locally, create `.env.local` from `.env.example` and fill it only with the **development** Turso URL and token. The API loads this file when it starts. If the Development variables are configured in Vercel, an authorized project user can link the local `apps/web` directory and run `vercel env pull ../../.env.local --environment=development --yes` from there instead of sending the file around. This replaces the target file and writes plaintext credentials to the local, gitignored `.env.local`; access to the Vercel project is required. Never use production credentials locally; Vercel Preview for the `dev` branch has its own development database variables. Without database configuration, `/api/ready` returns `503` while `/api/health` remains available. Login also needs `BETTER_AUTH_SECRET` (at least 32 random characters), `BETTER_AUTH_URL` (the browser origin, `http://127.0.0.1:5173` locally), `BREVO_API_KEY` and `BREVO_SENDER_EMAIL`. On Vercel, `VERCEL_URL` supplies the deployment origin if `BETTER_AUTH_URL` is unset; `VERCEL_BRANCH_URL` is also trusted for branch aliases. The sender email must be verified in Brevo before live mail can be delivered.
 
 | Command                                  | Purpose                                                           |
 | ---------------------------------------- | ----------------------------------------------------------------- |
 | `pnpm check`                             | Lint/format check, strict types, tests, production frontend build |
+| `pnpm env:check`                         | Validate the complete API environment without revealing values    |
+| `pnpm env:check -- database`             | Validate only the Turso environment for database commands         |
 | `pnpm format`                            | Apply Biome formatting and safe fixes                             |
 | `pnpm --filter @traveler/web test:watch` | Watch UI tests                                                    |
 | `pnpm --filter @traveler/api test:watch` | Watch API tests                                                   |

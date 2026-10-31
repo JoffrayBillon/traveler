@@ -2,6 +2,81 @@
 
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
 
+## 2026-10-31 — Import and environment review — Fix
+
+- Details/impact: separate migration statements for Drizzle, validate trimmed authentication secrets and Brevo keys, enforce API auth-origin checks, and batch participant import reads/writes while preserving ticket and staff details plus optimistic room-composition checks.
+- Test status: Biome, API typecheck, API Vitest (48 tests), API distribution test and API build passed under Node 24. The workspace requires Node 26, so the Node 26 pipeline remains the final environment-parity check.
+
+## 2026-10-31 — Review follow-ups — Fix
+
+- Details/impact: improve route focus and profile update ordering, expose missing file selections and rooming network failures, format travel dates independent of browser timezone, bound offset validation, traverse sparse import workbooks efficiently, normalize imported email matching, reject concurrent rooming changes with a composition-version check, pass authentication throttling to managers, and namespace preview tickets by branch.
+- Test status: Biome, API Vitest (43 tests), web Vitest (19 tests), both workspace typechecks, API build and Vite build passed under Node 24. `pnpm check` cannot run normally in this host because the project requires Node 26; package checks were run directly or with pnpm's engine guard disabled. Re-run the full pipeline under Node 26 before merge.
+
+## 2026-10-31 — Identity and ticket storage — Normalize
+
+- Details/impact: normalize email addresses to lowercase across authentication, manager/companion provisioning and participant imports, and match existing accounts case-insensitively. Keep preview ticket prefixes stable per branch across deployments so redeployments preserve access to uploaded tickets.
+- Test status: Biome and API suite passed under Node 24 (45 Vitest tests plus distribution test). API build passed as part of the suite. The host warns because project policy requires Node 26; full workspace validation still needs Node 26.
+
+## 2026-10-31 — Environment configuration — Centralized validation
+
+- Details/impact: use T3 Env and Zod to validate API and database profiles, aggregate missing and invalid settings without printing values, and report local Blob setup as an optional capability warning. Add `pnpm env:check` for local and deployment diagnosis.
+- Test status: `pnpm lint`, `pnpm typecheck` and the API suite (36 Vitest tests plus distribution test) passed. Running the CLI directly was blocked in this host by `tsx` calling `os.userInfo()` and receiving `uv_os_get_passwd: ENOMEM`; validation profiles are covered by unit tests.
+
+## 2026-10-31 — Node runtime — Upgrade
+
+- Details/impact: set the local and CI runtime to Node 26.13.0 LTS and declare `26.x` in both the monorepo and Vercel app manifests; GitHub Actions `setup-node` downloads the version when it is absent from the runner cache.
+- Test status: Node 26.13.0 verified locally; `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed under Node 26. Vitest was not run.
+
+## 2026-10-31 — Web UI styles — Refactor
+
+- Details/impact: replace the loose `ui-classes.ts` string collection with small per-component files in `components/ui`, using a React Aria button wrapper and typed Tailwind Variants recipes; centralize CSS reduced-motion behavior in one `prefers-reduced-motion` media query.
+- Test status: `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; automated tests were not run.
+
+## 2026-10-31 — Dependencies — Update
+
+- Details/impact: update Biome `2.6.3` → `2.6.4`, Vercel Blob `2.5.0` → `2.8.2`, Lucide React `1.64.0` → `1.66.0`, Motion `14.8.0` → `14.9.0`, Tailwind Variants `4.0.0` → `4.0.1`, and `@types/node` `24.19.2` → `26.6.6`. Add exact-version age-gate exceptions for the two just-published frontend packages; all their other versions and all other packages remain subject to the 24-hour delay.
+- Test status: with the updated versions and Node 26, frozen install, lint, typecheck, and build passed. Vitest was not run.
+
+## 2026-10-31 — Ticket storage — Isolate environment paths
+
+- Details/impact: keep one private Vercel Blob store and prefix ticket paths by environment; preview paths also include the URL-encoded deployment branch, and local paths use `local/`.
+- Test status: `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; automated tests were not run.
+
+## 2026-10-31 — Trip operations — Add
+
+- Details/impact: add trip-scoped travel details, role-authorized traveler management, idempotent XLSX import that preserves staff-entered data, private ticket upload/download, room creation and assignment, consent-based versioned room changes, private rooming export and React Aria controls in the trip dashboard. Vercel Blob uses the connected store's OIDC credentials; local development uses a static token.
+- Test status: `pnpm check` passed (Biome, both workspace typechecks, 23 API tests plus the Node distribution test, 13 web tests, and both production builds). Live Vercel Blob upload/download and mobile device review remain unverified.
+
+## 2026-10-31 — Brevo email configuration — Fix
+
+- Details/impact: fail authentication initialization when the default sender lacks `BREVO_API_KEY` or `BREVO_SENDER_EMAIL`, retain injected senders for tests, and document both required variables. Add an integration-level test for the default Brevo SDK payload.
+- Test status: `pnpm --filter @traveler/api exec vitest run src/auth.test.ts` and `pnpm check` passed; live Brevo delivery remains unverified.
+
+## 2026-10-31 — Staff travel details — Add
+
+- Details/impact: let companions and managers edit a participant's activity, ski-day option and both transport legs, including dates, timezone, meeting and departure times, locations, references and seats. Choosing no booked transport clears journey fields; switching to a booked mode clears carpool preferences.
+- Test status: `pnpm check` passed (Biome, both workspace typechecks, 25 API tests plus the Node distribution test, 14 web tests, and both production builds); PR CI run 62 passed.
+
+## 2026-10-31 — Room exchanges — Add
+
+- Details/impact: allow a traveler with an assigned room to propose a reciprocal exchange by entering the other participant's email. Resolve the other participant only within the same trip, require consent from both travelers and everyone in a room that becomes mixed, then apply the exchange atomically. Other travelers' room rosters remain private.
+- Test status: `pnpm check` passed (Biome, both workspace typechecks, 25 API tests plus the Node distribution test, 14 web tests, and both production builds); PR CI for this commit is pending.
+
+## 2026-10-31 — Brevo email delivery — Replace SMTP with API
+
+- Details/impact: send login links through Brevo's official Node.js SDK over HTTPS; replace SMTP credentials with an API key and verified sender email; remove Nodemailer; bound retries and timeout; classify API authorization failures and report HTTP statuses without exposing recipients or login URLs.
+- Test status: `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; `git diff --check` passed. Live email delivery has not yet been verified.
+
+## 2026-10-31 — Authentication — Keep preview login on its branch alias
+
+- Details/impact: generate magic links from Vercel's stable branch URL and return to the exact requesting origin so session cookies remain on the preview alias; log only the error class when background delivery fails.
+- Test status: `pnpm --filter @traveler/api test -- auth.test.ts` passed, including a regression test for branch alias and callback origins.
+
+## 2026-10-31 — Web shell — Redesign accessible sign-in and account views
+
+- Details/impact: rebuild the sign-in and member views with React Aria forms, theme control and tabs; persist the light/dark preference and add responsive travel-themed styling.
+- Test status: `pnpm --filter @traveler/web test -- App.test.tsx`, `pnpm typecheck`, and `pnpm lint` passed. Local visual review confirmed the live theme switch; the local API server could not start in this host because Node returned `uv_os_get_passwd`/`ENOMEM`.
+
 ## 2026-10-31 — GitHub deployment environments — Rename
 
 - Details/impact: use `development` and `preview` as the GitHub deployment environment names while retaining `production`; keep deployment URLs attached to the completed deploy jobs so GitHub's Deployments interface links to Vercel.
@@ -95,3 +170,8 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 - Process magic-link requests in the background after a generic acknowledgement, derive cooldowns from an absolute deadline, and clear stale profiles after a 403 response.
 - Test status: `pnpm check` passed; the existing Biome warning for `GITHUB_REPOSITORY_ID` remains.
+
+## 2026-10-31 — Routed traveler interface and participant access — Change
+
+- Add React Router pages with Motion transitions, feature-based UI modules, Lucide React icons, attributed Unsplash photography, self-hosted Inter Variable via Fontsource and responsive reduced-motion styling. Add manager-only participant access status and email login-link actions, with persisted login timestamps and trip-scoped authorization. Resolve Better Auth URLs against its explicit host allowlist so links created from previews return to the same preview; backfill existing login timestamps from stored sessions.
+- Test status: `pnpm check` passed: Biome, workspace TypeScript checks, 42 Vitest tests plus API distribution test, and production builds. Vite splits route features into lazy-loaded chunks; no oversized entry-chunk warning remains.

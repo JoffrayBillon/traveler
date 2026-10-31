@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit",
     "test": "pnpm run build && vitest run src && node --test test/distribution.test.mjs",
     "test:watch": "vitest",
+    "env:check": "node --env-file-if-exists=../../.env.local --import tsx src/check-env.ts",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts && biome check --write drizzle/meta",
     "db:migrate": "node --env-file-if-exists=../../.env.local --import tsx src/migrate.ts",
     "trips:create": "node --env-file-if-exists=../../.env.local --import tsx src/create-trip.ts",
@@ -25,17 +26,20 @@
     "managers:create": "node --env-file-if-exists=../../.env.local --import tsx src/create-manager.ts"
   },
   "dependencies": {
+    "@getbrevo/brevo": "6.2.0",
     "@hono/node-server": "2.1.5",
     "@libsql/client": "0.18.0",
+    "@t3-oss/env-core": "0.13.11",
+    "@vercel/blob": "2.8.2",
     "@vercel/functions": "3.10.5",
     "better-auth": "1.7.14",
     "drizzle-orm": "0.45.4",
+    "exceljs": "4.4.0",
     "hono": "4.13.14",
-    "nodemailer": "10.3.1"
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/node": "24.19.2",
-    "@types/nodemailer": "8.0.2",
+    "@types/node": "26.6.6",
     "drizzle-kit": "0.31.11",
     "esbuild": "0.28.2",
     "tsx": "4.23.15",

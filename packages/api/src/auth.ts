@@ -1,15 +1,23 @@
 import { randomUUID } from "node:crypto";
+import { Brevo, BrevoClient, BrevoError } from "@getbrevo/brevo";
 import { waitUntil } from "@vercel/functions";
 import type { Auth, BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { magicLink } from "better-auth/plugins";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { drizzle } from "drizzle-orm/libsql";
-import { createTransport } from "nodemailer";
-import { createDatabaseClient } from "./database";
+import { createDatabaseClientFromConfiguration } from "./database";
+import { normalizeEmail } from "./email";
+import {
+  type ApiEnvironment,
+  EnvironmentValidationError,
+  formatEnvironmentReport,
+  getEnvironmentWarnings,
+  validateEnvironment,
+} from "./environment";
 import * as schema from "./schema";
 
 export type AppDatabase = LibSQLDatabase<typeof schema>;
@@ -37,6 +45,25 @@ function toOrigin(value: string) {
   return new URL(url).origin;
 }
 
+function toHost(value: string) {
+  const url =
+    value.startsWith("http://") || value.startsWith("https://")
+      ? value
+      : `https://${value}`;
+  return new URL(url).host;
+}
+
+export function isTrustedAuthOrigin(origin: string, env: NodeJS.ProcessEnv) {
+  try {
+    const requestedOrigin = new URL(origin).origin;
+    return [env.BETTER_AUTH_URL, env.VERCEL_URL, env.VERCEL_BRANCH_URL]
+      .filter((value): value is string => Boolean(value?.trim()))
+      .some((value) => toOrigin(value.trim()) === requestedOrigin);
+  } catch {
+    return false;
+  }
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => {
     const entities: Record<string, string> = {
@@ -53,75 +80,117 @@ function escapeHtml(value: string) {
 async function sendLoginLink(
   email: string,
   url: string,
-  env: NodeJS.ProcessEnv,
+  env: {
+    BREVO_API_KEY?: string;
+    BREVO_SENDER_EMAIL?: string;
+  },
 ) {
-  const host = env.BREVO_SMTP_HOST?.trim();
-  const port = Number(env.BREVO_SMTP_PORT);
-  const user = env.BREVO_SMTP_USER?.trim();
-  const pass = env.BREVO_SMTP_PASSWORD;
-  const from = env.BREVO_FROM?.trim();
-  if (!host || !Number.isInteger(port) || !user || !pass || !from) {
+  const apiKey = env.BREVO_API_KEY?.trim();
+  const senderEmail = env.BREVO_SENDER_EMAIL?.trim();
+  if (!apiKey || !senderEmail) {
     throw new Error("Authentication email delivery is not configured.");
   }
 
-  const transporter = createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
   const safeUrl = escapeHtml(url);
+  const client = new BrevoClient({
+    apiKey,
+    maxRetries: 1,
+    timeoutInSeconds: 10,
+  });
   try {
-    await transporter.sendMail({
-      from,
-      to: email,
+    await client.transactionalEmails.sendTransacEmail({
+      sender: { name: "BotMail", email: senderEmail },
+      to: [{ email }],
       subject: "Votre lien de connexion Traveler",
-      text: `Connectez-vous à votre espace Traveler : ${url}\n\nCe lien expire après 10 minutes et ne peut être utilisé qu’une fois.`,
-      html: `<p>Connectez-vous à votre espace Traveler.</p><p><a href="${safeUrl}">Ouvrir mon espace voyage</a></p><p>Ce lien expire après 10 minutes et ne peut être utilisé qu’une fois.</p>`,
+      textContent: `Connectez-vous à votre espace Traveler : ${url}\n\nCe lien expire après 10 minutes et ne peut être utilisé qu’une fois.`,
+      htmlContent: `<p>Connectez-vous à votre espace Traveler.</p><p><a href="${safeUrl}">Ouvrir mon espace voyage</a></p><p>Ce lien expire après 10 minutes et ne peut être utilisé qu’une fois.</p>`,
     });
-  } finally {
-    transporter.close();
+  } catch (error) {
+    if (error instanceof Brevo.UnauthorizedError) {
+      throw new Error("Brevo rejected the API key.");
+    }
+    if (error instanceof Brevo.ForbiddenError) {
+      throw new Error("Brevo rejected the sender or API permission.");
+    }
+    if (error instanceof BrevoError) {
+      throw new Error(
+        `Brevo email API responded with HTTP ${error.statusCode}.`,
+      );
+    }
+    throw error;
   }
 }
 
 export function createAuth(
   database: AppDatabase,
   env: NodeJS.ProcessEnv,
-  sendEmail: MagicLinkSender = (email, url) => sendLoginLink(email, url, env),
-  scheduleTask: BackgroundTaskScheduler = scheduleBackgroundTask,
+  sendEmail?: MagicLinkSender,
 ): Auth<BetterAuthOptions> {
+  const authEnvironment = validateEnvironment(
+    sendEmail ? "auth-injected" : "auth",
+    env,
+  );
+  const deliverLoginLink: MagicLinkSender =
+    sendEmail ?? ((email, url) => sendLoginLink(email, url, authEnvironment));
   const baseURL =
-    env.BETTER_AUTH_URL?.trim() ||
-    (env.VERCEL_URL ? `https://${env.VERCEL_URL.trim()}` : undefined);
-  const secret = env.BETTER_AUTH_SECRET?.trim();
-  if (!baseURL || !secret || secret.length < 32) {
-    throw new Error("Authentication configuration is incomplete.");
+    authEnvironment.BETTER_AUTH_URL?.trim() ||
+    (authEnvironment.VERCEL_BRANCH_URL
+      ? `https://${authEnvironment.VERCEL_BRANCH_URL.trim()}`
+      : authEnvironment.VERCEL_URL
+        ? `https://${authEnvironment.VERCEL_URL.trim()}`
+        : undefined);
+  const allowedHosts = [
+    authEnvironment.BETTER_AUTH_URL,
+    authEnvironment.VERCEL_URL,
+    authEnvironment.VERCEL_BRANCH_URL,
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .map(toHost);
+  const secret = authEnvironment.BETTER_AUTH_SECRET.trim();
+  if (!baseURL || allowedHosts.length === 0 || !secret) {
+    throw new Error("Validated authentication configuration is incomplete.");
   }
   const trustedOrigins = [
-    env.BETTER_AUTH_URL,
-    env.VERCEL_URL,
-    env.VERCEL_BRANCH_URL,
+    authEnvironment.BETTER_AUTH_URL,
+    authEnvironment.VERCEL_URL,
+    authEnvironment.VERCEL_BRANCH_URL,
   ]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
     .map(toOrigin);
 
   const hasMembershipForEmail = async (email: string) => {
-    const membership = await database
+    const normalizedEmail = normalizeEmail(email);
+    const matchingUsers = await database
+      .select({ id: schema.users.id, email: schema.users.email })
+      .from(schema.users)
+      .where(eq(sql<string>`lower(${schema.users.email})`, normalizedEmail))
+      .limit(2);
+    const matchingUser = matchingUsers[0];
+    if (matchingUsers.length !== 1 || !matchingUser) return false;
+    const [membership] = await database
       .select({ id: schema.tripMemberships.id })
       .from(schema.tripMemberships)
-      .innerJoin(
-        schema.users,
-        eq(schema.tripMemberships.userId, schema.users.id),
-      )
-      .where(eq(schema.users.email, email.trim().toLowerCase()))
+      .where(eq(schema.tripMemberships.userId, matchingUser.id))
       .limit(1);
-    return membership.length > 0;
+    if (!membership) return false;
+    if (matchingUser.email !== normalizedEmail) {
+      await database
+        .update(schema.users)
+        .set({ email: normalizedEmail, updatedAt: new Date() })
+        .where(eq(schema.users.id, matchingUser.id));
+    }
+    return true;
   };
 
   const options: BetterAuthOptions = {
     appName: "Traveler",
-    baseURL,
+    baseURL: {
+      allowedHosts: [...new Set(allowedHosts)],
+      fallback: baseURL,
+      protocol: "auto",
+    },
     secret,
     trustedOrigins: [...new Set(trustedOrigins)],
     database: drizzleAdapter(database, {
@@ -175,13 +244,15 @@ export function createAuth(
         storeToken: "hashed",
         rateLimit: { window: 60, max: 5 },
         sendMagicLink: async ({ email, url }) => {
-          const delivery = sendEmail(email, url).catch((error: unknown) => {
+          try {
+            await deliverLoginLink(email, url);
+          } catch (error) {
             console.error(
               "Magic link email delivery failed.",
               error instanceof Error ? error.name : "UnknownError",
             );
-          });
-          scheduleTask(delivery);
+            throw error;
+          }
         },
       }),
     ],
@@ -189,12 +260,18 @@ export function createAuth(
       session: {
         create: {
           before: async (session) => {
-            const membership = await database
+            const memberships = await database
               .select({ id: schema.tripMemberships.id })
               .from(schema.tripMemberships)
-              .where(eq(schema.tripMemberships.userId, session.userId))
-              .limit(1);
-            return membership.length > 0;
+              .where(eq(schema.tripMemberships.userId, session.userId));
+            if (memberships.length === 0) return false;
+            return true;
+          },
+          after: async (session) => {
+            await database
+              .update(schema.tripMemberships)
+              .set({ lastLoginAt: new Date() })
+              .where(eq(schema.tripMemberships.userId, session.userId));
           },
         },
       },
@@ -212,23 +289,46 @@ export function createAuthServicesProvider(
   return () => {
     if (initialized) return services;
     initialized = true;
-    const client = createDatabaseClient(env);
-    if (
-      !client ||
-      !env.BETTER_AUTH_SECRET?.trim() ||
-      !(env.BETTER_AUTH_URL?.trim() || env.VERCEL_URL?.trim())
-    ) {
+    let configuration: ApiEnvironment;
+    try {
+      configuration = validateEnvironment("api", env);
+    } catch (error) {
+      if (error instanceof EnvironmentValidationError) {
+        console.error(formatEnvironmentReport(error.profile, error.issues));
+      } else {
+        console.error("Could not validate the application environment.");
+      }
       return undefined;
     }
+    const warnings = getEnvironmentWarnings("api", env);
+    if (warnings.length) {
+      console.warn(
+        formatEnvironmentReport(
+          "api",
+          warnings,
+          "Optional environment variables are not configured",
+        ),
+      );
+    }
+    const client = createDatabaseClientFromConfiguration(configuration);
+    if (!client) return undefined;
     try {
       const database = drizzle({ client, schema });
       services = {
-        auth: createAuth(database, env, undefined, scheduleBackgroundTask),
+        auth: createAuth(database, env),
         database,
         scheduleBackgroundTask,
       };
       return services;
-    } catch {
+    } catch (error) {
+      if (error instanceof EnvironmentValidationError) {
+        console.error(formatEnvironmentReport(error.profile, error.issues));
+      } else {
+        console.error(
+          "Could not initialize authentication services.",
+          error instanceof Error ? error.name : "UnknownError",
+        );
+      }
       return undefined;
     }
   };

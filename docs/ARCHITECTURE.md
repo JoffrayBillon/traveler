@@ -14,8 +14,20 @@ Add a minimal trip identity and name, SQL migration generation, explicit migrati
 
 ## 2026-10-30 — Invite-only authentication foundation
 
-Implement the Better Auth passwordless flow already selected in the original mission, using the existing Turso/libSQL database and Brevo SMTP credentials. New signups stay disabled; the first manager is created only by the local `managers:create` operator command, and later imports will provision traveler accounts. Roles live on trip memberships, never on the global identity. Login links expire after ten minutes, are single-use and stored hashed; sessions last 30 days and refresh daily. Rate limits use the database because the app runs in serverless functions. The API requires trip membership both before sending a link and when creating a session; `/api/me` scopes its response to the current identity.
+Implement the Better Auth passwordless flow already selected in the original mission, using the existing Turso/libSQL database and Brevo's HTTPS transactional email API. New signups stay disabled; the first manager is created only by the local `managers:create` operator command, and later imports will provision traveler accounts. Roles live on trip memberships, never on the global identity. Login links expire after ten minutes, are single-use and stored hashed; sessions last 30 days and refresh daily. Rate limits use the database because the app runs in serverless functions. The API requires trip membership both before sending a link and when creating a session; `/api/me` scopes its response to the current identity.
 
 This is authentication infrastructure, not a finished traveler or management dashboard. Live email requires sender verification and environment configuration; the application never applies migrations automatically.
 
+## 2026-10-31 — Brevo transactional email API
+
+Send passwordless login messages through Brevo's official Node.js SDK over HTTPS using a server-side API key. This removes SMTP host, port, and login configuration and avoids an SMTP socket connection. Bound SDK retries and request timeout for the background login-email task. Brevo API IP blocking can still apply, and the owner must provision a dedicated API key for the application.
+
 Public code does not imply an open-source license grant; no license has been chosen. Reassess hosting plans if the owner changes from personal use to professional/commercial use.
+
+## 2026-10-31 — Routed traveler interface — Change
+
+Use React Router for direct, bookmarkable trip/account/organizer pages and Motion for route transitions and subtle dashboard movement. Respect reduced-motion preferences. Split page and domain UI into `features/`, shared components, and formatting/type helpers; use React Aria Components for interactive controls and Lucide React for icons. Self-host the Inter variable font through Fontsource. Keep Unsplash imagery remote with photographer attribution. Better Auth resolves each Vercel deployment host dynamically against the configured host allowlist so sign-in links return to the requesting preview. Manager participant access is enforced by trip-scoped API authorization; first-login timestamps are persisted on trip memberships, and fresh sign-in links are sent to the participant's registered email rather than returned to the browser.
+
+## 2026-10-31 — Traveler operations — Add
+
+Model trip-scoped traveler details, transport legs, private tickets, rooms, assignments and versioned room-change consent. Managers import validated XLSX workbooks idempotently while preserving staff-entered rooming, transport details, roles and tickets. Companions manage rooms and upload tickets; room requests are authorized per trip and applied atomically once each affected person consents. Store tickets in one private Vercel Blob store and authorize downloads through the API. Prefix objects by Vercel environment and preview branch for isolated cleanup. Keep import and ticket requests under the Vercel Function payload ceiling; the current application limit is 4 MB. Vercel Functions use the store's OIDC credentials, while local development uses `BLOB_READ_WRITE_TOKEN` and a `local/` prefix.
