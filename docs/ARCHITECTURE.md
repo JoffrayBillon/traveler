@@ -14,8 +14,12 @@ Add a minimal trip identity and name, SQL migration generation, explicit migrati
 
 ## 2026-10-30 — Invite-only authentication foundation
 
-Implement the Better Auth passwordless flow already selected in the original mission, using the existing Turso/libSQL database and Brevo SMTP credentials. New signups stay disabled; the first manager is created only by the local `managers:create` operator command, and later imports will provision traveler accounts. Roles live on trip memberships, never on the global identity. Login links expire after ten minutes, are single-use and stored hashed; sessions last 30 days and refresh daily. Rate limits use the database because the app runs in serverless functions. The API requires trip membership both before sending a link and when creating a session; `/api/me` scopes its response to the current identity.
+Implement the Better Auth passwordless flow already selected in the original mission, using the existing Turso/libSQL database and Brevo's HTTPS transactional email API. New signups stay disabled; the first manager is created only by the local `managers:create` operator command, and later imports will provision traveler accounts. Roles live on trip memberships, never on the global identity. Login links expire after ten minutes, are single-use and stored hashed; sessions last 30 days and refresh daily. Rate limits use the database because the app runs in serverless functions. The API requires trip membership both before sending a link and when creating a session; `/api/me` scopes its response to the current identity.
 
 This is authentication infrastructure, not a finished traveler or management dashboard. Live email requires sender verification and environment configuration; the application never applies migrations automatically.
+
+## 2026-10-31 — Brevo transactional email API
+
+Send passwordless login messages through Brevo's official Node.js SDK over HTTPS using a server-side API key. This removes SMTP host, port, and login configuration and avoids an SMTP socket connection. Bound SDK retries and request timeout for the background login-email task. Brevo API IP blocking can still apply, and the owner must provision a dedicated API key for the application.
 
 Public code does not imply an open-source license grant; no license has been chosen. Reassess hosting plans if the owner changes from personal use to professional/commercial use.

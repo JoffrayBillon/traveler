@@ -25,17 +25,16 @@
     "managers:create": "node --env-file-if-exists=../../.env.local --import tsx src/create-manager.ts"
   },
   "dependencies": {
+    "@getbrevo/brevo": "6.2.0",
     "@hono/node-server": "2.1.5",
     "@libsql/client": "0.18.0",
     "@vercel/functions": "3.10.5",
     "better-auth": "1.7.14",
     "drizzle-orm": "0.45.4",
-    "hono": "4.13.14",
-    "nodemailer": "10.3.1"
+    "hono": "4.13.14"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
-    "@types/nodemailer": "8.0.2",
     "drizzle-kit": "0.31.11",
     "esbuild": "0.28.2",
     "tsx": "4.23.15",

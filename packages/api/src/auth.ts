@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Brevo, BrevoClient, BrevoError } from "@getbrevo/brevo";
 import { waitUntil } from "@vercel/functions";
 import type { Auth, BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -8,7 +9,6 @@ import { magicLink } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { drizzle } from "drizzle-orm/libsql";
-import { createTransport } from "nodemailer";
 import { createDatabaseClient } from "./database";
 import * as schema from "./schema";
 
@@ -55,32 +55,39 @@ async function sendLoginLink(
   url: string,
   env: NodeJS.ProcessEnv,
 ) {
-  const host = env.BREVO_SMTP_HOST?.trim();
-  const port = Number(env.BREVO_SMTP_PORT);
-  const user = env.BREVO_SMTP_USER?.trim();
-  const pass = env.BREVO_SMTP_PASSWORD;
-  const from = env.BREVO_FROM?.trim();
-  if (!host || !Number.isInteger(port) || !user || !pass || !from) {
+  const apiKey = env.BREVO_API_KEY?.trim();
+  const senderEmail = env.BREVO_SENDER_EMAIL?.trim();
+  if (!apiKey || !senderEmail) {
     throw new Error("Authentication email delivery is not configured.");
   }
 
-  const transporter = createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
   const safeUrl = escapeHtml(url);
+  const client = new BrevoClient({
+    apiKey,
+    maxRetries: 1,
+    timeoutInSeconds: 10,
+  });
   try {
-    await transporter.sendMail({
-      from,
-      to: email,
+    await client.transactionalEmails.sendTransacEmail({
+      sender: { name: "BotMail", email: senderEmail },
+      to: [{ email }],
       subject: "Votre lien de connexion Traveler",
-      text: `Connectez-vous à votre espace Traveler : ${url}\n\nCe lien expire après 10 minutes et ne peut être utilisé qu’une fois.`,
-      html: `<p>Connectez-vous à votre espace Traveler.</p><p><a href="${safeUrl}">Ouvrir mon espace voyage</a></p><p>Ce lien expire après 10 minutes et ne peut être utilisé qu’une fois.</p>`,
+      textContent: `Connectez-vous à votre espace Traveler : ${url}\n\nCe lien expire après 10 minutes et ne peut être utilisé qu’une fois.`,
+      htmlContent: `<p>Connectez-vous à votre espace Traveler.</p><p><a href="${safeUrl}">Ouvrir mon espace voyage</a></p><p>Ce lien expire après 10 minutes et ne peut être utilisé qu’une fois.</p>`,
     });
-  } finally {
-    transporter.close();
+  } catch (error) {
+    if (error instanceof Brevo.UnauthorizedError) {
+      throw new Error("Brevo rejected the API key.");
+    }
+    if (error instanceof Brevo.ForbiddenError) {
+      throw new Error("Brevo rejected the sender or API permission.");
+    }
+    if (error instanceof BrevoError) {
+      throw new Error(
+        `Brevo email API responded with HTTP ${error.statusCode}.`,
+      );
+    }
+    throw error;
   }
 }
 
@@ -176,10 +183,9 @@ export function createAuth(
         rateLimit: { window: 60, max: 5 },
         sendMagicLink: async ({ email, url }) => {
           const delivery = sendEmail(email, url).catch((error: unknown) => {
-            console.error(
-              "Magic link email delivery failed.",
-              error instanceof Error ? error.name : "UnknownError",
-            );
+            const details =
+              error instanceof Error ? error.message : "UnknownError";
+            console.error("Magic link email delivery failed.", details);
           });
           scheduleTask(delivery);
         },

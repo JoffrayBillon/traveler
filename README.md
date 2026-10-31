@@ -11,7 +11,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open **http://127.0.0.1:5173**. The local Hono API runs on port 3001; Vite proxies `/api` to it. Liveness and the login shell work without credentials; sending a sign-in link requires a development Turso database, a random auth secret, and Brevo SMTP configuration. See [local development](docs/contributing/01-local-development.md) for setup and operator commands.
+Open **http://127.0.0.1:5173**. The local Hono API runs on port 3001; Vite proxies `/api` to it. Liveness and the login shell work without credentials; sending a sign-in link requires a development Turso database, a random auth secret, and a Brevo API key. See [local development](docs/contributing/01-local-development.md) for setup and operator commands.
 
 ```sh
 pnpm check
