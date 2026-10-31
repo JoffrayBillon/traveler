@@ -75,3 +75,8 @@ Use one entry per coherent technical change: date, module, action, details/impac
 
 - Run Drizzle migrations as explicit GitHub Actions steps using scoped Vercel environment variables before `dev` and production deployments; keep the Vercel build script focused on building the app.
 - Test status: pending workflow and repository checks.
+
+## 2026-10-31 — Deployment stages — Change
+
+- Separate quality checks, migration and deployment into dependent jobs for `dev`; keep Production migration/deploy steps in one protected job so one approval gates both.
+- Test status: pending workflow checks.
