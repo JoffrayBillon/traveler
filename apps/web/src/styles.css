@@ -3,8 +3,8 @@
 /* The route-based shell and its feature pages share this small visual system. */
 
 @theme {
-  --font-sans: "Inter Variable", Inter, "Segoe UI", Arial, sans-serif;
-  --font-display: "Inter Variable", Inter, "Segoe UI", Arial, sans-serif;
+  --font-sans: "Inter Variable", "Segoe UI", Arial, sans-serif;
+  --font-display: "Inter Variable", "Segoe UI", Arial, sans-serif;
 }
 
 :root,
