@@ -12,4 +12,6 @@ Use runtime validation at trust boundaries and database constraints for durable 
 
 One same-origin deployment serves static frontend assets and `/api/*`. The development proxy preserves that contract locally. `GET /api/health` is public liveness only, has no external dependencies and must reveal no configuration. `GET /api/ready` checks Turso with `SELECT 1`, returning a generic `503` when credentials are missing or the database is unreachable. Unknown API paths return JSON errors rather than the SPA document. Vercel Functions run in Paris (`cdg1`), close to the EU Turso database.
 
+For passwordless authentication, use `BETTER_AUTH_URL` when configured. On a Vercel branch deployment, use `VERCEL_BRANCH_URL` before the unique `VERCEL_URL` so magic links verify on the stable branch alias and set the session cookie on the same host the user opened. The frontend sends its current origin as the callback URL. Trust only the configured app origin and Vercel-provided deployment/branch origins; do not accept an arbitrary redirect host.
+
 The root TypeScript configuration is strict. Avoid `any`, non-null assertions, broad catches and hidden success fallbacks. Keep domain rules testable without React or external services. Future room exchanges must revalidate and apply within an atomic transaction; frontend warnings are feedback, not enforcement.

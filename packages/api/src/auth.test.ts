@@ -22,6 +22,7 @@ const authEnv = {
 
 async function createTestServices(
   sendEmail: (email: string, url: string) => Promise<void>,
+  env: NodeJS.ProcessEnv = authEnv,
 ) {
   const client = createClient({ url: "file::memory:" });
   clients.push(client);
@@ -43,7 +44,7 @@ async function createTestServices(
     scheduleBackgroundTask: (task: Promise<unknown>) => {
       backgroundTasks.push(task);
     },
-    auth: createAuth(database, authEnv, sendEmail, (task) => {
+    auth: createAuth(database, env, sendEmail, (task) => {
       backgroundTasks.push(task);
     }),
   };
@@ -58,6 +59,46 @@ afterEach(async () => {
 });
 
 describe("invite-only magic-link authentication", () => {
+  it("uses the stable Vercel branch URL for the magic link and callback", async () => {
+    const branchOrigin = "https://traveler-git-dev-example.vercel.app";
+    const env = {
+      BETTER_AUTH_SECRET: authEnv.BETTER_AUTH_SECRET,
+      VERCEL_URL: "traveler-unique-deployment.vercel.app",
+      VERCEL_BRANCH_URL: "traveler-git-dev-example.vercel.app",
+    } as NodeJS.ProcessEnv;
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
+    const services = await createTestServices(sendEmail, env);
+    const trip = await createTripsStore(services.database).create("Ski 2027");
+    await createManagersStore(services.database).create({
+      tripId: trip.id,
+      email: "manager@example.com",
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+    const app = createApp(
+      () => services.client,
+      () => services,
+    );
+
+    const response = await app.request("/api/auth/sign-in/magic-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: branchOrigin,
+      },
+      body: JSON.stringify({
+        email: "manager@example.com",
+        callbackURL: `${branchOrigin}/`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    await flushBackgroundTasks(services.backgroundTasks);
+
+    const magicLink = new URL(sendEmail.mock.calls[0]?.[1] ?? "");
+    expect(magicLink.origin).toBe(branchOrigin);
+    expect(magicLink.searchParams.get("callbackURL")).toBe(`${branchOrigin}/`);
+  });
+
   it("uses the same acknowledgement for unknown and invited addresses, then exposes only the member's trip", async () => {
     const sendEmail = vi.fn().mockResolvedValue(undefined);
     const services = await createTestServices(sendEmail);

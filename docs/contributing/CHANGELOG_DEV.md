@@ -7,6 +7,16 @@ Use one entry per coherent technical change: date, module, action, details/impac
 - Details/impact: send login links through Brevo's official Node.js SDK over HTTPS; replace SMTP credentials with an API key and verified sender email; remove Nodemailer; bound retries and timeout; classify API authorization failures and report HTTP statuses without exposing recipients or login URLs.
 - Test status: `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; `git diff --check` passed. Live email delivery has not yet been verified.
 
+## 2026-10-31 — Authentication — Keep preview login on its branch alias
+
+- Details/impact: generate magic links from Vercel's stable branch URL and return to the exact requesting origin so session cookies remain on the preview alias; log only the error class when background delivery fails.
+- Test status: `pnpm --filter @traveler/api test -- auth.test.ts` passed, including a regression test for branch alias and callback origins.
+
+## 2026-10-31 — Web shell — Redesign accessible sign-in and account views
+
+- Details/impact: rebuild the sign-in and member views with React Aria forms, theme control and tabs; persist the light/dark preference and add responsive travel-themed styling.
+- Test status: `pnpm --filter @traveler/web test -- App.test.tsx`, `pnpm typecheck`, and `pnpm lint` passed. Local visual review confirmed the live theme switch; the local API server could not start in this host because Node returned `uv_os_get_passwd`/`ENOMEM`.
+
 ## 2026-10-31 — GitHub deployment environments — Rename
 
 - Details/impact: use `development` and `preview` as the GitHub deployment environment names while retaining `production`; keep deployment URLs attached to the completed deploy jobs so GitHub's Deployments interface links to Vercel.

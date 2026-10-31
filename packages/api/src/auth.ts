@@ -99,7 +99,11 @@ export function createAuth(
 ): Auth<BetterAuthOptions> {
   const baseURL =
     env.BETTER_AUTH_URL?.trim() ||
-    (env.VERCEL_URL ? `https://${env.VERCEL_URL.trim()}` : undefined);
+    (env.VERCEL_BRANCH_URL
+      ? `https://${env.VERCEL_BRANCH_URL.trim()}`
+      : env.VERCEL_URL
+        ? `https://${env.VERCEL_URL.trim()}`
+        : undefined);
   const secret = env.BETTER_AUTH_SECRET?.trim();
   if (!baseURL || !secret || secret.length < 32) {
     throw new Error("Authentication configuration is incomplete.");
@@ -184,7 +188,7 @@ export function createAuth(
         sendMagicLink: async ({ email, url }) => {
           const delivery = sendEmail(email, url).catch((error: unknown) => {
             const details =
-              error instanceof Error ? error.message : "UnknownError";
+              error instanceof Error ? error.name : "UnknownError";
             console.error("Magic link email delivery failed.", details);
           });
           scheduleTask(delivery);
