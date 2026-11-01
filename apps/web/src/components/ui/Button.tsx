@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import {
   Button as AriaButton,
   type ButtonProps as AriaButtonProps,
@@ -10,22 +11,19 @@ type ButtonProps = Omit<AriaButtonProps, "className"> &
     className?: string;
   };
 
-export function Button({
-  appearance,
-  size,
-  fullWidth,
-  className,
-  ...props
-}: ButtonProps) {
-  return (
-    <AriaButton
-      {...props}
-      className={buttonStyles({
-        appearance,
-        size,
-        fullWidth,
-        class: className,
-      })}
-    />
-  );
-}
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button({ appearance, size, fullWidth, className, ...props }, ref) {
+    return (
+      <AriaButton
+        {...props}
+        ref={ref}
+        className={buttonStyles({
+          appearance,
+          size,
+          fullWidth,
+          class: className,
+        })}
+      />
+    );
+  },
+);

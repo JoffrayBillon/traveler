@@ -25,9 +25,40 @@ export type AuthServices = {
   auth: Auth<BetterAuthOptions>;
   database: AppDatabase;
   scheduleBackgroundTask: BackgroundTaskScheduler;
+  magicLinkCapture?: MagicLinkCapture;
 };
-export type MagicLinkSender = (email: string, url: string) => Promise<void>;
+export type MagicLinkSender = (
+  email: string,
+  url: string,
+  metadata?: Record<string, unknown>,
+) => Promise<void>;
 export type BackgroundTaskScheduler = (task: Promise<unknown>) => void;
+export type MagicLinkCapture = {
+  authorize: (requestId: string) => void;
+  capture: (requestId: string, url: string) => boolean;
+  take: (requestId: string) => string | undefined;
+};
+
+export function createMagicLinkCapture(): MagicLinkCapture {
+  const authorizedRequests = new Set<string>();
+  const generatedLinks = new Map<string, string>();
+  return {
+    authorize(requestId) {
+      authorizedRequests.add(requestId);
+    },
+    capture(requestId, url) {
+      if (!authorizedRequests.delete(requestId)) return false;
+      generatedLinks.set(requestId, url);
+      return true;
+    },
+    take(requestId) {
+      authorizedRequests.delete(requestId);
+      const url = generatedLinks.get(requestId);
+      generatedLinks.delete(requestId);
+      return url;
+    },
+  };
+}
 
 function scheduleBackgroundTask(task: Promise<unknown>) {
   if (process.env.VERCEL) {
@@ -125,6 +156,7 @@ export function createAuth(
   database: AppDatabase,
   env: NodeJS.ProcessEnv,
   sendEmail?: MagicLinkSender,
+  magicLinkCapture?: MagicLinkCapture,
 ): Auth<BetterAuthOptions> {
   const authEnvironment = validateEnvironment(
     sendEmail ? "auth-injected" : "auth",
@@ -243,9 +275,16 @@ export function createAuth(
         expiresIn: 60 * 10,
         storeToken: "hashed",
         rateLimit: { window: 60, max: 5 },
-        sendMagicLink: async ({ email, url }) => {
+        sendMagicLink: async ({ email, url, metadata }) => {
           try {
-            await deliverLoginLink(email, url);
+            const requestId = metadata?.copySignInLinkRequestId;
+            if (
+              typeof requestId === "string" &&
+              magicLinkCapture?.capture(requestId, url)
+            ) {
+              return;
+            }
+            await deliverLoginLink(email, url, metadata);
           } catch (error) {
             console.error(
               "Magic link email delivery failed.",
@@ -314,10 +353,12 @@ export function createAuthServicesProvider(
     if (!client) return undefined;
     try {
       const database = drizzle({ client, schema });
+      const magicLinkCapture = createMagicLinkCapture();
       services = {
-        auth: createAuth(database, env),
+        auth: createAuth(database, env, undefined, magicLinkCapture),
         database,
         scheduleBackgroundTask,
+        magicLinkCapture,
       };
       return services;
     } catch (error) {

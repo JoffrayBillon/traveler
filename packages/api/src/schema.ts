@@ -119,9 +119,13 @@ export const tripMemberships = sqliteTable(
     role: text("role", {
       enum: ["traveler", "companion", "manager"],
     }).notNull(),
+    isVip: integer("is_vip", { mode: "boolean" }).default(false).notNull(),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     gender: text("gender", { enum: ["M", "F"] }),
+    genderConfirmed: integer("gender_confirmed", { mode: "boolean" })
+      .default(false)
+      .notNull(),
     lastLoginAt: integer("last_login_at", { mode: "timestamp_ms" }),
   },
   (table) => [
@@ -137,6 +141,138 @@ export const tripMemberships = sqliteTable(
     check(
       "trip_memberships_gender_valid",
       sql`${table.gender} IS NULL OR ${table.gender} IN ('M', 'F')`,
+    ),
+  ],
+);
+
+export const tripRegistrations = sqliteTable(
+  "trip_registrations",
+  {
+    id: text("id").primaryKey().notNull(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    reference: text("reference").notNull(),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    status: text("status", {
+      enum: ["pending", "validated", "cancelled"],
+    })
+      .default("pending")
+      .notNull(),
+    sourceEmail: text("source_email").notNull(),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    sourcePhone: text("source_phone"),
+    gender: text("gender", { enum: ["M", "F"] }),
+    activityProfile: text("activity_profile", { enum: ["ski", "spa"] }),
+    skiDayThree: integer("ski_day_three", { mode: "boolean" }),
+    transportMode: text("transport_mode", {
+      enum: ["train", "flight", "none"],
+    }),
+    departureCity: text("departure_city"),
+    paymentStatus: text("payment_status", {
+      enum: ["paid", "partially_paid", "unpaid"],
+    }),
+    amountPaidMinor: integer("amount_paid_minor"),
+    amountDueMinor: integer("amount_due_minor"),
+    lastImportedAt: integer("last_imported_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("trip_registrations_trip_reference_unique").on(
+      table.tripId,
+      table.reference,
+    ),
+    index("trip_registrations_trip_status_index").on(
+      table.tripId,
+      table.status,
+    ),
+    index("trip_registrations_user_id_index").on(table.userId),
+    check(
+      "trip_registrations_status_valid",
+      sql`${table.status} IN ('pending', 'validated', 'cancelled')`,
+    ),
+    check(
+      "trip_registrations_payment_status_valid",
+      sql`${table.paymentStatus} IS NULL OR ${table.paymentStatus} IN ('paid', 'partially_paid', 'unpaid')`,
+    ),
+    check(
+      "trip_registrations_activity_valid",
+      sql`${table.activityProfile} IS NULL OR ${table.activityProfile} IN ('ski', 'spa')`,
+    ),
+    check(
+      "trip_registrations_gender_valid",
+      sql`${table.gender} IS NULL OR ${table.gender} IN ('M', 'F')`,
+    ),
+  ],
+);
+
+export const tripImportPreviews = sqliteTable(
+  "trip_import_previews",
+  {
+    id: text("id").primaryKey().notNull(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    actorUserId: text("actor_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceType: text("source_type", {
+      enum: [
+        "validated_roster",
+        "detailed_orders",
+        "companions_vips",
+        "agency_rooming",
+      ],
+    }).notNull(),
+    contentHash: text("content_hash").notNull(),
+    baseSnapshotHash: text("base_snapshot_hash").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("trip_import_previews_expiry_index").on(table.expiresAt),
+    check(
+      "trip_import_previews_source_type_valid",
+      sql`${table.sourceType} IN ('validated_roster', 'detailed_orders', 'companions_vips', 'agency_rooming')`,
+    ),
+  ],
+);
+
+export const travelerProfiles = sqliteTable(
+  "traveler_profiles",
+  {
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    dietaryRequirements: text("dietary_requirements"),
+    allergens: text("allergens"),
+    emergencyContactFirstName: text("emergency_contact_first_name"),
+    emergencyContactLastName: text("emergency_contact_last_name"),
+    emergencyContactPhone: text("emergency_contact_phone"),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("traveler_profiles_trip_user_unique").on(
+      table.tripId,
+      table.userId,
     ),
   ],
 );

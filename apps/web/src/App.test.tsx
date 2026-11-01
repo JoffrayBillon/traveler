@@ -12,11 +12,13 @@ import { App } from "./App";
 
 beforeEach(() => {
   window.history.pushState({}, "", "/");
+  window.localStorage.removeItem("traveler-theme");
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 401 }));
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("application shell", () => {
@@ -38,29 +40,59 @@ describe("application shell", () => {
     expect(window.location.hash).toBe("#main");
   });
 
-  it("changes the theme with the keyboard and exposes the toggle state", async () => {
+  it("defaults to the system theme and switches preferences accessibly", async () => {
     const user = userEvent.setup();
+    const media = {
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => media),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) =>
+        url === "/api/me"
+          ? Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                user: {
+                  id: "user-1",
+                  name: "Mina Manager",
+                  email: "mina@example.com",
+                },
+                trips: [
+                  { tripId: "trip-1", tripName: "Ski 2027", role: "manager" },
+                ],
+              }),
+            })
+          : Promise.resolve({ ok: true, status: 200 }),
+      ),
+    );
     render(<App />);
-    await user.tab();
-    await user.tab();
-    await user.tab();
-    const toggle = screen.getByRole("button", {
-      name: "Mode sombre",
-    });
-    expect(toggle).toHaveFocus();
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
-    await user.keyboard("{Enter}");
-    expect(screen.getByRole("button", { name: "Mode sombre" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Bonjour Mina." }),
+    ).toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
-    await user.keyboard(" ");
-    expect(screen.getByRole("button", { name: "Mode sombre" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
+    await user.click(
+      screen.getByRole("button", { name: "Compte de Mina Manager" }),
     );
+    const system = screen.getByRole("button", { name: "Système" });
+    const dark = screen.getByRole("button", { name: "Sombre" });
+    const light = screen.getByRole("button", { name: "Clair" });
+    expect(system).toHaveAttribute("aria-pressed", "true");
+    await user.click(light);
+    expect(light).toHaveAttribute("aria-pressed", "true");
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    await user.click(dark);
+    expect(dark).toHaveAttribute("aria-pressed", "true");
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    await user.click(system);
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
   });
 
   it("has no detectable semantic accessibility violations", async () => {
@@ -97,12 +129,12 @@ describe("application shell", () => {
     );
     expect(screen.getByRole("link", { name: /Ski 2027/ })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("link", { name: "Mon compte" }));
-    await waitFor(() =>
-      expect(
-        screen.getByRole("heading", { level: 1, name: "Mina Manager" }),
-      ).toHaveFocus(),
+    await user.click(
+      screen.getByRole("button", { name: "Compte de Mina Manager" }),
     );
+    expect(
+      await screen.findByRole("dialog", { name: "Profil et préférences" }),
+    ).toBeInTheDocument();
     expect(await screen.findByText("manager@example.com")).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: "Se déconnecter" }),
@@ -268,7 +300,7 @@ describe("application shell", () => {
       }),
     });
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Si cette adresse est autorisée, un lien de connexion vient d’être envoyé.",
+      "Si cette adresse est autorisée, son lien de connexion est affiché dans le terminal de l’API locale.",
     );
     const retryButton = screen.getByRole("button", {
       name: "Réessayez dans 30 s",
@@ -413,7 +445,9 @@ describe("application shell", () => {
       await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
     expect(screen.getByText("Gestionnaire")).toBeInTheDocument();
-    await user.click(screen.getByRole("link", { name: "Mon compte" }));
+    await user.click(
+      screen.getByRole("button", { name: "Compte de Mina Manager" }),
+    );
     await user.click(
       await screen.findByRole("button", { name: "Se déconnecter" }),
     );
@@ -622,7 +656,9 @@ describe("application shell", () => {
       window.dispatchEvent(new Event("focus"));
     });
     await waitFor(() => expect(staleJson).toHaveBeenCalledOnce());
-    await user.click(screen.getByRole("link", { name: "Mon compte" }));
+    await user.click(
+      screen.getByRole("button", { name: "Compte de Mina Manager" }),
+    );
     await user.click(
       await screen.findByRole("button", { name: "Se déconnecter" }),
     );

@@ -4,4 +4,6 @@ export { checkboxStyles } from "./checkbox.styles";
 export { textFieldStyles } from "./field.styles";
 export { listBoxStyles } from "./list-box.styles";
 export { messageStyles } from "./message.styles";
+export { SelectTrigger } from "./SelectTrigger";
+export { FileDropZone } from "./FileDropZone";
 export { eyebrowStyles } from "./text.styles";

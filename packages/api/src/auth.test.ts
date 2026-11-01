@@ -6,7 +6,11 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
-import { createAuth, createAuthServicesProvider } from "./auth";
+import {
+  createAuth,
+  createAuthServicesProvider,
+  createMagicLinkCapture,
+} from "./auth";
 import { EnvironmentValidationError } from "./environment";
 import { createManagersStore } from "./managers";
 import * as schema from "./schema";
@@ -57,6 +61,8 @@ async function createTestServices(
     }
   }
   const backgroundTasks: Promise<unknown>[] = [];
+  const magicLinkCapture = createMagicLinkCapture();
+  const localEmailSender = sendEmail ?? (async () => {});
   return {
     client,
     database,
@@ -64,10 +70,12 @@ async function createTestServices(
     scheduleBackgroundTask: (task: Promise<unknown>) => {
       backgroundTasks.push(task);
     },
+    magicLinkCapture,
     auth: createAuth(
       database,
       env,
-      useDefaultSender ? undefined : (sendEmail ?? (async () => {})),
+      useDefaultSender ? undefined : localEmailSender,
+      magicLinkCapture,
     ),
   };
 }
@@ -239,7 +247,7 @@ describe("invite-only magic-link authentication", () => {
     expect(payload.textContent).toContain("http://127.0.0.1:5173");
   });
 
-  it("lets managers track first sign-in and send a participant a fresh login link", async () => {
+  it("lets managers generate a participant link without sending another email", async () => {
     vi.stubEnv("BETTER_AUTH_URL", authEnv.BETTER_AUTH_URL as string);
     vi.stubEnv("VERCEL_URL", "traveler-preview.example.com");
     vi.stubEnv("VERCEL_BRANCH_URL", "");
@@ -320,16 +328,12 @@ describe("invite-only magic-link authentication", () => {
         },
       },
     );
-    expect(sendLink.status).toBe(202);
-    await flushBackgroundTasks(services.backgroundTasks);
-    expect(sendEmail.mock.calls.at(-1)?.[0]).toBe("participant@example.com");
-    expect(sendEmail.mock.calls.at(-1)?.[1]).toContain(
-      "https://traveler-preview.example.com",
-    );
+    expect(sendLink.status).toBe(200);
+    const generatedLink = (await sendLink.json()).link as string;
+    expect(generatedLink).toContain("https://traveler-preview.example.com");
+    expect(sendEmail).toHaveBeenCalledOnce();
 
-    const participantSession = await app.request(
-      sendEmail.mock.calls.at(-1)?.[1] as string,
-    );
+    const participantSession = await app.request(generatedLink);
     const participantCookie = participantSession.headers
       .get("set-cookie")
       ?.split(";")[0] as string;
@@ -353,11 +357,8 @@ describe("invite-only magic-link authentication", () => {
     });
   });
 
-  it("reports manager-triggered login email delivery failures", async () => {
-    const sendEmail = vi
-      .fn()
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("Brevo unavailable"));
+  it("generates a manager login link without invoking the email sender", async () => {
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
     const services = await createTestServices(sendEmail);
     const trip = await createTripsStore(services.database).create("Ski 2027");
     const manager = await createManagersStore(services.database).create({
@@ -406,8 +407,11 @@ describe("invite-only magic-link authentication", () => {
       { method: "POST", headers: { Cookie: cookie } },
     );
 
-    expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "email_delivery_failed" });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      link: expect.stringContaining("/api/auth/magic-link/verify"),
+    });
+    expect(sendEmail).toHaveBeenCalledOnce();
   });
 
   it("stores staff trip details and exposes them only inside that trip", async () => {

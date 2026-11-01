@@ -16,10 +16,12 @@ import {
   SelectValue,
   TextField,
 } from "react-aria-components";
+import { useTranslation } from "react-i18next";
 import {
   Button,
   listBoxStyles,
   messageStyles,
+  SelectTrigger,
   textFieldStyles,
 } from "../../components/ui";
 import type { StaffTraveler } from "../organizer/types";
@@ -64,6 +66,7 @@ export function RoomingPanel({
   userId: string;
   role: "traveler" | "companion" | "manager";
 }) {
+  const { t } = useTranslation();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [requests, setRequests] = useState<RoomRequestSummary[]>([]);
   const [targetRoomId, setTargetRoomId] = useState<string | null>(null);
@@ -168,7 +171,9 @@ export function RoomingPanel({
       const result = (await response.json().catch(() => ({}))) as {
         error?: string;
       };
-      setMessage(roomErrorLabel[result.error ?? ""] ?? "L’opération a échoué.");
+      setMessage(
+        t(roomErrorLabel[result.error ?? ""] ?? "L’opération a échoué."),
+      );
       return false;
     }
     return true;
@@ -178,7 +183,7 @@ export function RoomingPanel({
     event.preventDefault();
     if (!targetRoomId) return;
     if (exchangeRequired && !exchangeEmail.trim()) {
-      setMessage("Indiquez l’e-mail de la personne avec qui échanger.");
+      setMessage(t("enterTheEmailAddressOfThePersonYouWantToSwapWith"));
       return;
     }
     const payload = exchangeEmail.trim()
@@ -198,8 +203,8 @@ export function RoomingPanel({
     if (ok) {
       setMessage(
         exchangeEmail.trim()
-          ? "Votre proposition d’échange a été envoyée aux personnes concernées."
-          : "Votre demande de chambre a été enregistrée.",
+          ? t("yourSwapProposalHasBeenSentToThePeopleInvolved")
+          : t("yourRoomRequestHasBeenRecorded"),
       );
       setTargetRoomId(null);
       setExchangeEmail("");
@@ -223,22 +228,20 @@ export function RoomingPanel({
       };
       if (!response.ok) {
         setMessage(
-          roomErrorLabel[result.error ?? ""] ?? "L’opération a échoué.",
+          t(roomErrorLabel[result.error ?? ""] ?? "L’opération a échoué."),
         );
         return;
       }
       setMessage(
         result.status === "stale"
-          ? "La composition de la chambre a changé. Cette demande n’a pas été appliquée."
+          ? t("theRoomCompositionChangedThisRequestWasNotApplied")
           : approve
-            ? "Votre accord a été enregistré."
-            : "La demande a été refusée.",
+            ? t("yourApprovalHasBeenRecorded")
+            : t("theRequestWasDeclined"),
       );
       await refresh();
     } catch {
-      setMessage(
-        "Votre réponse n’a pas pu être envoyée. Vérifiez votre connexion puis réessayez.",
-      );
+      setMessage(t("yourResponseCouldNotBeSentCheckYourConnectionAndTryAgain"));
     }
   }
 
@@ -256,14 +259,12 @@ export function RoomingPanel({
       },
     );
     if (!response.ok) {
-      setMessage(
-        "Impossible de créer cette chambre. Vérifiez son nom et sa capacité.",
-      );
+      setMessage(t("thisRoomCouldNotBeCreatedCheckItsNameAndCapacity"));
       return;
     }
     setRoomName("");
     setRoomCapacity("4");
-    setMessage("La chambre a été créée.");
+    setMessage(t("theRoomWasCreated"));
     await refresh();
   }
 
@@ -275,7 +276,7 @@ export function RoomingPanel({
       { userId: initialTravelerId },
     );
     if (ok) {
-      setMessage("La répartition a été mise à jour.");
+      setMessage(t("roomAssignmentsHaveBeenUpdated"));
       setInitialRoomId(null);
       setInitialTravelerId(null);
       await refresh();
@@ -288,71 +289,77 @@ export function RoomingPanel({
 
   if (status === "loading")
     return (
-      <section className="mt-7" aria-busy="true">
-        <p role="status">Chargement du rooming…</p>
+      <section className="grid gap-4" aria-busy="true">
+        <p role="status">{t("loadingRoomAssignments")}</p>
       </section>
     );
   if (status === "error")
     return (
-      <section className="mt-7">
-        <h3 className="mb-1 text-lg font-bold">Chambres</h3>
-        <p role="alert">
-          La répartition des chambres est momentanément indisponible.
-        </p>
+      <section className="grid gap-4">
+        <h3 className="text-lg font-bold">{t("rooms")}</h3>
+        <p role="alert">{t("roomAssignmentsAreTemporarilyUnavailable")}</p>
       </section>
     );
   return (
-    <section className="mt-7" aria-labelledby="rooming-title">
-      <div className="mb-5 flex items-start justify-between gap-4 max-[420px]:flex-col">
-        <div>
-          <h3 className="mb-1 text-lg font-bold" id="rooming-title">
-            Chambres
+    <section className="grid gap-5" aria-labelledby="rooming-title">
+      <div className="flex items-start justify-between gap-4 max-[420px]:flex-col">
+        <div className="grid gap-1">
+          <h3 className="text-lg font-bold" id="rooming-title">
+            {t("rooms")}
           </h3>
-          <p className="m-0 text-sm leading-relaxed text-[var(--muted)]">
-            Votre chambre et les demandes en attente.
+          <p className="text-sm leading-relaxed text-content-muted">
+            {t("yourRoomAndPendingRequests")}
           </p>
         </div>
       </div>
       {ownRoom ? (
-        <article className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
+        <article className="grid content-start gap-3 rounded-card border border-border bg-surface p-4">
           <div className="grid gap-2">
-            <span className="text-xs text-[var(--quiet)]">Votre chambre</span>
+            <span className="text-xs text-content-subtle">{t("yourRoom")}</span>
             <strong className="text-lg">{ownRoom.name}</strong>
           </div>
-          <span className="mt-3 inline-block rounded-full border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--muted)]">
-            {ownRoom.occupiedCount}/{ownRoom.capacity} places
+          <span className="inline-block rounded-full border border-border px-3 py-2 text-xs font-semibold text-content-muted">
+            {t("occupiedCapacityBeds", {
+              occupied: ownRoom.occupiedCount,
+              capacity: ownRoom.capacity,
+            })}
           </span>
-          <ul className="mb-0 mt-3 list-inside list-disc space-y-1 leading-relaxed text-[var(--muted)]">
+          <ul className="list-inside list-disc space-y-1 leading-relaxed text-content-muted">
             {ownRoom.occupants.map((person) => (
               <li key={person.userId}>
                 {person.firstName} {person.lastName}
-                {person.userId === userId ? " · vous" : ""}
+                {person.userId === userId ? ` · ${t("you")}` : ""}
               </li>
             ))}
           </ul>
         </article>
       ) : (
-        <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">
-          Aucune chambre ne vous a encore été attribuée.
+        <p className="rounded-card border border-dashed border-border p-4 text-sm text-content-muted">
+          {t("youHaveNotBeenAssignedARoomYet")}
         </p>
       )}
       {isStaff && (
-        <div className="mt-6 grid gap-3">
-          <h4 className="mb-0 text-base font-bold">Répartition actuelle</h4>
+        <div className="grid gap-3">
+          <h4 className="text-base font-bold">{t("currentRoomAssignments")}</h4>
           {rooms.map((room) => (
             <article
-              className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4"
+              className="grid content-start gap-3 rounded-card border border-border bg-surface p-4"
               key={room.id}
             >
               <div className="grid gap-2">
-                <span className="text-xs text-[var(--quiet)]">
-                  {room.occupiedCount}/{room.capacity} places
-                  {room.genderPolicy === "mixed" ? " · mixte validée" : ""}
+                <span className="text-xs text-content-subtle">
+                  {t("occupiedCapacityBeds", {
+                    occupied: room.occupiedCount,
+                    capacity: room.capacity,
+                  })}
+                  {room.genderPolicy === "mixed"
+                    ? ` · ${t("approvedMixedRoom")}`
+                    : ""}
                 </span>
                 <strong className="text-lg">{room.name}</strong>
               </div>
               {room.occupants.length ? (
-                <ul className="mb-0 mt-3 list-inside list-disc space-y-1 leading-relaxed text-[var(--muted)]">
+                <ul className="list-inside list-disc space-y-1 leading-relaxed text-content-muted">
                   {room.occupants.map((person) => (
                     <li key={person.userId}>
                       {person.firstName} {person.lastName}
@@ -360,9 +367,7 @@ export function RoomingPanel({
                   ))}
                 </ul>
               ) : (
-                <p className="mb-0 mt-3 text-xs text-[var(--quiet)]">
-                  Chambre vide
-                </p>
+                <p className="text-xs text-content-subtle">{t("emptyRoom")}</p>
               )}
             </article>
           ))}
@@ -370,7 +375,7 @@ export function RoomingPanel({
       )}
       {targetRooms.length > 0 && (
         <Form
-          className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 max-[420px]:grid-cols-1"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 max-[420px]:grid-cols-1"
           onSubmit={requestChange}
         >
           <Select
@@ -382,11 +387,11 @@ export function RoomingPanel({
             isRequired
           >
             <Label className={textFieldStyles().label()}>
-              Demander une place dans une autre chambre
+              {t("requestABedInAnotherRoom")}
             </Label>
-            <Button appearance="select">
+            <SelectTrigger>
               <SelectValue />
-            </Button>
+            </SelectTrigger>
             <Popover>
               <ListBox className={listBoxStyles().list()}>
                 {targetRooms.map((room) => (
@@ -396,8 +401,10 @@ export function RoomingPanel({
                     id={room.id}
                     textValue={room.name}
                   >
-                    {room.name} · {room.capacity - room.occupiedCount} place(s)
-                    libre(s)
+                    {t("roomCountBedSAvailable", {
+                      room: room.name,
+                      count: room.capacity - room.occupiedCount,
+                    })}
                   </ListBoxItem>
                 ))}
               </ListBox>
@@ -412,8 +419,8 @@ export function RoomingPanel({
               isRequired={exchangeRequired}
             >
               <Label className={textFieldStyles().label()}>
-                E-mail de la personne avec qui échanger
-                {exchangeRequired ? " (obligatoire)" : " (facultatif)"}
+                {t("emailOfThePersonToExchangeWith")}
+                {exchangeRequired ? t("required") : t("optional")}
               </Label>
               <Input
                 className={textFieldStyles().input()}
@@ -422,59 +429,59 @@ export function RoomingPanel({
             </TextField>
           )}
           <Button type="submit" appearance="secondary">
-            {exchangeEmail.trim() ? "Proposer l’échange" : "Envoyer ma demande"}
+            {exchangeEmail.trim() ? t("proposeAnExchange") : t("sendMyRequest")}
           </Button>
         </Form>
       )}
       {requests.length > 0 && (
-        <div className="mt-7">
-          <h4 className="mb-2 text-base font-bold">Demandes à valider</h4>
+        <div className="grid gap-3">
+          <h4 className="text-base font-bold">{t("requestsToApprove")}</h4>
           {requests.map((request) => {
             const ownConsent = request.requiredConsents.find(
               (consent) => consent.userId === userId,
             );
             return (
               <article
-                className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4"
+                className="grid gap-3 rounded-card border border-border bg-surface p-4"
                 key={request.id}
               >
-                <p className="m-0 leading-relaxed text-[var(--muted)]">
+                <p className="leading-relaxed text-content-muted">
                   {request.requester?.firstName} {request.requester?.lastName}{" "}
-                  demande un changement de chambre.
+                  {t("requestsARoomChange")}
                 </p>
-                <ul className="mb-0 mt-3 list-inside list-disc space-y-1 leading-relaxed text-[var(--muted)]">
+                <ul className="list-inside list-disc space-y-1 leading-relaxed text-content-muted">
                   {request.moves.map((move) => (
                     <li key={move.userId}>
                       {move.person?.firstName} {move.person?.lastName} :{" "}
-                      {move.currentRoom ?? "sans chambre"} → {move.targetRoom}
+                      {move.currentRoom ?? t("unassigned")} → {move.targetRoom}
                     </li>
                   ))}
                 </ul>
                 {ownConsent && !ownConsent.approved && (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       appearance="secondary"
                       onPress={() => void respond(request.id, true)}
                     >
-                      J’accepte
+                      {t("approve")}
                     </Button>
                     <Button
                       appearance="quiet"
                       onPress={() => void respond(request.id, false)}
                     >
-                      Je refuse
+                      {t("decline")}
                     </Button>
                   </div>
                 )}
                 {ownConsent?.approved && (
-                  <p className="mt-3 text-sm text-[var(--success)]">
-                    Votre accord est enregistré ·{" "}
+                  <p className="text-sm text-success">
+                    {t("yourApprovalIsRecorded")} ·{" "}
                     {
                       request.requiredConsents.filter(
                         (consent) => consent.approved,
                       ).length
                     }
-                    /{request.requiredConsents.length} accords
+                    /{request.requiredConsents.length} {t("approvals")}
                   </p>
                 )}
               </article>
@@ -483,10 +490,10 @@ export function RoomingPanel({
         </div>
       )}
       {isStaff && (
-        <div className="mt-7">
-          <h4 className="mb-2 text-base font-bold">Créer une chambre</h4>
+        <div className="grid gap-4">
+          <h4 className="text-base font-bold">{t("createARoom")}</h4>
           <Form
-            className="mt-4 grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3 max-[420px]:grid-cols-1"
+            className="grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3 max-[420px]:grid-cols-1"
             onSubmit={createRoom}
           >
             <TextField
@@ -496,11 +503,11 @@ export function RoomingPanel({
               isRequired
             >
               <Label className={textFieldStyles().label()}>
-                Nom de la chambre
+                {t("roomName")}
               </Label>
               <Input
                 className={textFieldStyles().input()}
-                placeholder="Ex. 101"
+                placeholder={t("eG101")}
                 maxLength={80}
               />
             </TextField>
@@ -510,7 +517,9 @@ export function RoomingPanel({
               onChange={setRoomCapacity}
               isRequired
             >
-              <Label className={textFieldStyles().label()}>Capacité</Label>
+              <Label className={textFieldStyles().label()}>
+                {t("capacity")}
+              </Label>
               <Input
                 className={textFieldStyles().input()}
                 type="number"
@@ -519,25 +528,26 @@ export function RoomingPanel({
               />
             </TextField>
             <Button appearance="secondary" type="submit">
-              Créer
+              {t("create")}
             </Button>
           </Form>
           {unassignedTravelers.length > 0 && availableRooms.length > 0 && (
             <Form
-              className="mt-4 grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3 max-[420px]:grid-cols-1"
+              className="grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3 max-[420px]:grid-cols-1"
               onSubmit={assignInitialRoom}
             >
               <Select
+                className="grid min-w-0 gap-2"
                 selectedKey={initialTravelerId}
                 onSelectionChange={selectChange(setInitialTravelerId)}
                 isRequired
               >
                 <Label className={textFieldStyles().label()}>
-                  Voyageur à placer
+                  {t("travelerToAssign")}
                 </Label>
-                <Button appearance="select">
+                <SelectTrigger>
                   <SelectValue />
-                </Button>
+                </SelectTrigger>
                 <Popover>
                   <ListBox className={listBoxStyles().list()}>
                     {unassignedTravelers.map((person) => (
@@ -554,16 +564,17 @@ export function RoomingPanel({
                 </Popover>
               </Select>
               <Select
+                className="grid min-w-0 gap-2"
                 selectedKey={initialRoomId}
                 onSelectionChange={selectChange(setInitialRoomId)}
                 isRequired
               >
                 <Label className={textFieldStyles().label()}>
-                  Chambre avec une place libre
+                  {t("roomWithAnAvailableBed")}
                 </Label>
-                <Button appearance="select">
+                <SelectTrigger>
                   <SelectValue />
-                </Button>
+                </SelectTrigger>
                 <Popover>
                   <ListBox className={listBoxStyles().list()}>
                     {availableRooms.map((room) => (
@@ -580,7 +591,7 @@ export function RoomingPanel({
                 </Popover>
               </Select>
               <Button appearance="secondary" type="submit">
-                Attribuer
+                {t("assign2")}
               </Button>
             </Form>
           )}
@@ -596,12 +607,10 @@ export function RoomingPanel({
 }
 
 const roomErrorLabel: Record<string, string> = {
-  room_capacity_exceeded: "Cette chambre n’a plus de place.",
-  room_composition_changed:
-    "La composition de la chambre a changé. Actualisez la page.",
+  room_capacity_exceeded: "thisRoomIsFull",
+  room_composition_changed: "theRoomCompositionHasChangedRefreshThePage",
   room_change_requires_consents:
-    "Un changement de chambre nécessite le consentement des personnes concernées.",
-  consent_not_required: "Vous n’êtes pas concerné par cette demande.",
-  invalid_room_exchange:
-    "Impossible de retrouver cette personne dans la chambre sélectionnée.",
+    "aRoomChangeRequiresTheConsentOfEveryoneInvolved",
+  consent_not_required: "youAreNotInvolvedInThisRequest",
+  invalid_room_exchange: "thisPersonCouldNotBeFoundInTheSelectedRoom",
 };

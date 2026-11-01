@@ -1,5 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { Checkbox, Form } from "react-aria-components";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import {
   Button,
   buttonStyles,
@@ -7,6 +9,7 @@ import {
   eyebrowStyles,
   messageStyles,
 } from "../../components/ui";
+import { getLocale } from "../../i18n";
 import {
   formatBytes,
   formatJourneyDate,
@@ -15,6 +18,10 @@ import {
   transportLabel,
 } from "../../lib/trip-format";
 import type { TripRole } from "../../types/profile";
+import {
+  TravelerProfileForm,
+  type TravelerProfileValues,
+} from "../profile/TravelerProfileForm";
 import { RoomingPanel } from "../rooming/RoomingPanel";
 
 type TravelerTripData = {
@@ -23,7 +30,16 @@ type TravelerTripData = {
     firstName: string;
     lastName: string;
     gender: "M" | "F" | null;
+    genderConfirmed: boolean;
     role: "traveler" | "companion" | "manager";
+  };
+  profile?: {
+    dietaryRequirements: string | null;
+    allergens: string | null;
+    emergencyContactFirstName: string | null;
+    emergencyContactLastName: string | null;
+    emergencyContactPhone: string | null;
+    completed: boolean;
   };
   details: null | {
     activityProfile: "ski" | "spa" | null;
@@ -66,10 +82,13 @@ export function TripWorkspace({
   role: TripRole;
   userId: string;
 }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const [data, setData] = useState<TravelerTripData | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable">(
     "loading",
   );
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -79,7 +98,7 @@ export function TripWorkspace({
       cache: "no-store",
     })
       .then(async (response) => {
-        if (!response.ok) throw new Error("Trip information unavailable");
+        if (!response.ok) throw new Error("trip information unavailable");
         return (await response.json()) as TravelerTripData;
       })
       .then((nextData) => {
@@ -96,127 +115,196 @@ export function TripWorkspace({
   }, [tripId]);
 
   if (status === "loading")
-    return <p role="status">Chargement des informations du voyage…</p>;
+    return <p role="status">{t("loadingTripInformation")}</p>;
   if (status === "unavailable" || !data)
-    return (
-      <p role="alert">
-        Les informations du voyage ne sont pas accessibles pour le moment.
-      </p>
-    );
+    return <p role="alert">{t("tripInformationIsCurrentlyUnavailable")}</p>;
 
   const details = data.details;
+  const profile = data.profile ?? {
+    dietaryRequirements: null,
+    allergens: null,
+    emergencyContactFirstName: null,
+    emergencyContactLastName: null,
+    emergencyContactPhone: null,
+    completed: false,
+  };
+  const isProfileComplete = Boolean(
+    profile.completed && data.traveler.genderConfirmed,
+  );
   return (
-    <div className="w-full">
-      <div className="mb-5 flex items-start justify-between gap-4 max-[420px]:flex-col">
-        <div>
+    <div className="grid w-full gap-7">
+      <div className="flex items-start justify-between gap-4 max-[420px]:flex-col">
+        <div className="grid gap-1">
           <p className={eyebrowStyles()}>{data.trip.name}</p>
-          <h2 className="mb-1 mt-1 text-2xl font-bold tracking-tight">
-            Votre séjour
-          </h2>
-          <p className="m-0 text-sm leading-relaxed text-[var(--muted)]">
-            Les informations partagées par l’équipe d’organisation.
+          <h2 className="text-2xl font-bold tracking-tight">{t("yourTrip")}</h2>
+          <p className="text-sm leading-relaxed text-content-muted">
+            {t("informationSharedByYourOrganizers")}
           </p>
         </div>
-        <span className="rounded-full bg-[var(--surface-soft)] px-3 py-2 text-xs font-bold text-[var(--ink)]">
-          {roleLabel[role]}
+        <span className="rounded-full bg-surface-muted px-3 py-2 text-xs font-bold text-content">
+          {t(roleLabel[role])}
         </span>
       </div>
+      <TravelerProfileForm
+        tripId={tripId}
+        isOpen={!isProfileComplete || isProfileEditorOpen}
+        isRequired={!isProfileComplete}
+        onOpenChange={(isOpen, reason) => {
+          if (isOpen) {
+            setIsProfileEditorOpen(true);
+            return;
+          }
+          setIsProfileEditorOpen(false);
+          if (!isProfileComplete && reason !== "saved") {
+            const historyIndex = window.history.state?.idx;
+            if (typeof historyIndex === "number" && historyIndex > 0) {
+              navigate(-1);
+            } else {
+              navigate("/trips", { replace: true });
+            }
+          }
+        }}
+        initial={{
+          firstName: data.traveler.firstName,
+          lastName: data.traveler.lastName,
+          gender: data.traveler.gender,
+          genderConfirmed: data.traveler.genderConfirmed,
+          dietaryRequirements: profile.dietaryRequirements ?? "",
+          allergens: profile.allergens ?? "",
+          emergencyContactFirstName: profile.emergencyContactFirstName ?? "",
+          emergencyContactLastName: profile.emergencyContactLastName ?? "",
+          emergencyContactPhone: profile.emergencyContactPhone ?? "",
+          completed: profile.completed,
+        }}
+        onSaved={(values: TravelerProfileValues) => {
+          setData((current) =>
+            current
+              ? {
+                  ...current,
+                  traveler: {
+                    ...current.traveler,
+                    firstName: values.firstName,
+                    lastName: values.lastName,
+                    gender: values.gender,
+                    genderConfirmed: values.genderConfirmed,
+                  },
+                  profile: {
+                    dietaryRequirements: values.dietaryRequirements,
+                    allergens: values.allergens,
+                    emergencyContactFirstName: values.emergencyContactFirstName,
+                    emergencyContactLastName: values.emergencyContactLastName,
+                    emergencyContactPhone: values.emergencyContactPhone,
+                    completed: values.completed,
+                  },
+                }
+              : current,
+          );
+          setIsProfileEditorOpen(false);
+        }}
+      />
       <div className="grid grid-cols-2 gap-3 max-[420px]:grid-cols-1">
-        <article className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
-          <span className="text-xs text-[var(--quiet)]">Activité</span>
-          <strong className="mt-2 block break-words text-base">
+        <article className="grid min-w-0 content-start gap-2 rounded-card border border-border bg-surface p-4">
+          <span className="text-xs text-content-subtle">{t("activity")}</span>
+          <strong className="block break-words text-base">
             {details?.activityProfile === "ski"
-              ? "Ski"
+              ? t("ski")
               : details?.activityProfile === "spa"
-                ? "Spa"
-                : "À confirmer"}
+                ? t("spa")
+                : t("toBeConfirmed")}
           </strong>
-          <p className="mb-0 mt-2 text-sm leading-relaxed text-[var(--muted)]">
+          <p className="text-sm leading-relaxed text-content-muted">
             {details?.skiDayThree
-              ? "Forfait ski 3 jours"
+              ? t("text3DaySkiPass")
               : details?.activityProfile === "ski"
-                ? "Forfait ski 2 jours"
+                ? t("text2DaySkiPass")
                 : ""}
           </p>
         </article>
-        <article className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
-          <span className="text-xs text-[var(--quiet)]">Transport</span>
-          <strong className="mt-2 block break-words text-base">
-            {transportLabel[details?.transportMode ?? ""] ?? "À confirmer"}
+        <article className="grid min-w-0 content-start gap-2 rounded-card border border-border bg-surface p-4">
+          <span className="text-xs text-content-subtle">{t("transport")}</span>
+          <strong className="block break-words text-base">
+            {t(transportLabel[details?.transportMode ?? ""] ?? "toBeConfirmed")}
           </strong>
-          <p className="mb-0 mt-2 text-sm leading-relaxed text-[var(--muted)]">
+          <p className="text-sm leading-relaxed text-content-muted">
             {details?.departureCity ??
               details?.outboundLocation ??
-              "Les informations seront ajoutées par l’équipe."}
+              t("theOrganizersWillAddThisInformation")}
           </p>
         </article>
-        <article className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
-          <span className="text-xs text-[var(--quiet)]">Aller</span>
-          <strong className="mt-2 block break-words text-base">
+        <article className="grid min-w-0 content-start gap-2 rounded-card border border-border bg-surface p-4">
+          <span className="text-xs text-content-subtle">{t("outbound")}</span>
+          <strong className="block break-words text-base">
             {formatJourneyDate(
               details?.outboundDateTime,
               details?.outboundDepartureTime,
+              getLocale(),
+              t("toBeConfirmed"),
             )}
           </strong>
-          <p className="mb-0 mt-2 text-sm leading-relaxed text-[var(--muted)]">
+          <p className="text-sm leading-relaxed text-content-muted">
             {[
               details?.outboundMeetingTime &&
-                `Rendez-vous ${details.outboundMeetingTime}`,
+                `${t("meeting")} ${details.outboundMeetingTime}`,
               details?.outboundLocation,
-              details?.outboundReference && `Réf. ${details.outboundReference}`,
-              details?.outboundSeat && `Place ${details.outboundSeat}`,
+              details?.outboundReference &&
+                `${t("ref")} ${details.outboundReference}`,
+              details?.outboundSeat && `${t("seat")} ${details.outboundSeat}`,
             ]
               .filter(Boolean)
-              .join(" · ") || "Informations à venir"}
+              .join(" ·") || t("informationToCome")}
           </p>
         </article>
-        <article className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4">
-          <span className="text-xs text-[var(--quiet)]">Retour</span>
-          <strong className="mt-2 block break-words text-base">
+        <article className="grid min-w-0 content-start gap-2 rounded-card border border-border bg-surface p-4">
+          <span className="text-xs text-content-subtle">{t("return")}</span>
+          <strong className="block break-words text-base">
             {formatJourneyDate(
               details?.returnDateTime,
               details?.returnDepartureTime,
+              getLocale(),
+              t("toBeConfirmed"),
             )}
           </strong>
-          <p className="mb-0 mt-2 text-sm leading-relaxed text-[var(--muted)]">
+          <p className="text-sm leading-relaxed text-content-muted">
             {[
               details?.returnMeetingTime &&
-                `Rendez-vous ${details.returnMeetingTime}`,
+                `${t("meeting")} ${details.returnMeetingTime}`,
               details?.returnLocation,
-              details?.returnReference && `Réf. ${details.returnReference}`,
-              details?.returnSeat && `Place ${details.returnSeat}`,
+              details?.returnReference &&
+                `${t("ref")} ${details.returnReference}`,
+              details?.returnSeat && `${t("seat")} ${details.returnSeat}`,
             ]
               .filter(Boolean)
-              .join(" · ") || "Informations à venir"}
+              .join(" ·") || t("informationToCome")}
           </p>
         </article>
       </div>
-      <section className="mt-7" aria-labelledby="tickets-title">
-        <div className="mb-5 flex items-start justify-between gap-4 max-[420px]:flex-col">
-          <div>
-            <h3 className="mb-1 text-lg font-bold" id="tickets-title">
-              Titres de transport
+      <section className="grid gap-4" aria-labelledby="tickets-title">
+        <div className="flex items-start justify-between gap-4 max-[420px]:flex-col">
+          <div className="grid gap-1">
+            <h3 className="text-lg font-bold" id="tickets-title">
+              {t("travelTickets")}
             </h3>
-            <p className="m-0 text-sm leading-relaxed text-[var(--muted)]">
-              Vos documents sont disponibles uniquement après connexion.
+            <p className="text-sm leading-relaxed text-content-muted">
+              {t("yourDocumentsAreAvailableOnlyAfterSigningIn")}
             </p>
           </div>
         </div>
         {data.tickets.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">
-            Aucun billet n’a encore été ajouté.
+          <p className="rounded-card border border-dashed border-border p-4 text-sm text-content-muted">
+            {t("noTicketsHaveBeenAddedYet")}
           </p>
         ) : (
-          <ul className="m-0 grid list-none gap-2 p-0">
+          <ul className="grid list-none gap-2 p-0">
             {data.tickets.map((ticket) => (
               <li
-                className="flex items-center justify-between gap-4 rounded-xl border border-[var(--line)] p-3 max-[420px]:flex-col max-[420px]:items-start"
+                className="flex items-center justify-between gap-4 rounded-card border border-border p-3 max-[420px]:flex-col max-[420px]:items-start"
                 key={ticket.id}
               >
                 <span className="grid min-w-0 gap-1">
-                  <strong>{ticketLabel[ticket.kind]}</strong>
-                  <small className="break-words text-[var(--muted)]">
-                    {ticket.originalName} · {formatBytes(ticket.size)}
+                  <strong>{t(ticketLabel[ticket.kind])}</strong>
+                  <small className="break-words text-content-muted">
+                    {ticket.originalName} ·{" "}
+                    {formatBytes(ticket.size, getLocale())}
                   </small>
                 </span>
                 <a
@@ -225,9 +313,9 @@ export function TripWorkspace({
                     class: "shrink-0",
                   })}
                   href={`/api/trips/${encodeURIComponent(tripId)}/tickets/${encodeURIComponent(ticket.id)}`}
-                  aria-label={`Télécharger ${ticketLabel[ticket.kind]} : ${ticket.originalName}`}
+                  aria-label={`${t("download")} ${t(ticketLabel[ticket.kind])} : ${ticket.originalName}`}
                 >
-                  Télécharger
+                  {t("download")}
                 </a>
               </li>
             ))}
@@ -271,6 +359,7 @@ function CarpoolPreferences({
   parkingPreference: boolean | null;
   onSaved: (carpoolPreference: boolean, parkingPreference: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const [carpool, setCarpool] = useState(carpoolPreference ?? false);
   const [parking, setParking] = useState(parkingPreference ?? false);
   const [message, setMessage] = useState("");
@@ -297,13 +386,13 @@ function CarpoolPreferences({
         },
       );
       if (!response.ok) {
-        setMessage("Vos préférences n’ont pas pu être enregistrées.");
+        setMessage(t("yourPreferencesCouldNotBeSaved"));
         return;
       }
       onSaved(carpool, carpool && parking);
-      setMessage("Vos préférences ont été enregistrées.");
+      setMessage(t("yourPreferencesHaveBeenSaved"));
     } catch {
-      setMessage("Vos préférences n’ont pas pu être enregistrées.");
+      setMessage(t("yourPreferencesCouldNotBeSaved"));
     } finally {
       setIsSaving(false);
     }
@@ -311,17 +400,16 @@ function CarpoolPreferences({
 
   return (
     <section
-      className="mt-7 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4"
+      className="grid gap-4 rounded-card border border-border bg-surface p-4"
       aria-labelledby="carpool-title"
     >
-      <h3 className="mb-1 text-lg font-bold" id="carpool-title">
-        Sans transport réservé
+      <h3 className="text-lg font-bold" id="carpool-title">
+        {t("noTransportBooked")}
       </h3>
-      <p className="text-sm leading-relaxed text-[var(--muted)]">
-        Indiquez si vous cherchez un covoiturage et, si oui, une place de
-        parking.
+      <p className="text-sm leading-relaxed text-content-muted">
+        {t("tellUsWhetherYouNeedACarpoolAndIfSoAParkingSpace")}
       </p>
-      <Form className="mt-4 grid justify-items-start gap-3" onSubmit={save}>
+      <Form className="grid justify-items-start gap-3" onSubmit={save}>
         <Checkbox
           className={checkboxStyles()}
           isSelected={carpool}
@@ -331,7 +419,7 @@ function CarpoolPreferences({
             if (!selected) setParking(false);
           }}
         >
-          <span>Je viens en covoiturage</span>
+          <span>{t("iAmTravelingByCarpool")}</span>
         </Checkbox>
         {carpool && (
           <Checkbox
@@ -340,11 +428,11 @@ function CarpoolPreferences({
             isDisabled={isSaving}
             onChange={setParking}
           >
-            <span>Je demande une place de parking</span>
+            <span>{t("iNeedAParkingSpace")}</span>
           </Checkbox>
         )}
         <Button appearance="secondary" type="submit" isDisabled={isSaving}>
-          {isSaving ? "Enregistrement…" : "Enregistrer mes préférences"}
+          {isSaving ? t("saving") : t("saveMyPreferences")}
         </Button>
       </Form>
       {message && (

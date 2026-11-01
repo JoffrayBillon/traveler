@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
   BrowserRouter,
   Link,
@@ -30,16 +31,13 @@ import {
   useNavigate,
   useParams,
 } from "react-router";
-import { ThemeToggle } from "./components/ThemeToggle";
+import { ProfileMenu } from "./components/ProfileMenu";
 import { buttonStyles, eyebrowStyles } from "./components/ui";
+import { useThemePreference } from "./hooks/useThemePreference";
+import "./i18n";
 import type { TravelerProfile } from "./types/profile";
 import "./styles.css";
 
-const AccountPage = lazy(() =>
-  import("./features/account/AccountPage").then((module) => ({
-    default: module.AccountPage,
-  })),
-);
 const OrganizerWorkspace = lazy(() =>
   import("./features/organizer/OrganizerWorkspace").then((module) => ({
     default: module.OrganizerWorkspace,
@@ -62,8 +60,6 @@ const TripWorkspace = lazy(() =>
 );
 
 const SIGN_IN_COOLDOWN_SECONDS = 30;
-const THEME_STORAGE_KEY = "traveler-theme";
-
 export function App() {
   return (
     <BrowserRouter>
@@ -73,6 +69,7 @@ export function App() {
 }
 
 function TravelerApp() {
+  const { t } = useTranslation();
   const profileRequestId = useRef(0);
   const mainRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
@@ -80,7 +77,7 @@ function TravelerApp() {
   const previousPath = useRef(location.pathname);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  const [isDark, setIsDark] = useState(readInitialTheme);
+  const { preference, setPreference } = useThemePreference();
   const [profile, setProfile] = useState<TravelerProfile | null>(null);
   const [profileStatus, setProfileStatus] = useState<
     "checking" | "ready" | "unavailable"
@@ -92,11 +89,6 @@ function TravelerApp() {
   const [profileError, setProfileError] = useState("");
   const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const reduceMotion = useReducedMotion();
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = isDark ? "dark" : "light";
-    window.localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light");
-  }, [isDark]);
 
   useEffect(() => {
     if (previousPath.current === location.pathname) return;
@@ -130,8 +122,7 @@ function TravelerApp() {
         setProfileStatus("ready");
         return;
       }
-      if (!response.ok)
-        throw new Error("The traveler profile could not be loaded.");
+      if (!response.ok) throw new Error("traveler profile unavailable");
       const nextProfile = (await response.json()) as TravelerProfile;
       if (currentRequest !== profileRequestId.current) return;
       setProfile(nextProfile);
@@ -202,20 +193,26 @@ function TravelerApp() {
           Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
         startCooldown(seconds);
         setHasError(true);
-        setMessage(`Trop de demandes. Réessayez dans ${seconds} secondes.`);
+        setMessage(
+          t("tooManyRequestsTryAgainInSecondsSeconds", {
+            seconds,
+          }),
+        );
         return;
       }
-      if (!response.ok) throw new Error("The sign-in service is unavailable.");
+      if (!response.ok) throw new Error("sign-in unavailable");
       startCooldown(SIGN_IN_COOLDOWN_SECONDS);
       setMessage(
-        "Si cette adresse est autorisée, un lien de connexion vient d’être envoyé.",
+        import.meta.env.DEV
+          ? t(
+              "ifThisAddressIsAuthorizedItsSignInLinkIsShownInTheLocalApiTerminal",
+            )
+          : t("ifThisAddressIsAuthorizedASignInLinkHasBeenSent"),
       );
     } catch {
       startCooldown(SIGN_IN_COOLDOWN_SECONDS);
       setHasError(true);
-      setMessage(
-        "La connexion est momentanément indisponible. Réessayez plus tard.",
-      );
+      setMessage(t("signInIsTemporarilyUnavailablePleaseTryAgainLater"));
     } finally {
       setIsSending(false);
     }
@@ -225,13 +222,13 @@ function TravelerApp() {
     setProfileError("");
     try {
       const response = await fetch("/api/auth/sign-out", { method: "POST" });
-      if (!response.ok) throw new Error("Sign-out failed.");
+      if (!response.ok) throw new Error("sign-out failed");
       profileRequestId.current += 1;
       setProfile(null);
       setProfileStatus("ready");
       navigate("/", { replace: true });
     } catch {
-      setProfileError("La déconnexion est momentanément indisponible.");
+      setProfileError(t("signOutIsTemporarilyUnavailable"));
     }
   }
 
@@ -243,7 +240,7 @@ function TravelerApp() {
       hasError={hasError}
       profileError={
         profileStatus === "unavailable"
-          ? "Votre espace n’est pas joignable pour le moment. Réessayez dans un instant."
+          ? t("yourSpaceIsTemporarilyUnavailablePleaseTryAgainShortly")
           : ""
       }
       cooldownSeconds={cooldownSeconds}
@@ -268,21 +265,21 @@ function TravelerApp() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="flex min-h-dvh flex-col bg-[radial-gradient(ellipse_at_50%_-35%,rgb(219_224_209/44%),transparent_57%),var(--page)] text-[var(--ink)] transition-colors duration-200">
+      <div className="flex min-h-dvh flex-col bg-[radial-gradient(ellipse_at_50%_-35%,var(--theme-color-page-glow),transparent_57%),var(--theme-color-canvas)] text-content transition-colors duration-200">
         <a
-          className="absolute left-4 top-[-6rem] z-10 rounded-lg bg-[var(--forest-deep)] px-4 py-3 font-bold text-white focus:top-4"
+          className="absolute left-4 top-[-6rem] z-10 rounded-lg bg-action px-4 py-3 font-bold text-white focus:top-4"
           href="#main"
         >
-          Aller au contenu
+          {t("skipToContent")}
         </a>
-        <header className="mx-auto flex min-h-[92px] w-[min(100%-3rem,1180px)] flex-wrap items-center justify-between gap-4 border-b border-[color-mix(in_srgb,var(--line),transparent_24%)] max-[760px]:min-h-[74px] max-[480px]:w-[min(100%-2rem,1180px)]">
+        <header className="mx-auto flex min-h-[92px] w-[min(100%-3rem,1440px)] flex-wrap items-center justify-between gap-4 border-b border-border/75 max-[760px]:min-h-[74px] max-[480px]:w-[min(100%-2rem,1440px)]">
           <Link
-            className="inline-flex items-center gap-3 text-[var(--ink)] no-underline"
+            className="inline-flex items-center gap-3 text-content no-underline"
             to={profile ? "/trips" : "/"}
-            aria-label="Traveler, accueil"
+            aria-label={t("travelerHome")}
           >
             <span
-              className="grid size-[2.6rem] place-items-center rounded-2xl bg-[var(--forest-deep)] text-[#f4f3e9] max-[480px]:size-9"
+              className="grid size-[2.6rem] place-items-center rounded-card bg-action text-on-action max-[480px]:size-9"
               aria-hidden="true"
             >
               <MountainSnow size={22} />
@@ -295,52 +292,55 @@ function TravelerApp() {
             {profile ? (
               <nav
                 className="flex items-center gap-1"
-                aria-label="Navigation principale"
+                aria-label={t("mainNavigation")}
               >
                 <NavLink
-                  className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--muted)] no-underline hover:bg-[var(--surface-soft)] hover:text-[var(--ink)] aria-[current=page]:bg-[var(--surface-soft)] aria-[current=page]:text-[var(--ink)] max-[760px]:px-2 max-[760px]:text-xs"
+                  className="rounded-full px-3 py-2 text-sm font-semibold text-content-muted no-underline hover:bg-surface-muted hover:text-content aria-[current=page]:bg-surface-muted aria-[current=page]:text-content max-[760px]:px-2 max-[760px]:text-xs"
                   to="/trips"
                 >
-                  Mes voyages
-                </NavLink>
-                <NavLink
-                  className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--muted)] no-underline hover:bg-[var(--surface-soft)] hover:text-[var(--ink)] aria-[current=page]:bg-[var(--surface-soft)] aria-[current=page]:text-[var(--ink)] max-[760px]:px-2 max-[760px]:text-xs"
-                  to="/account"
-                >
-                  Mon compte
+                  {t("myTrips")}
                 </NavLink>
               </nav>
             ) : (
-              <span className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-[var(--muted)] max-[760px]:hidden">
-                <LockKeyhole aria-hidden="true" size={15} /> Accès privé
+              <span className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-content-muted max-[760px]:hidden">
+                <LockKeyhole aria-hidden="true" size={15} />{" "}
+                {t("privateAccess")}
               </span>
             )}
-            <ThemeToggle isDark={isDark} onChange={setIsDark} />
+            {profile && (
+              <ProfileMenu
+                profile={profile}
+                preference={preference}
+                profileError={profileError}
+                onPreferenceChange={setPreference}
+                onSignOut={signOut}
+              />
+            )}
           </div>
         </header>
 
         <main
           ref={mainRef}
-          className="flex flex-1 items-center"
+          className="mx-auto flex w-full max-w-[1600px] flex-1 items-center"
           id="main"
-          aria-label="Contenu de la page"
+          aria-label={t("pageContent")}
           tabIndex={-1}
         >
           {profileStatus === "checking" ? (
             <section
-              className="flex w-[min(100%-3rem,1180px)] flex-1 items-center justify-center gap-4 text-[var(--muted)]"
+              className="mx-auto flex w-full flex-1 items-center justify-center gap-4 px-6 text-content-muted"
               aria-busy="true"
               role="status"
             >
-              <span className="grid size-[3.6rem] animate-[mark-breathe_1.8s_ease-in-out_infinite] place-items-center rounded-2xl bg-[var(--surface-soft)] text-[var(--forest-bright)]">
+              <span className="grid size-[3.6rem] animate-[mark-breathe_1.8s_ease-in-out_infinite] place-items-center rounded-card bg-surface-muted text-accent">
                 <MountainSnow aria-hidden="true" size={26} />
               </span>
-              <p>Préparation de votre espace…</p>
+              <p>{t("preparingYourSpace")}</p>
             </section>
           ) : (
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
-                className="min-h-px"
+                className="min-h-px w-full"
                 data-route-path={location.pathname}
                 key={location.pathname}
                 initial={
@@ -358,7 +358,7 @@ function TravelerApp() {
                 }}
               >
                 <Suspense
-                  fallback={<p role="status">Chargement de votre espace…</p>}
+                  fallback={<p role="status">{t("loadingYourSpace")}</p>}
                 >
                   <Routes location={location}>
                     <Route
@@ -403,15 +403,7 @@ function TravelerApp() {
                     <Route
                       path="/account"
                       element={
-                        profile ? (
-                          <AccountPage
-                            profile={profile}
-                            profileError={profileError}
-                            onSignOut={signOut}
-                          />
-                        ) : (
-                          <Navigate to="/" replace />
-                        )
+                        <Navigate to={profile ? "/trips" : "/"} replace />
                       }
                     />
                     <Route
@@ -427,13 +419,13 @@ function TravelerApp() {
           )}
         </main>
 
-        <footer className="mx-auto flex min-h-[74px] w-[min(100%-3rem,1180px)] items-center justify-between gap-4 border-t border-[var(--line)] py-5 text-xs text-[var(--quiet)] max-[760px]:w-[min(100%-2rem,1180px)] max-[480px]:flex-col max-[480px]:items-start max-[480px]:justify-center max-[480px]:gap-1">
+        <footer className="mx-auto flex min-h-[74px] w-[min(100%-3rem,1440px)] items-center justify-between gap-4 border-t border-border py-5 text-xs text-content-subtle max-[760px]:w-[min(100%-2rem,1440px)] max-[480px]:flex-col max-[480px]:items-start max-[480px]:justify-center max-[480px]:gap-1">
           <span>
-            <strong className="text-sm font-extrabold tracking-[-0.04em] text-[var(--muted)]">
-              Traveler<span className="text-[var(--sun)]">.</span>
+            <strong className="text-sm font-extrabold tracking-[-0.04em] text-content-muted">
+              Traveler<span className="text-accent-warm">.</span>
             </strong>
           </span>
-          <span>Les voyages se vivent mieux quand tout est clair.</span>
+          <span>{t("tripsAreBetterWhenEverythingIsClear")}</span>
         </footer>
       </div>
     </MotionConfig>
@@ -441,30 +433,31 @@ function TravelerApp() {
 }
 
 function TripRoute({ profile }: { profile: TravelerProfile }) {
+  const { t } = useTranslation();
   const { tripId = "" } = useParams();
   const trip = profile.trips.find((item) => item.tripId === tripId);
   if (!trip) return <NotFound />;
   return (
     <section
-      className="mx-auto my-12 mb-20 w-[min(100%-3rem,1120px)] max-[760px]:my-6 max-[760px]:mb-12 max-[760px]:w-[min(100%-2rem,1120px)]"
+      className="mx-auto grid w-[min(100%-3rem,1320px)] gap-8 py-12 max-[760px]:w-[min(100%-2rem,1320px)] max-[760px]:py-6"
       aria-label={trip.tripName}
     >
       <h1 className="sr-only" data-route-heading tabIndex={-1}>
         {trip.tripName}
       </h1>
-      <div className="mb-8 flex w-full items-center justify-between gap-4 max-[480px]:items-start max-[480px]:flex-col">
+      <div className="flex w-full items-center justify-between gap-4 max-[480px]:items-start max-[480px]:flex-col">
         <Link
-          className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] no-underline hover:text-[var(--forest-bright)]"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-content-muted no-underline hover:text-accent"
           to="/trips"
         >
-          <ArrowLeft aria-hidden="true" size={17} /> Tous mes voyages
+          <ArrowLeft aria-hidden="true" size={17} /> {t("allMyTrips")}
         </Link>
         {trip.role !== "traveler" && (
           <Link
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] no-underline hover:text-[var(--forest-bright)]"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-content-muted no-underline hover:text-accent"
             to={`/trips/${encodeURIComponent(tripId)}/organize`}
           >
-            Outils d’organisation <ArrowUpRight aria-hidden="true" size={16} />
+            {t("organizerTools")} <ArrowUpRight aria-hidden="true" size={16} />
           </Link>
         )}
       </div>
@@ -501,37 +494,30 @@ function OrganizerRoute({
 }
 
 function NotFound() {
+  const { t } = useTranslation();
   return (
     <section
-      className="mx-auto my-12 mb-20 grid min-h-[45vh] w-[min(100%-3rem,1120px)] content-center justify-items-center text-center max-[760px]:my-6 max-[760px]:mb-12 max-[760px]:w-[min(100%-2rem,1120px)]"
+      className="mx-auto grid min-h-[45vh] w-[min(100%-3rem,1320px)] content-center justify-items-center gap-5 py-12 text-center max-[760px]:w-[min(100%-2rem,1320px)] max-[760px]:py-6"
       aria-labelledby="not-found-title"
     >
-      <p className={eyebrowStyles()}>PAGE INTROUVABLE</p>
+      <p className={eyebrowStyles()}>{t("pageNotFound")}</p>
       <h1
-        className="my-5 text-[clamp(2rem,4vw,3.4rem)] font-bold leading-tight tracking-[-0.06em] text-[var(--ink)]"
+        className="text-[clamp(2rem,4vw,3.4rem)] font-bold leading-tight tracking-[-0.06em] text-content"
         id="not-found-title"
         data-route-heading
         tabIndex={-1}
       >
-        Ce chemin ne mène nulle part.
+        {t("thisPageCouldNotBeFound")}
       </h1>
       <Link
         className={buttonStyles({
           appearance: "primary",
-          class: "mt-4 no-underline",
+          class: "no-underline",
         })}
         to="/trips"
       >
-        Revenir à mes voyages
+        {t("backToMyTrips")}
       </Link>
     </section>
   );
-}
-
-function readInitialTheme() {
-  try {
-    return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark";
-  } catch {
-    return false;
-  }
 }

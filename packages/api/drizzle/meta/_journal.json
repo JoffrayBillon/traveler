@@ -43,6 +43,13 @@
       "when": 1793420270901,
       "tag": "0005_blue_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793491865176,
+      "tag": "0006_import_source_registry",
+      "breakpoints": true
     }
   ]
 }

@@ -3,26 +3,82 @@ import { del, get, put } from "@vercel/blob";
 import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { Hono } from "hono";
+import { parsePhoneNumberFromString } from "libphonenumber-js/max";
 import type { AuthServices } from "./auth";
 import { createAuthServicesProvider, isTrustedAuthOrigin } from "./auth";
 import { createTicketBlobPath } from "./blob-path";
 import { createDatabaseProvider } from "./database";
 import { normalizeEmail } from "./email";
-import {
-  parseParticipantWorkbook,
-  participantImportHeaders,
-} from "./participant-import";
-import { importParticipants } from "./participants";
 import { createRoomingStore, RoomingError, type RoomMove } from "./rooming";
 import * as schema from "./schema";
+import type {
+  AgencyRoomingRow,
+  DetailedOrderRow,
+  ImportError,
+  StaffImportRow,
+  ValidatedRosterRow,
+} from "./source-import";
+import {
+  loadBoundedWorkbook,
+  parseAgencyRooming,
+  parseCompanionsAndVips,
+  parseDetailedOrders,
+  parseValidatedRoster,
+} from "./source-import";
+import {
+  DuplicateNormalizedEmailError,
+  getImportBaselineHash,
+  InvalidAgencyRoomingMatchError,
+  InvalidStaffAccountMappingError,
+  importAgencyRooming,
+  importDetailedOrders,
+  importStaffRows,
+  importValidatedRoster,
+  previewAgencyRooming,
+  previewDetailedOrders,
+  previewStaffImport,
+  previewValidatedRoster,
+} from "./source-imports";
 
 const magicLinkEmailCooldownMs = 30_000;
+
+export type TicketBlobStorage = {
+  put: (
+    pathname: string,
+    file: File,
+    options: {
+      access: "private";
+      contentType: string;
+      addRandomSuffix: false;
+    },
+  ) => Promise<unknown>;
+  get: (
+    pathname: string,
+    options: { access: "private" },
+  ) => Promise<{
+    statusCode: number;
+    stream: ReadableStream<Uint8Array> | null;
+  } | null>;
+  del: (pathname: string) => Promise<void>;
+};
+
+const vercelTicketStorage: TicketBlobStorage = { put, get, del };
 
 export function createApp(
   getDatabase = createDatabaseProvider(),
   getAuthServices = createAuthServicesProvider(),
+  options: {
+    ticketStorage?: TicketBlobStorage;
+    ticketStorageAvailable?: () => boolean;
+    authEnvironment?: NodeJS.ProcessEnv;
+  } = {},
 ) {
   const app = new Hono();
+  const authEnvironment = options.authEnvironment ?? process.env;
+  const ticketStorage = options.ticketStorage ?? vercelTicketStorage;
+  const ticketStorageAvailable =
+    options.ticketStorageAvailable ??
+    (() => Boolean(process.env.VERCEL || process.env.BLOB_READ_WRITE_TOKEN));
 
   // Liveness only: this endpoint does not certify database or email readiness.
   app.get("/api/health", (context) => {
@@ -113,12 +169,30 @@ export function createApp(
         firstName: schema.tripMemberships.firstName,
         lastName: schema.tripMemberships.lastName,
         gender: schema.tripMemberships.gender,
+        genderConfirmed: schema.tripMemberships.genderConfirmed,
         role: schema.tripMemberships.role,
+        profileFirstName: schema.travelerProfiles.firstName,
+        profileLastName: schema.travelerProfiles.lastName,
+        dietaryRequirements: schema.travelerProfiles.dietaryRequirements,
+        allergens: schema.travelerProfiles.allergens,
+        emergencyContactFirstName:
+          schema.travelerProfiles.emergencyContactFirstName,
+        emergencyContactLastName:
+          schema.travelerProfiles.emergencyContactLastName,
+        emergencyContactPhone: schema.travelerProfiles.emergencyContactPhone,
+        profileCompletedAt: schema.travelerProfiles.completedAt,
       })
       .from(schema.tripMemberships)
       .innerJoin(
         schema.trips,
         eq(schema.tripMemberships.tripId, schema.trips.id),
+      )
+      .leftJoin(
+        schema.travelerProfiles,
+        and(
+          eq(schema.travelerProfiles.tripId, schema.tripMemberships.tripId),
+          eq(schema.travelerProfiles.userId, schema.tripMemberships.userId),
+        ),
       )
       .where(
         and(
@@ -181,14 +255,152 @@ export function createApp(
     return context.json({
       trip: { id: membership.tripId, name: membership.tripName },
       traveler: {
-        firstName: membership.firstName,
-        lastName: membership.lastName,
+        firstName: membership.profileFirstName ?? membership.firstName,
+        lastName: membership.profileLastName ?? membership.lastName,
         gender: membership.gender,
+        genderConfirmed: membership.genderConfirmed,
         role: membership.role,
+      },
+      profile: {
+        dietaryRequirements: membership.dietaryRequirements,
+        allergens: membership.allergens,
+        emergencyContactFirstName: membership.emergencyContactFirstName,
+        emergencyContactLastName: membership.emergencyContactLastName,
+        emergencyContactPhone: membership.emergencyContactPhone,
+        completed:
+          membership.genderConfirmed && Boolean(membership.profileCompletedAt),
       },
       details: details ?? null,
       tickets,
     });
+  });
+
+  app.put("/api/trips/:tripId/profile", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const [membership] = await services.database
+      .select({
+        gender: schema.tripMemberships.gender,
+        roomId: schema.roomAssignments.roomId,
+      })
+      .from(schema.tripMemberships)
+      .leftJoin(
+        schema.roomAssignments,
+        and(
+          eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
+          eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
+        ),
+      )
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!membership) return context.json({ error: "not_found" }, 404);
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: "invalid_profile" }, 400);
+    }
+    const input =
+      body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+    const firstName =
+      typeof input.firstName === "string" ? input.firstName.trim() : "";
+    const lastName =
+      typeof input.lastName === "string" ? input.lastName.trim() : "";
+    const gender = input.gender;
+    const dietaryRequirements =
+      typeof input.dietaryRequirements === "string"
+        ? input.dietaryRequirements.trim()
+        : "";
+    const allergens =
+      typeof input.allergens === "string" ? input.allergens.trim() : "";
+    const emergencyContactFirstName =
+      typeof input.emergencyContactFirstName === "string"
+        ? input.emergencyContactFirstName.trim()
+        : "";
+    const emergencyContactLastName =
+      typeof input.emergencyContactLastName === "string"
+        ? input.emergencyContactLastName.trim()
+        : "";
+    const emergencyContactPhone =
+      typeof input.emergencyContactPhone === "string"
+        ? input.emergencyContactPhone.trim()
+        : "";
+    const parsedPhone = parsePhoneNumberFromString(emergencyContactPhone);
+    if (
+      firstName.length < 1 ||
+      firstName.length > 100 ||
+      lastName.length < 1 ||
+      lastName.length > 100 ||
+      (gender !== "M" && gender !== "F") ||
+      dietaryRequirements.length > 500 ||
+      allergens.length > 500 ||
+      emergencyContactFirstName.length < 1 ||
+      emergencyContactFirstName.length > 100 ||
+      emergencyContactLastName.length < 1 ||
+      emergencyContactLastName.length > 100 ||
+      emergencyContactPhone.length > 40 ||
+      !parsedPhone?.isValid()
+    ) {
+      return context.json({ error: "invalid_profile" }, 400);
+    }
+    const normalizedEmergencyContactPhone = parsedPhone.number;
+    if (membership.roomId && membership.gender !== gender) {
+      return context.json({ error: "gender_change_requires_room_review" }, 409);
+    }
+    const now = new Date();
+    await services.database.transaction(async (transaction) => {
+      await transaction
+        .update(schema.tripMemberships)
+        .set({ gender, genderConfirmed: true })
+        .where(
+          and(
+            eq(schema.tripMemberships.tripId, tripId),
+            eq(schema.tripMemberships.userId, session.user.id),
+          ),
+        );
+      await transaction
+        .insert(schema.travelerProfiles)
+        .values({
+          tripId,
+          userId: session.user.id,
+          firstName,
+          lastName,
+          dietaryRequirements,
+          allergens,
+          emergencyContactFirstName,
+          emergencyContactLastName,
+          emergencyContactPhone: normalizedEmergencyContactPhone,
+          completedAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.travelerProfiles.tripId,
+            schema.travelerProfiles.userId,
+          ],
+          set: {
+            firstName,
+            lastName,
+            dietaryRequirements,
+            allergens,
+            emergencyContactFirstName,
+            emergencyContactLastName,
+            emergencyContactPhone: normalizedEmergencyContactPhone,
+            completedAt: now,
+            updatedAt: now,
+          },
+        });
+    });
+    return context.json({ status: "saved" });
   });
 
   app.put("/api/trips/:tripId", async (context) => {
@@ -355,6 +567,112 @@ export function createApp(
     }
   });
 
+  app.post("/api/trips/:tripId/participants", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const [actor] = await services.database
+      .select({ role: schema.tripMemberships.role })
+      .from(schema.tripMemberships)
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role !== "manager")
+      return context.json({ error: "forbidden" }, 403);
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: "invalid_participant" }, 400);
+    }
+    const input =
+      body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+    const email =
+      typeof input.email === "string" ? normalizeEmail(input.email) : "";
+    const firstName =
+      typeof input.firstName === "string" ? input.firstName.trim() : "";
+    const lastName =
+      typeof input.lastName === "string" ? input.lastName.trim() : "";
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      email.length > 320 ||
+      !firstName ||
+      !lastName ||
+      firstName.length > 100 ||
+      lastName.length > 100
+    ) {
+      return context.json({ error: "invalid_participant" }, 400);
+    }
+    try {
+      const participant = await services.database.transaction(
+        async (transaction) => {
+          const existingUsers = await transaction
+            .select({ id: schema.users.id })
+            .from(schema.users)
+            .where(eq(sql<string>`lower(${schema.users.email})`, email))
+            .limit(2);
+          if (existingUsers.length > 1)
+            throw new Error("duplicate_normalized_email");
+          const existingUser = existingUsers[0];
+          const userId = existingUser?.id ?? randomUUID();
+          const [existingMembership] = await transaction
+            .select({ id: schema.tripMemberships.id })
+            .from(schema.tripMemberships)
+            .where(
+              and(
+                eq(schema.tripMemberships.tripId, tripId),
+                eq(schema.tripMemberships.userId, userId),
+              ),
+            )
+            .limit(1);
+          if (existingMembership) throw new Error("participant_already_exists");
+          if (!existingUser) {
+            const now = new Date();
+            await transaction.insert(schema.users).values({
+              id: userId,
+              name: `${firstName} ${lastName}`,
+              email,
+              emailVerified: false,
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
+          await transaction.insert(schema.tripMemberships).values({
+            id: randomUUID(),
+            tripId,
+            userId,
+            role: "traveler",
+            firstName,
+            lastName,
+            gender: null,
+          });
+          return { userId, firstName, lastName, email, role: "traveler" };
+        },
+      );
+      return context.json({ status: "created", participant }, 201);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "participant_already_exists"
+      )
+        return context.json({ error: "participant_already_exists" }, 409);
+      if (
+        error instanceof Error &&
+        error.message === "duplicate_normalized_email"
+      )
+        return context.json({ error: "duplicate_email_accounts" }, 409);
+      return context.json({ error: "participant_creation_failed" }, 503);
+    }
+  });
+
   app.get("/api/trips/:tripId/rooms", async (context) => {
     context.header("Cache-Control", "no-store");
     const services = getAuthServices();
@@ -377,11 +695,18 @@ export function createApp(
     const memberships = await services.database
       .select({
         userId: schema.tripMemberships.userId,
-        firstName: schema.tripMemberships.firstName,
-        lastName: schema.tripMemberships.lastName,
+        firstName: sql<string>`coalesce(${schema.travelerProfiles.firstName}, ${schema.tripMemberships.firstName})`,
+        lastName: sql<string>`coalesce(${schema.travelerProfiles.lastName}, ${schema.tripMemberships.lastName})`,
         gender: schema.tripMemberships.gender,
       })
       .from(schema.tripMemberships)
+      .leftJoin(
+        schema.travelerProfiles,
+        and(
+          eq(schema.travelerProfiles.tripId, schema.tripMemberships.tripId),
+          eq(schema.travelerProfiles.userId, schema.tripMemberships.userId),
+        ),
+      )
       .where(eq(schema.tripMemberships.tripId, tripId));
     const assignments = await services.database
       .select({
@@ -458,8 +783,8 @@ export function createApp(
     const occupants = await services.database
       .select({
         roomId: schema.roomAssignments.roomId,
-        firstName: schema.tripMemberships.firstName,
-        lastName: schema.tripMemberships.lastName,
+        firstName: sql<string>`coalesce(${schema.travelerProfiles.firstName}, ${schema.tripMemberships.firstName})`,
+        lastName: sql<string>`coalesce(${schema.travelerProfiles.lastName}, ${schema.tripMemberships.lastName})`,
         gender: schema.tripMemberships.gender,
         email: schema.users.email,
       })
@@ -474,6 +799,13 @@ export function createApp(
       .innerJoin(
         schema.users,
         eq(schema.tripMemberships.userId, schema.users.id),
+      )
+      .leftJoin(
+        schema.travelerProfiles,
+        and(
+          eq(schema.travelerProfiles.tripId, schema.tripMemberships.tripId),
+          eq(schema.travelerProfiles.userId, schema.tripMemberships.userId),
+        ),
       )
       .where(eq(schema.roomAssignments.tripId, tripId))
       .orderBy(
@@ -539,6 +871,288 @@ export function createApp(
       "attachment; filename=traveler-rooming.xlsx",
     );
     return context.body(new Uint8Array(data));
+  });
+
+  app.post("/api/trips/:tripId/rooms/agency-export", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const [actor] = await services.database
+      .select({ role: schema.tripMemberships.role })
+      .from(schema.tripMemberships)
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role === "traveler")
+      return context.json({ error: "forbidden" }, 403);
+    let form: FormData;
+    try {
+      form = await context.req.formData();
+    } catch {
+      return context.json({ error: "invalid_rooming_template" }, 400);
+    }
+    const file = form.get("file");
+    if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".xlsx"))
+      return context.json({ error: "xlsx_file_required" }, 400);
+    if (file.size < 1 || file.size > 4 * 1024 * 1024)
+      return context.json({ error: "import_file_size_not_allowed" }, 413);
+    const parsedWorkbook = await loadBoundedWorkbook(await file.arrayBuffer());
+    if (!parsedWorkbook.ok)
+      return context.json({ errors: parsedWorkbook.errors }, 422);
+    const workbook = parsedWorkbook.value;
+    const sheet = workbook.getWorksheet("SKI TRAIN HOTEL");
+    if (!sheet)
+      return context.json({ error: "agency_rooming_sheet_missing" }, 422);
+    const columns = agencyRoomingColumns(sheet);
+    const required = [
+      "Nbre de pax",
+      "NOMS",
+      "Prénoms",
+      "Catégorie",
+      "Typologie de chambre",
+      "N° de chambre",
+      "non skieur (pas de forfait)",
+      "LIEU DEPART TRAIN",
+      "Régimes spéciaux",
+      "Allergènes",
+      "Téléphone",
+      "Commentaires",
+    ];
+    if (required.some((name) => !columns.has(normalizeSheetHeader(name))))
+      return context.json({ error: "agency_rooming_headers_missing" }, 422);
+    const roomColumn = columns.get(
+      normalizeSheetHeader("Typologie de chambre"),
+    );
+    const numberColumn = columns.get(normalizeSheetHeader("N° de chambre"));
+    if (roomColumn === undefined || numberColumn === undefined)
+      return context.json({ error: "agency_rooming_headers_missing" }, 422);
+    const roomRows = new Map<
+      string,
+      { name: string; capacity: number; rows: number[] }
+    >();
+    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber === 1) return;
+      const type = row.getCell(roomColumn).text.trim();
+      const number = row.getCell(numberColumn).text.trim();
+      if (!type || !number) return;
+      const capacity = roomCapacity(type);
+      if (!capacity) return;
+      const name = `${type.toUpperCase()} ${number}`;
+      const room = roomRows.get(name) ?? { name, capacity, rows: [] };
+      room.rows.push(rowNumber);
+      roomRows.set(name, room);
+    });
+    const inventory = [...roomRows.values()];
+    if (
+      !inventory.length ||
+      inventory.length > 100 ||
+      inventory.reduce((total, room) => total + room.rows.length, 0) > 500
+    )
+      return context.json({ error: "agency_room_inventory_missing" }, 422);
+    const existingRooms = await services.database
+      .select()
+      .from(schema.rooms)
+      .where(eq(schema.rooms.tripId, tripId));
+    if (!existingRooms.length) {
+      for (const room of inventory) {
+        await services.database.insert(schema.rooms).values({
+          id: randomUUID(),
+          tripId,
+          name: room.name,
+          capacity: room.capacity,
+          genderPolicy: "unset",
+          compositionVersion: 1,
+        });
+      }
+    }
+    const rooms = existingRooms.length
+      ? existingRooms
+      : await services.database
+          .select()
+          .from(schema.rooms)
+          .where(eq(schema.rooms.tripId, tripId));
+    const roomByName = new Map(
+      rooms.map((room) => [room.name.toUpperCase(), room]),
+    );
+    if (
+      inventory.some(
+        (room) =>
+          roomByName.get(room.name.toUpperCase())?.capacity !== room.capacity,
+      ) ||
+      rooms.length !== inventory.length
+    )
+      return context.json({ error: "agency_room_inventory_mismatch" }, 409);
+    const members = await services.database
+      .select({
+        userId: schema.tripMemberships.userId,
+        role: schema.tripMemberships.role,
+        isVip: schema.tripMemberships.isVip,
+        firstName: sql<string>`coalesce(${schema.travelerProfiles.firstName}, ${schema.tripMemberships.firstName})`,
+        lastName: sql<string>`coalesce(${schema.travelerProfiles.lastName}, ${schema.tripMemberships.lastName})`,
+        roomId: schema.roomAssignments.roomId,
+        activityProfile: schema.travelerDetails.activityProfile,
+        skiDayThree: schema.travelerDetails.skiDayThree,
+        departureCity: schema.travelerDetails.departureCity,
+        dietaryRequirements: schema.travelerProfiles.dietaryRequirements,
+        allergens: schema.travelerProfiles.allergens,
+      })
+      .from(schema.tripMemberships)
+      .leftJoin(
+        schema.travelerProfiles,
+        and(
+          eq(schema.travelerProfiles.tripId, schema.tripMemberships.tripId),
+          eq(schema.travelerProfiles.userId, schema.tripMemberships.userId),
+        ),
+      )
+      .leftJoin(
+        schema.travelerDetails,
+        and(
+          eq(schema.travelerDetails.tripId, schema.tripMemberships.tripId),
+          eq(schema.travelerDetails.userId, schema.tripMemberships.userId),
+        ),
+      )
+      .leftJoin(
+        schema.roomAssignments,
+        and(
+          eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
+          eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
+        ),
+      )
+      .where(eq(schema.tripMemberships.tripId, tripId));
+    const phones = await services.database
+      .select({
+        userId: schema.tripRegistrations.userId,
+        sourcePhone: schema.tripRegistrations.sourcePhone,
+      })
+      .from(schema.tripRegistrations)
+      .where(
+        and(
+          eq(schema.tripRegistrations.tripId, tripId),
+          eq(schema.tripRegistrations.status, "validated"),
+        ),
+      );
+    const phoneByUser = new Map<string, string>();
+    for (const item of phones)
+      if (item.userId && item.sourcePhone && !phoneByUser.has(item.userId))
+        phoneByUser.set(item.userId, item.sourcePhone);
+    const assignedByRoom = new Map<string, typeof members>();
+    for (const member of members) {
+      if (!member.roomId) continue;
+      assignedByRoom.set(member.roomId, [
+        ...(assignedByRoom.get(member.roomId) ?? []),
+        member,
+      ]);
+    }
+    for (const room of inventory) {
+      const dbRoom = roomByName.get(room.name.toUpperCase());
+      const occupants = dbRoom ? (assignedByRoom.get(dbRoom.id) ?? []) : [];
+      if (
+        occupants.length > room.rows.length ||
+        room.rows.length < room.capacity
+      )
+        return context.json({ error: "agency_room_capacity_mismatch" }, 409);
+      for (const rowNumber of room.rows) {
+        const row = sheet.getRow(rowNumber);
+        for (const field of [
+          "Nbre de pax",
+          "NOMS",
+          "Prénoms",
+          "Catégorie",
+          "non skieur (pas de forfait)",
+          "LIEU DEPART TRAIN",
+          "Régimes spéciaux",
+          "Allergènes",
+          "Téléphone",
+        ])
+          setAgencyCell(row, columns, field, "");
+      }
+      const firstRoomRow = room.rows[0];
+      if (firstRoomRow !== undefined) {
+        setAgencyCell(
+          sheet.getRow(firstRoomRow),
+          columns,
+          "Nbre de pax",
+          String(occupants.length),
+        );
+      }
+      occupants.forEach((person, index) => {
+        const rowNumber = room.rows[index];
+        if (rowNumber === undefined) return;
+        const row = sheet.getRow(rowNumber);
+        setAgencyCell(row, columns, "NOMS", person.lastName);
+        setAgencyCell(row, columns, "Prénoms", person.firstName);
+        setAgencyCell(
+          row,
+          columns,
+          "Catégorie",
+          person.isVip
+            ? "VIP"
+            : person.role === "companion"
+              ? "Accompagnateur"
+              : (person.activityProfile ?? "").toUpperCase(),
+        );
+        setAgencyCell(
+          row,
+          columns,
+          "non skieur (pas de forfait)",
+          person.activityProfile === "spa" ? "Oui" : "Non",
+        );
+        setAgencyCell(
+          row,
+          columns,
+          "LIEU DEPART TRAIN",
+          person.departureCity ?? "Sans",
+        );
+        setAgencyCell(
+          row,
+          columns,
+          "Régimes spéciaux",
+          person.dietaryRequirements ?? "",
+        );
+        setAgencyCell(row, columns, "Allergènes", person.allergens ?? "");
+        setAgencyCell(
+          row,
+          columns,
+          "Téléphone",
+          phoneByUser.get(person.userId) ?? "",
+        );
+        const commentsColumn = columns.get(
+          normalizeSheetHeader("Commentaires"),
+        );
+        const currentComments = commentsColumn
+          ? row.getCell(commentsColumn).text.trim()
+          : "";
+        if (
+          person.skiDayThree &&
+          !currentComments.toLocaleLowerCase("fr").includes("3e jour de ski")
+        ) {
+          setAgencyCell(
+            row,
+            columns,
+            "Commentaires",
+            [currentComments, "3e jour de ski"].filter(Boolean).join(" · "),
+          );
+        }
+      });
+    }
+    const result = await workbook.xlsx.writeBuffer();
+    context.header(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    context.header(
+      "Content-Disposition",
+      "attachment; filename=traveler-rooming-agence.xlsx",
+    );
+    return context.body(new Uint8Array(result));
   });
 
   app.post("/api/trips/:tripId/rooms", async (context) => {
@@ -1204,11 +1818,21 @@ export function createApp(
     const travelers = await services.database
       .select({
         userId: schema.tripMemberships.userId,
-        firstName: schema.tripMemberships.firstName,
-        lastName: schema.tripMemberships.lastName,
+        firstName: sql<string>`coalesce(${schema.travelerProfiles.firstName}, ${schema.tripMemberships.firstName})`,
+        lastName: sql<string>`coalesce(${schema.travelerProfiles.lastName}, ${schema.tripMemberships.lastName})`,
         gender: schema.tripMemberships.gender,
+        genderConfirmed: schema.tripMemberships.genderConfirmed,
         email: schema.users.email,
         role: schema.tripMemberships.role,
+        lastLoginAt: schema.tripMemberships.lastLoginAt,
+        dietaryRequirements: schema.travelerProfiles.dietaryRequirements,
+        allergens: schema.travelerProfiles.allergens,
+        profileCompletedAt: schema.travelerProfiles.completedAt,
+        emergencyContactFirstName:
+          schema.travelerProfiles.emergencyContactFirstName,
+        emergencyContactLastName:
+          schema.travelerProfiles.emergencyContactLastName,
+        emergencyContactPhone: schema.travelerProfiles.emergencyContactPhone,
         activityProfile: schema.travelerDetails.activityProfile,
         skiDayThree: schema.travelerDetails.skiDayThree,
         transportMode: schema.travelerDetails.transportMode,
@@ -1242,12 +1866,58 @@ export function createApp(
           eq(schema.tripMemberships.userId, schema.travelerDetails.userId),
         ),
       )
+      .leftJoin(
+        schema.travelerProfiles,
+        and(
+          eq(schema.tripMemberships.tripId, schema.travelerProfiles.tripId),
+          eq(schema.tripMemberships.userId, schema.travelerProfiles.userId),
+        ),
+      )
       .where(eq(schema.tripMemberships.tripId, tripId))
       .orderBy(
         schema.tripMemberships.lastName,
         schema.tripMemberships.firstName,
       );
-    return context.json({ travelers });
+    const registrations = await services.database
+      .select({
+        userId: schema.tripRegistrations.userId,
+        paymentStatus: schema.tripRegistrations.paymentStatus,
+        amountPaidMinor: schema.tripRegistrations.amountPaidMinor,
+        amountDueMinor: schema.tripRegistrations.amountDueMinor,
+      })
+      .from(schema.tripRegistrations)
+      .where(
+        and(
+          eq(schema.tripRegistrations.tripId, tripId),
+          eq(schema.tripRegistrations.status, "validated"),
+        ),
+      );
+    const paymentsByUser = new Map<string, (typeof registrations)[number][]>();
+    for (const registration of registrations) {
+      if (!registration.userId) continue;
+      const items = paymentsByUser.get(registration.userId) ?? [];
+      items.push(registration);
+      paymentsByUser.set(registration.userId, items);
+    }
+    return context.json({
+      travelers: travelers.map((person) => {
+        const paymentItems = paymentsByUser.get(person.userId) ?? [];
+        const payment = paymentItems.length === 1 ? paymentItems[0] : null;
+        return {
+          ...person,
+          paymentStatus:
+            actor.role === "manager" ? (payment?.paymentStatus ?? null) : null,
+          amountPaidMinor:
+            actor.role === "manager"
+              ? (payment?.amountPaidMinor ?? null)
+              : null,
+          amountDueMinor:
+            actor.role === "manager" ? (payment?.amountDueMinor ?? null) : null,
+          paymentNeedsReview:
+            actor.role === "manager" && paymentItems.length > 1,
+        };
+      }),
+    });
   });
 
   app.get("/api/trips/:tripId/participants/access", async (context) => {
@@ -1289,7 +1959,379 @@ export function createApp(
         schema.tripMemberships.lastName,
         schema.tripMemberships.firstName,
       );
-    return context.json({ participants });
+    const registrations = await services.database
+      .select({
+        userId: schema.tripRegistrations.userId,
+        paymentStatus: schema.tripRegistrations.paymentStatus,
+        amountPaidMinor: schema.tripRegistrations.amountPaidMinor,
+        amountDueMinor: schema.tripRegistrations.amountDueMinor,
+      })
+      .from(schema.tripRegistrations)
+      .where(
+        and(
+          eq(schema.tripRegistrations.tripId, tripId),
+          eq(schema.tripRegistrations.status, "validated"),
+        ),
+      );
+    const paymentsByUser = new Map<string, (typeof registrations)[number][]>();
+    for (const registration of registrations) {
+      if (!registration.userId) continue;
+      const items = paymentsByUser.get(registration.userId) ?? [];
+      items.push(registration);
+      paymentsByUser.set(registration.userId, items);
+    }
+    return context.json({
+      participants: participants.map((participant) => {
+        const paymentItems = paymentsByUser.get(participant.userId) ?? [];
+        const payment = paymentItems.length === 1 ? paymentItems[0] : null;
+        return {
+          ...participant,
+          paymentStatus: payment?.paymentStatus ?? null,
+          amountPaidMinor: payment?.amountPaidMinor ?? null,
+          amountDueMinor: payment?.amountDueMinor ?? null,
+          paymentNeedsReview: paymentItems.length > 1,
+        };
+      }),
+    });
+  });
+
+  app.put("/api/trips/:tripId/participants/:userId/role", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const userId = context.req.param("userId");
+    const [actor] = await services.database
+      .select({ role: schema.tripMemberships.role })
+      .from(schema.tripMemberships)
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role !== "manager")
+      return context.json({ error: "forbidden" }, 403);
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: "invalid_role" }, 400);
+    }
+    const role =
+      body && typeof body === "object" && "role" in body
+        ? (body as { role?: unknown }).role
+        : undefined;
+    if (role !== "traveler" && role !== "companion" && role !== "manager")
+      return context.json({ error: "invalid_role" }, 400);
+    if (userId === session.user.id)
+      return context.json({ error: "cannot_change_own_role" }, 409);
+    const [target] = await services.database
+      .select({ role: schema.tripMemberships.role })
+      .from(schema.tripMemberships)
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (!target) return context.json({ error: "not_found" }, 404);
+    const roleUpdate = await services.database.transaction(
+      async (transaction) => {
+        const [currentTarget] = await transaction
+          .select({ role: schema.tripMemberships.role })
+          .from(schema.tripMemberships)
+          .where(
+            and(
+              eq(schema.tripMemberships.tripId, tripId),
+              eq(schema.tripMemberships.userId, userId),
+            ),
+          )
+          .limit(1);
+        if (!currentTarget) return "not_found";
+        if (currentTarget.role === "manager" && role !== "manager") {
+          const managers = await transaction
+            .select({ userId: schema.tripMemberships.userId })
+            .from(schema.tripMemberships)
+            .where(
+              and(
+                eq(schema.tripMemberships.tripId, tripId),
+                eq(schema.tripMemberships.role, "manager"),
+              ),
+            );
+          if (managers.length <= 1) return "last_manager_required";
+        }
+        await transaction
+          .update(schema.tripMemberships)
+          .set({ role })
+          .where(
+            and(
+              eq(schema.tripMemberships.tripId, tripId),
+              eq(schema.tripMemberships.userId, userId),
+            ),
+          );
+        return "updated";
+      },
+    );
+    if (roleUpdate === "not_found")
+      return context.json({ error: "not_found" }, 404);
+    if (roleUpdate === "last_manager_required")
+      return context.json({ error: roleUpdate }, 409);
+    return context.json({ status: "updated", role });
+  });
+
+  app.put(
+    "/api/trips/:tripId/participants/:userId/profile",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      const services = getAuthServices();
+      if (!services) return context.json({ error: "service_unavailable" }, 503);
+      const session = await getSession(services, context.req.raw.headers);
+      if (!session) return context.json({ error: "unauthorized" }, 401);
+      const tripId = context.req.param("tripId");
+      const userId = context.req.param("userId");
+      const [actor] = await services.database
+        .select({ role: schema.tripMemberships.role })
+        .from(schema.tripMemberships)
+        .where(
+          and(
+            eq(schema.tripMemberships.tripId, tripId),
+            eq(schema.tripMemberships.userId, session.user.id),
+          ),
+        )
+        .limit(1);
+      if (!actor) return context.json({ error: "not_found" }, 404);
+      if (actor.role === "traveler")
+        return context.json({ error: "forbidden" }, 403);
+      let body: unknown;
+      try {
+        body = await context.req.json();
+      } catch {
+        return context.json({ error: "invalid_profile" }, 400);
+      }
+      const input =
+        body && typeof body === "object"
+          ? (body as Record<string, unknown>)
+          : {};
+      const firstName =
+        typeof input.firstName === "string" ? input.firstName.trim() : "";
+      const lastName =
+        typeof input.lastName === "string" ? input.lastName.trim() : "";
+      const gender = input.gender;
+      const dietaryRequirements =
+        typeof input.dietaryRequirements === "string"
+          ? input.dietaryRequirements.trim()
+          : "";
+      const allergens =
+        typeof input.allergens === "string" ? input.allergens.trim() : "";
+      const emergencyContactFirstName =
+        typeof input.emergencyContactFirstName === "string"
+          ? input.emergencyContactFirstName.trim()
+          : "";
+      const emergencyContactLastName =
+        typeof input.emergencyContactLastName === "string"
+          ? input.emergencyContactLastName.trim()
+          : "";
+      const emergencyContactPhone =
+        typeof input.emergencyContactPhone === "string"
+          ? input.emergencyContactPhone.trim()
+          : "";
+      const parsedPhone = emergencyContactPhone
+        ? parsePhoneNumberFromString(emergencyContactPhone)
+        : undefined;
+      if (
+        firstName.length < 1 ||
+        firstName.length > 100 ||
+        lastName.length < 1 ||
+        lastName.length > 100 ||
+        (gender !== null && gender !== "M" && gender !== "F") ||
+        dietaryRequirements.length > 500 ||
+        allergens.length > 500 ||
+        emergencyContactFirstName.length > 100 ||
+        emergencyContactLastName.length > 100 ||
+        emergencyContactPhone.length > 40 ||
+        (emergencyContactPhone && !parsedPhone?.isValid()) ||
+        emergencyContactFirstName ||
+        emergencyContactLastName ||
+        (emergencyContactPhone &&
+          (!emergencyContactFirstName ||
+            !emergencyContactLastName ||
+            !parsedPhone?.isValid()))
+      )
+        return context.json({ error: "invalid_profile" }, 400);
+      const [target] = await services.database
+        .select({
+          gender: schema.tripMemberships.gender,
+          roomId: schema.roomAssignments.roomId,
+        })
+        .from(schema.tripMemberships)
+        .leftJoin(
+          schema.roomAssignments,
+          and(
+            eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
+            eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
+          ),
+        )
+        .where(
+          and(
+            eq(schema.tripMemberships.tripId, tripId),
+            eq(schema.tripMemberships.userId, userId),
+          ),
+        )
+        .limit(1);
+      if (!target) return context.json({ error: "not_found" }, 404);
+      if (target.roomId && target.gender !== gender)
+        return context.json(
+          { error: "gender_change_requires_room_review" },
+          409,
+        );
+      const now = new Date();
+      const emergencyContactIsComplete = Boolean(
+        emergencyContactFirstName &&
+          emergencyContactLastName &&
+          parsedPhone?.isValid(),
+      );
+      await services.database.transaction(async (transaction) => {
+        await transaction
+          .update(schema.tripMemberships)
+          .set({
+            firstName,
+            lastName,
+            gender,
+            genderConfirmed: gender !== null,
+          })
+          .where(
+            and(
+              eq(schema.tripMemberships.tripId, tripId),
+              eq(schema.tripMemberships.userId, userId),
+            ),
+          );
+        await transaction
+          .insert(schema.travelerProfiles)
+          .values({
+            tripId,
+            userId,
+            firstName,
+            lastName,
+            dietaryRequirements,
+            allergens,
+            emergencyContactFirstName,
+            emergencyContactLastName,
+            emergencyContactPhone: parsedPhone?.number ?? "",
+            completedAt:
+              gender !== null && emergencyContactIsComplete ? now : null,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.travelerProfiles.tripId,
+              schema.travelerProfiles.userId,
+            ],
+            set: {
+              firstName,
+              lastName,
+              dietaryRequirements,
+              allergens,
+              emergencyContactFirstName,
+              emergencyContactLastName,
+              emergencyContactPhone: parsedPhone?.number ?? "",
+              completedAt:
+                gender !== null && emergencyContactIsComplete ? now : null,
+              updatedAt: now,
+            },
+          });
+      });
+      return context.json({ status: "saved" });
+    },
+  );
+
+  app.put("/api/trips/:tripId/participants/:userId/email", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const targetUserId = context.req.param("userId");
+    const [actor] = await services.database
+      .select({ role: schema.tripMemberships.role })
+      .from(schema.tripMemberships)
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role !== "manager")
+      return context.json({ error: "forbidden" }, 403);
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: "invalid_email" }, 400);
+    }
+    const rawEmail =
+      body && typeof body === "object" && "email" in body
+        ? (body as { email?: unknown }).email
+        : undefined;
+    if (typeof rawEmail !== "string")
+      return context.json({ error: "invalid_email" }, 400);
+    const email = normalizeEmail(rawEmail);
+    if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return context.json({ error: "invalid_email" }, 400);
+    }
+    const [target] = await services.database
+      .select({ email: schema.users.email, role: schema.tripMemberships.role })
+      .from(schema.tripMemberships)
+      .innerJoin(
+        schema.users,
+        eq(schema.tripMemberships.userId, schema.users.id),
+      )
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, targetUserId),
+        ),
+      )
+      .limit(1);
+    if (!target) return context.json({ error: "not_found" }, 404);
+    const oldEmail = normalizeEmail(target.email);
+    if (oldEmail === email) return context.json({ status: "unchanged", email });
+    const [collision] = await services.database
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(
+        and(
+          sql<string>`lower(${schema.users.email}) = ${email}`,
+          sql`${schema.users.id} <> ${targetUserId}`,
+        ),
+      )
+      .limit(1);
+    if (collision) return context.json({ error: "email_in_use" }, 409);
+    try {
+      await services.database.transaction(async (transaction) => {
+        await transaction
+          .update(schema.users)
+          .set({ email, emailVerified: false, updatedAt: new Date() })
+          .where(eq(schema.users.id, targetUserId));
+        await transaction
+          .delete(schema.sessions)
+          .where(eq(schema.sessions.userId, targetUserId));
+        await transaction
+          .delete(schema.verifications)
+          .where(eq(schema.verifications.identifier, oldEmail));
+      });
+    } catch {
+      return context.json({ error: "email_in_use" }, 409);
+    }
+    return context.json({ status: "updated", email });
   });
 
   app.post(
@@ -1330,17 +2372,22 @@ export function createApp(
         )
         .limit(1);
       if (!target) return context.json({ error: "not_found" }, 404);
+      const magicLinkCapture = services.magicLinkCapture;
+      if (!magicLinkCapture)
+        return context.json({ error: "sign_in_link_generation_failed" }, 503);
+      const requestId = randomUUID();
+      magicLinkCapture.authorize(requestId);
 
       const configuredAuthOrigin =
-        process.env.BETTER_AUTH_URL?.trim() ||
-        (process.env.VERCEL_BRANCH_URL
-          ? `https://${process.env.VERCEL_BRANCH_URL.trim()}`
-          : process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL.trim()}`
+        authEnvironment.BETTER_AUTH_URL?.trim() ||
+        (authEnvironment.VERCEL_BRANCH_URL
+          ? `https://${authEnvironment.VERCEL_BRANCH_URL.trim()}`
+          : authEnvironment.VERCEL_URL
+            ? `https://${authEnvironment.VERCEL_URL.trim()}`
             : "http://127.0.0.1:5173");
       const requestOrigin = context.req.header("origin");
       const authOrigin =
-        requestOrigin && isTrustedAuthOrigin(requestOrigin, process.env)
+        requestOrigin && isTrustedAuthOrigin(requestOrigin, authEnvironment)
           ? new URL(requestOrigin).origin
           : configuredAuthOrigin;
       const response = await handleMagicLinkRequest(
@@ -1351,11 +2398,13 @@ export function createApp(
           body: JSON.stringify({
             email: target.email,
             callbackURL: `/trips/${encodeURIComponent(tripId)}`,
+            metadata: { copySignInLinkRequestId: requestId },
           }),
         }),
         { awaitProcessing: true },
       );
-      if (response.status === 429)
+      if (response.status === 429) {
+        magicLinkCapture.take(requestId);
         return context.json(
           { error: "rate_limited" },
           {
@@ -1368,54 +2417,19 @@ export function createApp(
             },
           },
         );
-      if (!response.ok) {
-        return context.json({ error: "email_delivery_failed" }, 503);
       }
-      return context.json({ status: "accepted" }, 202);
+      if (!response.ok) {
+        magicLinkCapture.take(requestId);
+        return context.json({ error: "sign_in_link_generation_failed" }, 503);
+      }
+      const link = magicLinkCapture.take(requestId);
+      if (!link)
+        return context.json({ error: "sign_in_link_generation_failed" }, 503);
+      return context.json({ link });
     },
   );
 
-  app.get("/api/trips/:tripId/participants/template", async (context) => {
-    const services = getAuthServices();
-    if (!services) return context.json({ error: "service_unavailable" }, 503);
-    const session = await getSession(services, context.req.raw.headers);
-    if (!session) return context.json({ error: "unauthorized" }, 401);
-    const [actor] = await services.database
-      .select({ role: schema.tripMemberships.role })
-      .from(schema.tripMemberships)
-      .where(
-        and(
-          eq(schema.tripMemberships.tripId, context.req.param("tripId")),
-          eq(schema.tripMemberships.userId, session.user.id),
-        ),
-      )
-      .limit(1);
-    if (!actor) return context.json({ error: "not_found" }, 404);
-    if (actor.role !== "manager")
-      return context.json({ error: "forbidden" }, 403);
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Participants");
-    sheet.addRow([...participantImportHeaders]);
-    sheet.views = [{ state: "frozen", ySplit: 1 }];
-    sheet.getRow(1).font = { bold: true };
-    sheet.columns = participantImportHeaders.map((header) => ({
-      header,
-      width: Math.max(16, header.length + 3),
-    }));
-    const data = await workbook.xlsx.writeBuffer();
-    context.header("Cache-Control", "private, no-store");
-    context.header(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    );
-    context.header(
-      "Content-Disposition",
-      "attachment; filename=traveler-participants-template.xlsx",
-    );
-    return context.body(new Uint8Array(data));
-  });
-
-  app.post("/api/trips/:tripId/participants/import", async (context) => {
+  app.post("/api/trips/:tripId/imports/preview", async (context) => {
     context.header("Cache-Control", "no-store");
     const services = getAuthServices();
     if (!services) return context.json({ error: "service_unavailable" }, 503);
@@ -1442,30 +2456,253 @@ export function createApp(
       return context.json({ error: "invalid_import_file" }, 400);
     }
     const file = form.get("file");
+    const sourceType = form.get("sourceType");
+    if (
+      sourceType !== "validated_roster" &&
+      sourceType !== "detailed_orders" &&
+      sourceType !== "companions_vips" &&
+      sourceType !== "agency_rooming"
+    ) {
+      return context.json({ error: "invalid_import_source" }, 400);
+    }
     if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".xlsx")) {
       return context.json({ error: "xlsx_file_required" }, 400);
     }
     if (file.size < 1 || file.size > 4 * 1024 * 1024) {
       return context.json({ error: "import_file_size_not_allowed" }, 413);
     }
-    const parsed = await parseParticipantWorkbook(await file.arrayBuffer());
+    const data = await file.arrayBuffer();
+    const parsed = await parseImportSource(sourceType, data);
+    if (parsed.errors.length)
+      return context.json({ errors: parsed.errors }, 422);
+    let summary: unknown;
+    let staffRows: unknown;
+    let availableMembers: unknown;
+    let agencyRows: unknown;
+    let changes: unknown;
+    if (parsed.sourceType === "validated_roster") {
+      const rosterPreview = await previewValidatedRoster(
+        services.database,
+        tripId,
+        parsed.rows,
+      );
+      const { changes: rosterChanges, ...counts } = rosterPreview;
+      summary = counts;
+      changes = rosterChanges;
+    } else if (parsed.sourceType === "detailed_orders") {
+      const detailPreview = await previewDetailedOrders(
+        services.database,
+        tripId,
+        parsed.rows,
+      );
+      const { changes: detailChanges, ...counts } = detailPreview;
+      summary = counts;
+      changes = detailChanges;
+    } else if (parsed.sourceType === "companions_vips") {
+      const staffPreview = await previewStaffImport(
+        services.database,
+        tripId,
+        parsed.rows,
+      );
+      staffRows = staffPreview.rows;
+      availableMembers = staffPreview.availableMembers;
+      summary = { rows: staffPreview.rows.length };
+    } else {
+      const agencyPreview = await previewAgencyRooming(
+        services.database,
+        tripId,
+        parsed.rows,
+      );
+      const { rows: matchedRows, ...counts } = agencyPreview;
+      summary = counts;
+      agencyRows = matchedRows;
+    }
+    const now = new Date();
+    await services.database
+      .delete(schema.tripImportPreviews)
+      .where(lte(schema.tripImportPreviews.expiresAt, now));
+    const previewId = randomUUID();
+    const baseSnapshotHash = await getImportBaselineHash(
+      services.database,
+      tripId,
+    );
+    await services.database.insert(schema.tripImportPreviews).values({
+      id: previewId,
+      tripId,
+      actorUserId: session.user.id,
+      sourceType,
+      contentHash: createHash("sha256")
+        .update(new Uint8Array(data))
+        .digest("hex"),
+      baseSnapshotHash,
+      expiresAt: new Date(now.getTime() + 15 * 60_000),
+      createdAt: now,
+    });
+    return context.json({
+      previewId,
+      sourceType,
+      summary,
+      staffRows,
+      availableMembers,
+      agencyRows,
+      changes,
+    });
+  });
+
+  app.post("/api/trips/:tripId/imports/commit", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const [actor] = await services.database
+      .select({ role: schema.tripMemberships.role })
+      .from(schema.tripMemberships)
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role !== "manager")
+      return context.json({ error: "forbidden" }, 403);
+    let form: FormData;
+    try {
+      form = await context.req.formData();
+    } catch {
+      return context.json({ error: "invalid_import_file" }, 400);
+    }
+    const file = form.get("file");
+    const sourceType = form.get("sourceType");
+    const previewId = form.get("previewId");
+    if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".xlsx")) {
+      return context.json({ error: "xlsx_file_required" }, 400);
+    }
+    if (file.size < 1 || file.size > 4 * 1024 * 1024) {
+      return context.json({ error: "import_file_size_not_allowed" }, 413);
+    }
+    if (
+      typeof previewId !== "string" ||
+      (sourceType !== "validated_roster" &&
+        sourceType !== "detailed_orders" &&
+        sourceType !== "companions_vips" &&
+        sourceType !== "agency_rooming")
+    ) {
+      return context.json({ error: "invalid_import_confirmation" }, 400);
+    }
+    const [preview] = await services.database
+      .select()
+      .from(schema.tripImportPreviews)
+      .where(
+        and(
+          eq(schema.tripImportPreviews.id, previewId),
+          eq(schema.tripImportPreviews.tripId, tripId),
+          eq(schema.tripImportPreviews.actorUserId, session.user.id),
+          eq(schema.tripImportPreviews.sourceType, sourceType),
+          sql`${schema.tripImportPreviews.expiresAt} > ${new Date()}`,
+        ),
+      )
+      .limit(1);
+    if (!preview) return context.json({ error: "import_preview_expired" }, 409);
+    const currentBaselineHash = await getImportBaselineHash(
+      services.database,
+      tripId,
+    );
+    if (currentBaselineHash !== preview.baseSnapshotHash) {
+      return context.json({ error: "import_preview_stale" }, 409);
+    }
+    const data = await file.arrayBuffer();
+    const contentHash = createHash("sha256")
+      .update(new Uint8Array(data))
+      .digest("hex");
+    if (contentHash !== preview.contentHash) {
+      return context.json({ error: "import_file_changed" }, 409);
+    }
+    const parsed = await parseImportSource(sourceType, data);
     if (parsed.errors.length)
       return context.json({ errors: parsed.errors }, 422);
     try {
-      const result = await importParticipants(
-        services.database,
-        tripId,
-        parsed.participants,
-      );
-      if (result.errors.length)
-        return context.json({ errors: result.errors }, 422);
-      return context.json({
-        status: "imported",
-        created: result.created,
-        updated: result.updated,
-        roomAssignmentsCreated: result.assigned,
-      });
-    } catch {
+      let result: unknown;
+      if (parsed.sourceType === "validated_roster") {
+        result = await importValidatedRoster(
+          services.database,
+          tripId,
+          parsed.rows,
+        );
+      } else if (parsed.sourceType === "detailed_orders") {
+        result = await importDetailedOrders(
+          services.database,
+          tripId,
+          parsed.rows,
+        );
+      } else if (parsed.sourceType === "companions_vips") {
+        const managerEmailsValue = form.get("managerEmails");
+        const accountMappingsValue = form.get("accountMappings");
+        let managerEmails: string[] = [];
+        let accountMappings: Record<string, string> = {};
+        if (typeof managerEmailsValue === "string") {
+          try {
+            const parsedEmails: unknown = JSON.parse(managerEmailsValue);
+            if (
+              !Array.isArray(parsedEmails) ||
+              parsedEmails.some((email) => typeof email !== "string")
+            ) {
+              return context.json(
+                { error: "invalid_manager_assignments" },
+                400,
+              );
+            }
+            managerEmails = parsedEmails;
+          } catch {
+            return context.json({ error: "invalid_manager_assignments" }, 400);
+          }
+        }
+        if (typeof accountMappingsValue === "string") {
+          try {
+            const parsedMappings: unknown = JSON.parse(accountMappingsValue);
+            if (
+              !parsedMappings ||
+              typeof parsedMappings !== "object" ||
+              Array.isArray(parsedMappings) ||
+              Object.values(parsedMappings).some(
+                (userId) => typeof userId !== "string",
+              )
+            ) {
+              return context.json({ error: "invalid_account_mappings" }, 400);
+            }
+            accountMappings = parsedMappings as Record<string, string>;
+          } catch {
+            return context.json({ error: "invalid_account_mappings" }, 400);
+          }
+        }
+        result = await importStaffRows(
+          services.database,
+          tripId,
+          parsed.rows,
+          managerEmails,
+          accountMappings,
+        );
+      } else {
+        result = await importAgencyRooming(
+          services.database,
+          tripId,
+          parsed.rows,
+        );
+      }
+      await services.database
+        .delete(schema.tripImportPreviews)
+        .where(eq(schema.tripImportPreviews.id, preview.id));
+      return context.json({ status: "imported", result });
+    } catch (error) {
+      if (error instanceof InvalidStaffAccountMappingError)
+        return context.json({ error: "invalid_account_mappings" }, 422);
+      if (error instanceof InvalidAgencyRoomingMatchError)
+        return context.json({ error: "agency_rooming_name_match_failed" }, 422);
+      if (error instanceof DuplicateNormalizedEmailError)
+        return context.json({ error: "duplicate_email_accounts" }, 409);
       return context.json({ error: "participant_import_failed" }, 503);
     }
   });
@@ -1527,7 +2764,7 @@ export function createApp(
     ]);
     if (!allowedTypes.has(file.type))
       return context.json({ error: "file_type_not_allowed" }, 415);
-    if (!process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN) {
+    if (!ticketStorageAvailable()) {
       return context.json({ error: "ticket_storage_unavailable" }, 503);
     }
 
@@ -1535,7 +2772,7 @@ export function createApp(
     const blobPath = createTicketBlobPath(tripId, targetUserId, id);
     let blobCreated = false;
     try {
-      await put(blobPath, file, {
+      await ticketStorage.put(blobPath, file, {
         access: "private",
         contentType: file.type,
         addRandomSuffix: false,
@@ -1553,7 +2790,7 @@ export function createApp(
         uploadedBy: session.user.id,
       });
     } catch {
-      if (blobCreated) await del(blobPath).catch(() => undefined);
+      if (blobCreated) await ticketStorage.del(blobPath).catch(() => undefined);
       return context.json({ error: "ticket_upload_failed" }, 503);
     }
     return context.json({ status: "uploaded", ticketId: id }, 201);
@@ -1592,8 +2829,10 @@ export function createApp(
       return context.json({ error: "not_found" }, 404);
     }
     try {
-      const blob = await get(ticket.blobPath, { access: "private" });
-      if (blob?.statusCode !== 200)
+      const blob = await ticketStorage.get(ticket.blobPath, {
+        access: "private",
+      });
+      if (blob?.statusCode !== 200 || !blob.stream)
         return context.json({ error: "not_found" }, 404);
       return new Response(blob.stream, {
         headers: {
@@ -1993,6 +3232,81 @@ async function getSession(
   headers: Headers,
 ): Promise<Awaited<ReturnType<typeof services.auth.api.getSession>>> {
   return services.auth.api.getSession({ headers });
+}
+
+type ParsedImportSource =
+  | ({ sourceType: "agency_rooming" } & {
+      rows: AgencyRoomingRow[];
+      errors: ImportError[];
+    })
+  | ({ sourceType: "validated_roster" } & {
+      rows: ValidatedRosterRow[];
+      errors: ImportError[];
+    })
+  | ({ sourceType: "detailed_orders" } & {
+      rows: DetailedOrderRow[];
+      errors: ImportError[];
+    })
+  | ({ sourceType: "companions_vips" } & {
+      rows: StaffImportRow[];
+      errors: ImportError[];
+    });
+
+async function parseImportSource(
+  sourceType: string,
+  data: ArrayBuffer,
+): Promise<ParsedImportSource> {
+  if (sourceType === "validated_roster") {
+    return { sourceType, ...(await parseValidatedRoster(data)) };
+  }
+  if (sourceType === "detailed_orders") {
+    return { sourceType, ...(await parseDetailedOrders(data)) };
+  }
+  if (sourceType === "agency_rooming") {
+    return { sourceType, ...(await parseAgencyRooming(data)) };
+  }
+  return {
+    sourceType: "companions_vips",
+    ...(await parseCompanionsAndVips(data)),
+  };
+}
+
+function normalizeSheetHeader(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\n/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("fr");
+}
+
+function agencyRoomingColumns(sheet: ExcelJS.Worksheet) {
+  const columns = new Map<string, number>();
+  const headers = sheet.getRow(1).values as unknown[];
+  for (let column = 1; column < headers.length; column += 1) {
+    const value = normalizeSheetHeader(String(headers[column] ?? ""));
+    if (value) columns.set(value, column);
+  }
+  return columns;
+}
+
+function roomCapacity(roomType: string) {
+  const normalized = roomType.toLocaleUpperCase("fr");
+  if (normalized.includes("QUAD")) return 4;
+  if (normalized.includes("TRIPLE")) return 3;
+  const match = normalized.match(/\b(\d+)\s*(?:PAX|PLACES?)\b/);
+  return match ? Number(match[1]) : null;
+}
+
+function setAgencyCell(
+  row: ExcelJS.Row,
+  columns: Map<string, number>,
+  header: string,
+  value: string,
+) {
+  const column = columns.get(normalizeSheetHeader(header));
+  if (column) row.getCell(column).value = value;
 }
 
 const app = createApp();
