@@ -6,11 +6,8 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
-import {
-  createAuth,
-  createAuthServicesProvider,
-  createMagicLinkCapture,
-} from "./auth";
+import { createAuth, createMagicLinkCapture } from "./auth";
+import { createAuthServicesProvider } from "./composition";
 import { EnvironmentValidationError } from "./environment";
 import { createManagersStore } from "./managers";
 import * as schema from "./schema";

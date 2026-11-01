@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { Brevo, BrevoClient, BrevoError } from "@getbrevo/brevo";
-import { waitUntil } from "@vercel/functions";
 import type { Auth, BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -8,16 +6,10 @@ import { betterAuth } from "better-auth/minimal";
 import { magicLink } from "better-auth/plugins";
 import { eq, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
-import { drizzle } from "drizzle-orm/libsql";
-import { createDatabaseClientFromConfiguration } from "./database";
 import { normalizeEmail } from "./email";
-import {
-  type ApiEnvironment,
-  EnvironmentValidationError,
-  formatEnvironmentReport,
-  getEnvironmentWarnings,
-  validateEnvironment,
-} from "./environment";
+import { validateEnvironment } from "./environment";
+import type { BackgroundTaskScheduler } from "./ports/background-task-scheduler";
+import type { MagicLinkSender } from "./ports/email-sender";
 import * as schema from "./schema";
 
 export type AppDatabase = LibSQLDatabase<typeof schema>;
@@ -27,12 +19,8 @@ export type AuthServices = {
   scheduleBackgroundTask: BackgroundTaskScheduler;
   magicLinkCapture?: MagicLinkCapture;
 };
-export type MagicLinkSender = (
-  email: string,
-  url: string,
-  metadata?: Record<string, unknown>,
-) => Promise<void>;
-export type BackgroundTaskScheduler = (task: Promise<unknown>) => void;
+export type { BackgroundTaskScheduler } from "./ports/background-task-scheduler";
+export type { MagicLinkSender } from "./ports/email-sender";
 export type MagicLinkCapture = {
   authorize: (requestId: string) => void;
   capture: (requestId: string, url: string) => boolean;
@@ -58,14 +46,6 @@ export function createMagicLinkCapture(): MagicLinkCapture {
       return url;
     },
   };
-}
-
-function scheduleBackgroundTask(task: Promise<unknown>) {
-  if (process.env.VERCEL) {
-    waitUntil(task);
-  } else {
-    void task;
-  }
 }
 
 function toOrigin(value: string) {
@@ -95,63 +75,6 @@ export function isTrustedAuthOrigin(origin: string, env: NodeJS.ProcessEnv) {
   }
 }
 
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    };
-    return entities[character] ?? character;
-  });
-}
-
-async function sendLoginLink(
-  email: string,
-  url: string,
-  env: {
-    BREVO_API_KEY?: string;
-    BREVO_SENDER_EMAIL?: string;
-  },
-) {
-  const apiKey = env.BREVO_API_KEY?.trim();
-  const senderEmail = env.BREVO_SENDER_EMAIL?.trim();
-  if (!apiKey || !senderEmail) {
-    throw new Error("Authentication email delivery is not configured.");
-  }
-
-  const safeUrl = escapeHtml(url);
-  const client = new BrevoClient({
-    apiKey,
-    maxRetries: 1,
-    timeoutInSeconds: 10,
-  });
-  try {
-    await client.transactionalEmails.sendTransacEmail({
-      sender: { name: "BotMail", email: senderEmail },
-      to: [{ email }],
-      subject: "Votre lien de connexion Traveler",
-      textContent: `Connectez-vous à votre espace Traveler : ${url}\n\nCe lien expire après 10 minutes et ne peut être utilisé qu’une fois.`,
-      htmlContent: `<p>Connectez-vous à votre espace Traveler.</p><p><a href="${safeUrl}">Ouvrir mon espace voyage</a></p><p>Ce lien expire après 10 minutes et ne peut être utilisé qu’une fois.</p>`,
-    });
-  } catch (error) {
-    if (error instanceof Brevo.UnauthorizedError) {
-      throw new Error("Brevo rejected the API key.");
-    }
-    if (error instanceof Brevo.ForbiddenError) {
-      throw new Error("Brevo rejected the sender or API permission.");
-    }
-    if (error instanceof BrevoError) {
-      throw new Error(
-        `Brevo email API responded with HTTP ${error.statusCode}.`,
-      );
-    }
-    throw error;
-  }
-}
-
 export function createAuth(
   database: AppDatabase,
   env: NodeJS.ProcessEnv,
@@ -162,8 +85,9 @@ export function createAuth(
     sendEmail ? "auth-injected" : "auth",
     env,
   );
-  const deliverLoginLink: MagicLinkSender =
-    sendEmail ?? ((email, url) => sendLoginLink(email, url, authEnvironment));
+  if (!sendEmail) {
+    throw new Error("A magic-link email adapter must be injected.");
+  }
   const baseURL =
     authEnvironment.BETTER_AUTH_URL?.trim() ||
     (authEnvironment.VERCEL_BRANCH_URL
@@ -284,7 +208,7 @@ export function createAuth(
             ) {
               return;
             }
-            await deliverLoginLink(email, url, metadata);
+            await sendEmail(email, url, metadata);
           } catch (error) {
             console.error(
               "Magic link email delivery failed.",
@@ -318,59 +242,4 @@ export function createAuth(
     advanced: { database: { generateId: () => randomUUID() } },
   };
   return betterAuth(options);
-}
-
-export function createAuthServicesProvider(
-  env: NodeJS.ProcessEnv = process.env,
-): () => AuthServices | undefined {
-  let services: AuthServices | undefined;
-  let initialized = false;
-  return () => {
-    if (initialized) return services;
-    initialized = true;
-    let configuration: ApiEnvironment;
-    try {
-      configuration = validateEnvironment("api", env);
-    } catch (error) {
-      if (error instanceof EnvironmentValidationError) {
-        console.error(formatEnvironmentReport(error.profile, error.issues));
-      } else {
-        console.error("Could not validate the application environment.");
-      }
-      return undefined;
-    }
-    const warnings = getEnvironmentWarnings("api", env);
-    if (warnings.length) {
-      console.warn(
-        formatEnvironmentReport(
-          "api",
-          warnings,
-          "Optional environment variables are not configured",
-        ),
-      );
-    }
-    const client = createDatabaseClientFromConfiguration(configuration);
-    if (!client) return undefined;
-    try {
-      const database = drizzle({ client, schema });
-      const magicLinkCapture = createMagicLinkCapture();
-      services = {
-        auth: createAuth(database, env, undefined, magicLinkCapture),
-        database,
-        scheduleBackgroundTask,
-        magicLinkCapture,
-      };
-      return services;
-    } catch (error) {
-      if (error instanceof EnvironmentValidationError) {
-        console.error(formatEnvironmentReport(error.profile, error.issues));
-      } else {
-        console.error(
-          "Could not initialize authentication services.",
-          error instanceof Error ? error.name : "UnknownError",
-        );
-      }
-      return undefined;
-    }
-  };
 }

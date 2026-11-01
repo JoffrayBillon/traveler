@@ -11,6 +11,8 @@ import {
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { Button, messageStyles, textFieldStyles } from "../../components/ui";
+import { ApiError } from "../../shared/api/client";
+import { useCreateParticipantMutation } from "./participant-mutations";
 
 export function AddParticipantDialog({
   tripId,
@@ -20,48 +22,36 @@ export function AddParticipantDialog({
   onCreated: () => void;
 }) {
   const { t } = useTranslation();
+  const createParticipantMutation = useCreateParticipantMutation(tripId);
   const [isOpen, setIsOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   async function createParticipant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSaving(true);
     setMessage("");
     try {
-      const response = await fetch(
-        `/api/trips/${encodeURIComponent(tripId)}/participants`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ firstName, lastName, email }),
-        },
-      );
-      if (response.status === 409) {
-        const result = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        setMessage(
-          result.error === "participant_already_exists"
-            ? t("thisUserIsAlreadyInTheTrip")
-            : t("thisEmailAddressIsAlreadyLinkedToAnotherAccount"),
-        );
-        return;
-      }
-      if (!response.ok) throw new Error("participant_creation_failed");
+      await createParticipantMutation.mutateAsync({
+        firstName,
+        lastName,
+        email,
+      });
       onCreated();
       setIsOpen(false);
       setFirstName("");
       setLastName("");
       setEmail("");
       setMessage("");
-    } catch {
-      setMessage(t("participantCreationFailed"));
-    } finally {
-      setIsSaving(false);
+    } catch (error) {
+      setMessage(
+        error instanceof ApiError && error.status === 409
+          ? error.code === "participant_already_exists"
+            ? t("thisUserIsAlreadyInTheTrip")
+            : t("thisEmailAddressIsAlreadyLinkedToAnotherAccount")
+          : t("participantCreationFailed"),
+      );
     }
   }
 
@@ -154,16 +144,18 @@ export function AddParticipantDialog({
                   appearance="quietNeutral"
                   type="button"
                   onPress={() => setIsOpen(false)}
-                  isDisabled={isSaving}
+                  isDisabled={createParticipantMutation.isPending}
                 >
                   {t("cancel")}
                 </Button>
                 <Button
                   appearance="primary"
                   type="submit"
-                  isDisabled={isSaving}
+                  isDisabled={createParticipantMutation.isPending}
                 >
-                  {isSaving ? t("saving") : t("addUser")}
+                  {createParticipantMutation.isPending
+                    ? t("saving")
+                    : t("addUser")}
                 </Button>
               </footer>
             </Form>

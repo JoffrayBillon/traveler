@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-01 — Application refactor — Complete feature and service boundaries
+
+- Details/impact: split oversized web components into focused feature components and shared UI variants; keep feature server state in TanStack Query hooks with dedicated keys, direct cache updates for known profile/preference/trip-name results, and narrowly scoped invalidations for participant edits/imports and rooming changes. Move workbook import preview/commit, agency rooming export, rooming reads/exports/assignments, traveler profile/details updates and initial room assignment workflows behind services and datamodel repositories; keep endpoint handlers focused on authorization, payload validation and HTTP responses.
+- Test status: Biome, web/API TypeScript checks, API and web production builds, and `git diff --check` passed. Automated tests were not run. Builds ran under Node 24.22.1 with pnpm's engine-strict check disabled because Node 26 is not installed in this environment; the repository requires Node 26.
+
 ## 2026-11-01 — Unsplash photo credits — Overlay attribution
 
 - Details/impact: place photographer credits in small, legible overlays on the sign-in and trip hero photos so attribution no longer adds vertical space to the page.

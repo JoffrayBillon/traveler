@@ -2,6 +2,7 @@ import { ArrowUpRight, MountainSnow, Snowflake } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import { PageContainer } from "../../components/ui";
 import { roleLabel } from "../../lib/trip-format";
 import type { TravelerProfile } from "../../types/profile";
 
@@ -10,10 +11,7 @@ export function TripsHome({ profile }: { profile: TravelerProfile }) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section
-      className="mx-auto grid w-[min(100%-3rem,1320px)] gap-8 py-12 max-[760px]:w-[min(100%-2rem,1320px)] max-[760px]:py-6"
-      aria-labelledby="trips-title"
-    >
+    <PageContainer as="section" spacing="regular" aria-labelledby="trips-title">
       <header className="relative isolate flex min-h-[330px] items-center justify-between overflow-hidden rounded-feature border border-border/80 bg-[linear-gradient(118deg,var(--theme-color-surface)_5%,var(--theme-color-surface-muted)_100%)] p-[clamp(2rem,5vw,4.5rem)] shadow-panel max-[760px]:min-h-[300px] max-[760px]:p-7">
         <div className="relative z-10 grid gap-4">
           <p className="flex items-center gap-2 text-xs font-extrabold tracking-[0.14em] text-accent">
@@ -146,6 +144,6 @@ export function TripsHome({ profile }: { profile: TravelerProfile }) {
           )}
         </p>
       </div>
-    </section>
+    </PageContainer>
   );
 }

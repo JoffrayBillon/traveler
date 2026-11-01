@@ -1,6 +1,4 @@
-import * as CountryFlags from "country-flag-icons/react/3x2";
 import {
-  AsYouType,
   type CountryCode,
   getCountries,
   getCountryCallingCode,
@@ -26,29 +24,9 @@ import {
 } from "../../components/ui";
 
 const countryCodes = getCountries();
-const countryFlagComponents = CountryFlags as unknown as Record<
-  string,
-  typeof CountryFlags.FR
->;
 
-function CountryFlag({ country }: { country: CountryCode }) {
-  const Flag = countryFlagComponents[country];
-  return Flag ? (
-    <Flag aria-hidden="true" className="h-4 w-6 shrink-0 rounded-[2px]" />
-  ) : null;
-}
-
-export function formatPhoneInput(value: string, country: CountryCode) {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return "";
-
-  if (country === "FR") {
-    const nationalDigits = digits.startsWith("0") ? digits.slice(1) : digits;
-    return new AsYouType("FR").input(`0${nationalDigits}`).replace(/^0\s?/, "");
-  }
-
-  return new AsYouType(country).input(digits);
-}
+import { CountryFlag } from "./CountryFlag";
+import { formatPhoneInput } from "./phone-format";
 
 export function PhoneNumberField({
   value,

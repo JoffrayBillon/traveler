@@ -2,19 +2,17 @@ import { ArrowLeft, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { eyebrowStyles } from "../../components/ui";
+import { eyebrowStyles, PageContainer, Stack } from "../../components/ui";
 import { StaffTools } from "./StaffTools";
 
 export function OrganizerWorkspace({
   tripId,
   tripName: initialTripName,
   role,
-  onTripNameChange,
 }: {
   tripId: string;
   tripName: string;
   role: "companion" | "manager";
-  onTripNameChange: (name: string) => void;
 }) {
   const { t } = useTranslation();
   const [tripName, setTripName] = useState(initialTripName);
@@ -22,10 +20,7 @@ export function OrganizerWorkspace({
     setTripName(initialTripName);
   }, [initialTripName]);
   return (
-    <section
-      className="mx-auto grid w-[min(100%-3rem,1320px)] gap-6 py-12 max-[760px]:w-[min(100%-2rem,1320px)] max-[760px]:py-6"
-      aria-labelledby="organizer-title"
-    >
+    <PageContainer spacing="regular" aria-labelledby="organizer-title">
       <Link
         className="inline-flex items-center gap-2 text-sm font-semibold text-content-muted no-underline hover:text-accent"
         to={`/trips/${encodeURIComponent(tripId)}`}
@@ -51,15 +46,13 @@ export function OrganizerWorkspace({
           </p>
         </div>
       </div>
-      <StaffTools
-        tripId={tripId}
-        tripName={tripName}
-        isManager={role === "manager"}
-        onTripNameChange={(name) => {
-          setTripName(name);
-          onTripNameChange(name);
-        }}
-      />
-    </section>
+      <Stack gap="lg">
+        <StaffTools
+          tripId={tripId}
+          tripName={tripName}
+          isManager={role === "manager"}
+        />
+      </Stack>
+    </PageContainer>
   );
 }

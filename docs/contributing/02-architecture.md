@@ -4,7 +4,25 @@
 - `packages/api`: Hono application, API tests and local Node server.
 - Root: pnpm workspaces, Turborepo task graph, strict TypeScript defaults, Biome and CI.
 
-The API package emits declarations with TypeScript and bundles its runtime entry point with esbuild as a native ES module, keeping workspace-local imports extensionless in source while leaving runtime-compatible output for Node/Vercel. External packages remain external dependencies. Build, typecheck, test and development task dependencies build the API before web code resolves it; Turborepo caches and restores `dist`. Tests and the local development entry point are excluded from that runtime build. Browser code must not import the API package or server-only modules. The Vercel function is the only web workspace consumer of that package. Keep imports direct, component state local, and dependencies minimal; add a shared package only for an actual shared responsibility.
+The API package emits declarations with TypeScript and bundles its runtime entry point with esbuild as a native ES module, keeping workspace-local imports extensionless in source while leaving runtime-compatible output for Node/Vercel. External packages remain external dependencies. Build, typecheck, test and development task dependencies build the API before web code resolves it; Turborepo caches and restores `dist`. Tests and the local development entry point are excluded from that runtime build. Browser code must not import the API package or server-only modules. The Vercel function is the only web workspace consumer of that package. Keep dependencies minimal; add a shared package only for an actual shared responsibility.
+
+## Frontend boundaries
+
+- Put server state in TanStack Query hooks beside the feature that owns it. Keep query-key construction centralized in `apps/web/src/shared/query/query-keys.ts`.
+- Put each feature mutation in a domain hook. The hook owns its request, retry behavior and cache effects. Invalidate the narrowest affected query-key prefixes after success; use `onSettled` only when a request may have partially changed server state before failing.
+- Components own presentation and ephemeral interaction state. They call the feature hooks and render pending, error and success states; they do not assemble raw HTTP requests or decide unrelated cache invalidations.
+- Prefer one primary component per file. Split a large component by user-visible responsibility (for example list, editor, preview, transport section), not by arbitrary line ranges. Keep page composition separate from form state, mutations and repeated row rendering.
+- Keep reusable visual behavior in `components/ui` and its Tailwind Variants recipes. Feature components should use semantic theme tokens and UI variants; page-specific composition and artwork can stay local.
+- Translation keys remain English `camelCase`; maintain locale dictionaries separately in `i18n/en.ts` and `i18n/fr.ts`.
+
+## API boundaries
+
+- `endpoints/` registers HTTP routes, reads request parameters, authenticates/authorizes, validates the transport shape and maps domain outcomes to status codes. Avoid embedding multi-step business workflows or long database queries in handlers.
+- `services/` owns domain operations and workflows, including transaction boundaries and coordination between repositories or ports.
+- `datamodel/` owns database reads and writes. Keep SQL and Drizzle schema knowledge out of route handlers where a repository/service boundary is useful.
+- `ports/` describes external capabilities; `adapters/` implements them (email, object storage, schedulers and similar services). Inject adapters through composition rather than importing providers into domain services.
+- Keep one route module focused on a cohesive endpoint family. A long handler should be split by its domain responsibilities, not hidden behind generic helper layers.
+- Keep import parsing in `source-import/`, import preview/commit workflows in `services/imports/`, and database read models in `datamodel/`. Keep room consent, initial placement, rooming reads and workbook preparation in the rooming services/repositories; endpoints retain session and role checks, request parsing and HTTP response mapping.
 
 The Vercel entry point has an isolated `api/tsconfig.json` with Web API libraries and no frontend ambient type packages. Web typechecking checks both frontend and function configurations. A native Node subprocess test resolves the compiled workspace package from the web directory and verifies health and error responses; this complements, rather than replaces, remote function invocation checks.
 
