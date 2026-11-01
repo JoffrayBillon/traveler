@@ -1,3 +1,4 @@
+import { Button, textFieldStyles } from "@traveler/components/ui";
 import { Clock3 } from "lucide-react";
 import {
   DateInput,
@@ -11,7 +12,6 @@ import {
   TimeField,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { Button, textFieldStyles } from "../../components/ui";
 import { getTimeOptions, padTime, parseTimeSafely } from "./profile-time-utils";
 export function ProfileTime({
   label,

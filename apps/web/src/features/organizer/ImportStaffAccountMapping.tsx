@@ -1,3 +1,10 @@
+import type { ImportPreview } from "@traveler/api/imports/import.types";
+import {
+  checkboxStyles,
+  listBoxStyles,
+  SelectTrigger,
+  textFieldStyles,
+} from "@traveler/components/ui";
 import {
   Checkbox,
   Label,
@@ -8,13 +15,6 @@ import {
   SelectValue,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import {
-  checkboxStyles,
-  listBoxStyles,
-  SelectTrigger,
-  textFieldStyles,
-} from "../../components/ui";
-import type { ImportPreview } from "./import-types";
 
 type StaffRow = NonNullable<ImportPreview["staffRows"]>[number];
 type Member = NonNullable<ImportPreview["availableMembers"]>[number];

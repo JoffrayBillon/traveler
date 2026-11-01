@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "../../shared/api/client";
-import { queryKeys } from "../../shared/query/query-keys";
-import type { StaffTraveler } from "../organizer/types";
+import { apiGet } from "@traveler/api/client";
+import type { StaffTraveler } from "@traveler/api/participants/participant.types";
+import { queryKeys } from "@traveler/api/query-keys";
 import type { RoomRequestSummary, RoomSummary } from "./rooming.types";
 
 export function useRoomingQuery(tripId: string, isStaff: boolean) {

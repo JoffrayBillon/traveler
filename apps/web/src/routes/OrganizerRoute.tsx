@@ -1,6 +1,6 @@
+import { OrganizerWorkspace } from "@traveler/features/organizer/OrganizerWorkspace";
+import type { TravelerProfile } from "@traveler/types/profile";
 import { Navigate, useParams } from "react-router";
-import type { TravelerProfile } from "../../types/profile";
-import { OrganizerWorkspace } from "../organizer/OrganizerWorkspace";
 
 export function OrganizerRoute({ profile }: { profile: TravelerProfile }) {
   const { tripId = "" } = useParams();

@@ -1,8 +1,8 @@
+import type { TravelerTripData } from "@traveler/api/trips/trip.types";
+import { Card } from "@traveler/components/ui";
+import { transportLabel } from "@traveler/lib/trip-format";
 import type { TFunction } from "i18next";
-import { Card } from "../../components/ui";
-import { transportLabel } from "../../lib/trip-format";
 import { JourneyCard } from "./JourneyCard";
-import type { TravelerTripData } from "./traveler-trip.types";
 
 export function TripTravelDetails({
   details,

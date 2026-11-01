@@ -1,8 +1,8 @@
+import type { TravelerTripData } from "@traveler/api/trips/trip.types";
+import { buttonStyles } from "@traveler/components/ui";
+import { getLocale } from "@traveler/i18n";
+import { formatBytes, ticketLabel } from "@traveler/lib/trip-format";
 import type { TFunction } from "i18next";
-import { buttonStyles } from "../../components/ui";
-import { getLocale } from "../../i18n";
-import { formatBytes, ticketLabel } from "../../lib/trip-format";
-import type { TravelerTripData } from "./traveler-trip.types";
 
 export function TripTickets({
   tripId,

@@ -1,8 +1,8 @@
+import { buttonStyles, eyebrowStyles } from "@traveler/components/ui";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { buttonStyles, eyebrowStyles } from "../../components/ui";
 
-export function NotFound() {
+export function NotFoundRoute() {
   const { t } = useTranslation();
   return (
     <section

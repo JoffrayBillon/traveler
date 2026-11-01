@@ -1,4 +1,13 @@
-import type { StaffTraveler } from "./types";
+import type { StaffTraveler } from "./participant.types";
+
+export type SaveParticipantInput = {
+  participant: StaffTraveler;
+  profile: ProfileDraft;
+  details: DetailsDraft;
+  email: string;
+  role: StaffTraveler["role"];
+  isManager: boolean;
+};
 
 export type ProfileDraft = Pick<
   StaffTraveler,

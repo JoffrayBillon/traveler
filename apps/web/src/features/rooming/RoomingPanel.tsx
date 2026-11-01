@@ -1,11 +1,11 @@
+import { useRoomingQuery } from "@traveler/api/rooming/queries";
+import { messageStyles } from "@traveler/components/ui";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { messageStyles } from "../../components/ui";
 import { RoomChangeRequestForm } from "./RoomChangeRequestForm";
 import { RoomConsentList } from "./RoomConsentList";
 import { RoomManagementPanel } from "./RoomManagementPanel";
 import { RoomOverview } from "./RoomOverview";
-import { useRoomingQuery } from "./useRoomingQuery";
 
 export function RoomingPanel({
   tripId,

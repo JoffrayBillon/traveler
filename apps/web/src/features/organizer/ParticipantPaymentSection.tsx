@@ -1,7 +1,7 @@
+import type { StaffTraveler } from "@traveler/api/participants/participant.types";
+import { getLocale } from "@traveler/i18n";
 import { useTranslation } from "react-i18next";
-import { getLocale } from "../../i18n";
 import { formatMoney } from "./participant-formatters";
-import type { StaffTraveler } from "./types";
 
 export function ParticipantPaymentSection({
   participant,

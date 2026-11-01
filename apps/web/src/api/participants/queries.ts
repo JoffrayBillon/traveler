@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "../../shared/api/client";
-import { queryKeys } from "../../shared/query/query-keys";
-import type { StaffTraveler } from "./types";
+import { apiGet } from "@traveler/api/client";
+import { queryKeys } from "@traveler/api/query-keys";
+import type { StaffTraveler } from "./participant.types";
 
 export function useParticipantDirectoryQuery(tripId: string) {
   return useQuery({

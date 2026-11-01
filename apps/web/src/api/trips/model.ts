@@ -1,5 +1,5 @@
-import type { TravelerProfileValues } from "../profile/TravelerProfileForm";
-import type { TravelerTripData } from "./traveler-trip.types";
+import type { TravelerProfileValues } from "@traveler/api/profile/profile.types";
+import type { TravelerTripData } from "./trip.types";
 
 export const emptyTravelerProfile = {
   dietaryRequirements: null,

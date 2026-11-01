@@ -1,14 +1,17 @@
+import type { StaffTraveler } from "@traveler/api/participants/participant.types";
+import type {
+  DetailsDraft,
+  ProfileDraft,
+} from "@traveler/api/participants/participant-form.types";
+import { Button } from "@traveler/components/ui";
 import { Check, Copy, X } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { Dialog, Heading, Modal, ModalOverlay } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/ui";
 import { ParticipantAccountSection } from "./ParticipantAccountSection";
 import { ParticipantContactSection } from "./ParticipantContactSection";
 import { ParticipantPaymentSection } from "./ParticipantPaymentSection";
 import { ParticipantTravelSection } from "./ParticipantTravelSection";
-import type { DetailsDraft, ProfileDraft } from "./participant-directory.types";
-import type { StaffTraveler } from "./types";
 
 export function ParticipantEditorDialog({
   selected,

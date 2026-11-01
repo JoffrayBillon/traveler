@@ -1,26 +1,11 @@
 import { useReducedMotion } from "motion/react";
 import { lazy, Suspense } from "react";
-import {
-  Form,
-  Input,
-  Label,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  TextField,
-} from "react-aria-components";
+import { Tab, TabList, TabPanel, Tabs } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  Card,
-  messageStyles,
-  textFieldStyles,
-} from "../../components/ui";
 import { ImportExportPanel } from "./ImportExportPanel";
 import { TabSelectionIndicator } from "./TabSelectionIndicator";
 import { TravelerTicketUpload } from "./TravelerTicketUpload";
-import { useOrganizerWorkflow } from "./useOrganizerWorkflow";
+import { TripSettingsPanel } from "./TripSettingsPanel";
 
 const ParticipantDirectory = lazy(() =>
   import("./ParticipantDirectory").then((module) => ({
@@ -30,40 +15,13 @@ const ParticipantDirectory = lazy(() =>
 
 export function StaffTools({
   tripId,
-  tripName,
   isManager,
 }: {
   tripId: string;
-  tripName: string;
   isManager: boolean;
 }) {
   const { t } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
-  const workflow = useOrganizerWorkflow(tripId, tripName);
-  const {
-    importFile,
-    setImportFile,
-    agencyTemplateFile,
-    setAgencyTemplateFile,
-    importSourceType,
-    setImportSourceType,
-    importPreview,
-    setImportPreview,
-    managerEmails,
-    accountMappings,
-    setAccountMappings,
-    editableTripName,
-    setEditableTripName,
-    message,
-    toggleManagerEmail,
-    previewParticipantImport,
-    commitParticipantImport,
-    saveTripName,
-    prepareAgencySpreadsheet,
-    isPreviewing,
-    isCommitting,
-    isPreparingAgencySpreadsheet,
-  } = workflow;
   return (
     <section className="grid gap-5" aria-labelledby="staff-tools-title">
       <div className="grid gap-1">
@@ -143,75 +101,13 @@ export function StaffTools({
           </Suspense>
           <TravelerTicketUpload tripId={tripId} />
         </TabPanel>
-        {isManager && (
-          <ImportExportPanel
-            tripId={tripId}
-            importSourceType={importSourceType}
-            setImportSourceType={setImportSourceType}
-            importFile={importFile}
-            setImportFile={setImportFile}
-            importPreview={importPreview}
-            setImportPreview={setImportPreview}
-            managerEmails={managerEmails}
-            toggleManagerEmail={toggleManagerEmail}
-            accountMappings={accountMappings}
-            setAccountMappings={setAccountMappings}
-            previewParticipantImport={previewParticipantImport}
-            commitParticipantImport={() => void commitParticipantImport()}
-            agencyTemplateFile={agencyTemplateFile}
-            setAgencyTemplateFile={setAgencyTemplateFile}
-            prepareAgencySpreadsheet={prepareAgencySpreadsheet}
-            isPreviewing={isPreviewing}
-            isCommitting={isCommitting}
-            isPreparingAgencySpreadsheet={isPreparingAgencySpreadsheet}
-          />
-        )}
+        {isManager && <ImportExportPanel tripId={tripId} />}
         {isManager && (
           <TabPanel id="trip" className="grid gap-5 outline-none">
-            <section
-              className="grid gap-2"
-              aria-labelledby="trip-settings-title"
-            >
-              <h4 className="text-base font-bold" id="trip-settings-title">
-                {t("tripInformation")}
-              </h4>
-              <p className="text-sm leading-relaxed text-content-muted">
-                {t("manageTripAndOptionsDescription")}
-              </p>
-            </section>
-            <Card
-              as={Form}
-              spacing="compact"
-              arrangement="form"
-              onSubmit={saveTripName}
-            >
-              <TextField
-                className="grid min-w-0 gap-2"
-                value={editableTripName}
-                onChange={setEditableTripName}
-                isRequired
-              >
-                <Label className={textFieldStyles().label()}>
-                  {t("tripName")}
-                </Label>
-                <Input className={textFieldStyles().input()} maxLength={120} />
-              </TextField>
-              <Button appearance="secondary" type="submit">
-                {t("save")}
-              </Button>
-            </Card>
+            <TripSettingsPanel tripId={tripId} />
           </TabPanel>
         )}
       </Tabs>
-      {message && (
-        <p
-          className={`${messageStyles()} whitespace-pre-line`}
-          role="status"
-          aria-live="polite"
-        >
-          {message}
-        </p>
-      )}
     </section>
   );
 }

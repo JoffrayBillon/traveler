@@ -1,29 +1,19 @@
+import { ApiError } from "@traveler/api/client";
+import { useSaveTravelerProfileMutation } from "@traveler/api/profile/mutations";
+import type { TravelerProfileValues } from "@traveler/api/profile/profile.types";
+import { ModalForm } from "@traveler/components/ui";
 import {
   type CountryCode,
   parsePhoneNumberFromString,
 } from "libphonenumber-js/max";
 import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ModalForm } from "../../components/ui";
-import { ApiError } from "../../shared/api/client";
 import { getInitialPhone } from "./phone-format";
-import { useSaveTravelerProfileMutation } from "./profile-mutations";
 import { TravelerDietaryFields } from "./TravelerDietaryFields";
 import { TravelerEmergencyContactFields } from "./TravelerEmergencyContactFields";
 import { TravelerIdentityFields } from "./TravelerIdentityFields";
 
-export type TravelerProfileValues = {
-  firstName: string;
-  lastName: string;
-  gender: "M" | "F" | null;
-  genderConfirmed: boolean;
-  dietaryRequirements: string;
-  allergens: string;
-  emergencyContactFirstName: string;
-  emergencyContactLastName: string;
-  emergencyContactPhone: string;
-  completed: boolean;
-};
+export type { TravelerProfileValues } from "@traveler/api/profile/profile.types";
 export function TravelerProfileEditorDialog({
   tripId,
   initial,

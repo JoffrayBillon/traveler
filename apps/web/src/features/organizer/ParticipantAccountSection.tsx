@@ -1,3 +1,6 @@
+import type { StaffTraveler } from "@traveler/api/participants/participant.types";
+import type { ProfileDraft } from "@traveler/api/participants/participant-form.types";
+import { SelectTrigger, textFieldStyles } from "@traveler/components/ui";
 import {
   Input,
   Label,
@@ -9,11 +12,8 @@ import {
   TextField,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { SelectTrigger, textFieldStyles } from "../../components/ui";
 import { ProfileText } from "./ProfileText";
-import type { ProfileDraft } from "./participant-directory.types";
 import { roleTranslationKey } from "./participant-formatters";
-import type { StaffTraveler } from "./types";
 
 type ParticipantAccountSectionProps = {
   profile: ProfileDraft;

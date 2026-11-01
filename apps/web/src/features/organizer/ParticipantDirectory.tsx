@@ -1,20 +1,23 @@
+import { ApiError } from "@traveler/api/client";
+import {
+  useCopyParticipantLinkMutation,
+  useSaveParticipantMutation,
+} from "@traveler/api/participants/mutations";
+import type { StaffTraveler } from "@traveler/api/participants/participant.types";
+import type {
+  DetailsDraft,
+  ProfileDraft,
+} from "@traveler/api/participants/participant-form.types";
+import { useParticipantDirectoryQuery } from "@traveler/api/participants/queries";
+import { textFieldStyles } from "@traveler/components/ui";
+import { getLocale } from "@traveler/i18n";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Input, Label, TextField } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { textFieldStyles } from "../../components/ui";
-import { getLocale } from "../../i18n";
-import { ApiError } from "../../shared/api/client";
 import { AddParticipantDialog } from "./AddParticipantDialog";
 import { ParticipantEditorDialog } from "./ParticipantEditorDialog";
 import { ParticipantList } from "./ParticipantList";
-import type { DetailsDraft, ProfileDraft } from "./participant-directory.types";
-import {
-  useCopyParticipantLinkMutation,
-  useSaveParticipantMutation,
-} from "./participant-mutations";
-import type { StaffTraveler } from "./types";
-import { useParticipantDirectoryQuery } from "./useParticipantDirectoryQuery";
 
 export function ParticipantDirectory({
   tripId,
@@ -125,7 +128,10 @@ export function ParticipantDirectory({
     if (!selected) return;
     setMessage("");
     try {
-      await copyParticipantLinkMutation.mutateAsync(selected.userId);
+      const link = await copyParticipantLinkMutation.mutateAsync(
+        selected.userId,
+      );
+      await navigator.clipboard.writeText(link);
       setMessage(t("signInLinkCopied"));
     } catch (error) {
       if (error instanceof ApiError && error.status === 429) {

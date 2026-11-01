@@ -1,6 +1,6 @@
+import type { ProfileDraft } from "@traveler/api/participants/participant-form.types";
 import { useTranslation } from "react-i18next";
 import { ProfileText } from "./ProfileText";
-import type { ProfileDraft } from "./participant-directory.types";
 
 type ParticipantContactSectionProps = {
   profile: ProfileDraft;

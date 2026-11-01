@@ -1,10 +1,10 @@
+import { emptyTravelerProfile } from "@traveler/api/trips/model";
+import type { TravelerTripData } from "@traveler/api/trips/trip.types";
 import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import type { TravelerTripData } from "./traveler-trip.types";
-import { emptyTravelerProfile } from "./traveler-trip.utils";
 
 const TravelerProfileForm = lazy(() =>
-  import("../profile/TravelerProfileForm").then((module) => ({
+  import("@traveler/features/profile/TravelerProfileForm").then((module) => ({
     default: module.TravelerProfileForm,
   })),
 );

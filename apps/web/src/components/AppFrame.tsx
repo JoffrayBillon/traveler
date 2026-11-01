@@ -1,9 +1,9 @@
+import type { ThemePreference } from "@traveler/hooks/useThemePreference";
+import type { TravelerProfile } from "@traveler/types/profile";
 import { LockKeyhole, MountainSnow } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink } from "react-router";
-import type { ThemePreference } from "../hooks/useThemePreference";
-import type { TravelerProfile } from "../types/profile";
 import { ProfileMenu } from "./ProfileMenu";
 import { appFrameStyles } from "./ui/layout.styles";
 

@@ -1,18 +1,18 @@
+import { emptyTravelerProfile } from "@traveler/api/trips/model";
+import { useTravelerTripQuery } from "@traveler/api/trips/queries";
+import { eyebrowStyles, Stack } from "@traveler/components/ui";
+import { roleLabel } from "@traveler/lib/trip-format";
+import type { TripRole } from "@traveler/types/profile";
 import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { eyebrowStyles, Stack } from "../../components/ui";
-import { roleLabel } from "../../lib/trip-format";
-import type { TripRole } from "../../types/profile";
 import { CarpoolPreferences } from "./CarpoolPreferences";
 import { TravelerProfileSection } from "./TravelerProfileSection";
 import { TripTickets } from "./TripTickets";
 import { TripTravelDetails } from "./TripTravelDetails";
-import { emptyTravelerProfile } from "./traveler-trip.utils";
-import { useTravelerTripQuery } from "./useTravelerTripQuery";
 
 const RoomingPanel = lazy(() =>
-  import("../rooming/RoomingPanel").then((module) => ({
+  import("@traveler/features/rooming/RoomingPanel").then((module) => ({
     default: module.RoomingPanel,
   })),
 );

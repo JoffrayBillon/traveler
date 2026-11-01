@@ -1,5 +1,5 @@
+import type { ImportPreview } from "@traveler/api/imports/import.types";
 import { useTranslation } from "react-i18next";
-import type { ImportPreview } from "./import-types";
 
 type AgencyRow = NonNullable<ImportPreview["agencyRows"]>[number];
 

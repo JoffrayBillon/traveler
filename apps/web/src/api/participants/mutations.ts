@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiPost, apiRequest } from "../../shared/api/client";
-import { queryKeys } from "../../shared/query/query-keys";
-import type { DetailsDraft, ProfileDraft } from "./participant-directory.types";
-import type { StaffTraveler } from "./types";
+import { apiPost, apiRequest } from "@traveler/api/client";
+import { queryKeys } from "@traveler/api/query-keys";
+import type { SaveParticipantInput } from "./participant-form.types";
 
 async function invalidateParticipants(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -31,15 +30,6 @@ export function useCreateParticipantMutation(tripId: string) {
       }),
   });
 }
-
-type SaveParticipantInput = {
-  participant: StaffTraveler;
-  profile: ProfileDraft;
-  details: DetailsDraft;
-  email: string;
-  role: StaffTraveler["role"];
-  isManager: boolean;
-};
 
 export function useSaveParticipantMutation(tripId: string) {
   const queryClient = useQueryClient();
@@ -122,7 +112,7 @@ export function useCopyParticipantLinkMutation(tripId: string) {
       const result = await apiPost<{ link: string }>(
         `/api/trips/${encodeURIComponent(tripId)}/participants/${encodeURIComponent(participantId)}/login-link`,
       );
-      await navigator.clipboard.writeText(result.link);
+      return result.link;
     },
     retry: false,
   });

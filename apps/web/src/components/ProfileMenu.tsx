@@ -1,3 +1,6 @@
+import type { ThemePreference } from "@traveler/hooks/useThemePreference";
+import type { TranslationKey } from "@traveler/i18n/resources";
+import type { TravelerProfile } from "@traveler/types/profile";
 import {
   ChevronDown,
   LogOut,
@@ -17,9 +20,6 @@ import {
   ToggleButtonGroup,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import type { ThemePreference } from "../hooks/useThemePreference";
-import type { TranslationKey } from "../i18n/resources";
-import type { TravelerProfile } from "../types/profile";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { buttonStyles, messageStyles } from "./ui";
 

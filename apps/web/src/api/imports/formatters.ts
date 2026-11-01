@@ -1,5 +1,5 @@
+import { getTranslationKeyForFrenchSourceText } from "@traveler/i18n/resources";
 import type { TFunction } from "i18next";
-import { getTranslationKeyForFrenchSourceText } from "../../i18n/resources";
 
 export function importSummaryLabel(key: string, t: TFunction) {
   const labels: Record<string, string> = {

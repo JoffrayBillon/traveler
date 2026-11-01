@@ -1,16 +1,16 @@
+import { PageContainer } from "@traveler/components/ui";
+import { TripWorkspace } from "@traveler/features/trips/TripWorkspace";
+import type { TravelerProfile } from "@traveler/types/profile";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
-import { PageContainer } from "../../components/ui";
-import type { TravelerProfile } from "../../types/profile";
-import { TripWorkspace } from "../trips/TripWorkspace";
-import { NotFound } from "./NotFound";
+import { NotFoundRoute } from "./NotFoundRoute";
 
 export function TripRoute({ profile }: { profile: TravelerProfile }) {
   const { t } = useTranslation();
   const { tripId = "" } = useParams();
   const trip = profile.trips.find((item) => item.tripId === tripId);
-  if (!trip) return <NotFound />;
+  if (!trip) return <NotFoundRoute />;
   return (
     <PageContainer as="section" spacing="regular" aria-label={trip.tripName}>
       <h1 className="sr-only" data-route-heading tabIndex={-1}>

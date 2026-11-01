@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-01 — Frontend data and routing boundaries — Centralize TanStack Query by domain
+
+- Details/impact: move every browser request, TanStack Query hook, query key and cache effect into `apps/web/src/api` domain modules. Add `@traveler/*` aliases for source folders, move route declarations and components under `src/routes`, and render nested routes through a persistent React Router layout and animated `<Outlet>`. Replace the broad organizer workflow hook with panel-owned import and trip-settings state so `StaffTools` no longer forwards import callbacks or values it does not use. Rename type modules to the `.types.ts` convention.
+- Test status: Biome, web/API TypeScript checks, web/API production builds and `git diff --check` passed. Automated tests were not run. Builds ran under Node 24.22.1 with pnpm's engine-strict check disabled because Node 26 is not installed in this environment; the repository requires Node 26.
+
 ## 2026-11-01 — Application refactor — Complete feature and service boundaries
 
 - Details/impact: split oversized web components into focused feature components and shared UI variants; keep feature server state in TanStack Query hooks with dedicated keys, direct cache updates for known profile/preference/trip-name results, and narrowly scoped invalidations for participant edits/imports and rooming changes. Move workbook import preview/commit, agency rooming export, rooming reads/exports/assignments, traveler profile/details updates and initial room assignment workflows behind services and datamodel repositories; keep endpoint handlers focused on authorization, payload validation and HTTP responses.

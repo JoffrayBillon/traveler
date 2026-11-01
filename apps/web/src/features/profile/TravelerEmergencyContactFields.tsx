@@ -1,7 +1,7 @@
+import { textFieldStyles } from "@traveler/components/ui";
 import type { CountryCode } from "libphonenumber-js/max";
 import { Input, Label, TextField } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { textFieldStyles } from "../../components/ui";
 import { PhoneNumberField } from "./PhoneNumberField";
 
 export function TravelerEmergencyContactFields({

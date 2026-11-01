@@ -1,7 +1,7 @@
+import { Card } from "@traveler/components/ui";
+import { getLocale } from "@traveler/i18n";
+import { formatJourneyDate } from "@traveler/lib/trip-format";
 import type { TFunction } from "i18next";
-import { Card } from "../../components/ui";
-import { getLocale } from "../../i18n";
-import { formatJourneyDate } from "../../lib/trip-format";
 
 export function JourneyCard({
   direction,

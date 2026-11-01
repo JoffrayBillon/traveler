@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "../../shared/api/client";
-import { queryKeys } from "../../shared/query/query-keys";
-import type { TravelerTripData } from "../trips/traveler-trip.types";
-import { applyProfileValues } from "../trips/traveler-trip.utils";
-import type { TravelerProfileValues } from "./TravelerProfileForm";
+import { apiRequest } from "@traveler/api/client";
+import { queryKeys } from "@traveler/api/query-keys";
+import { applyProfileValues } from "@traveler/api/trips/model";
+import type { TravelerTripData } from "@traveler/api/trips/trip.types";
+import type { TravelerProfileValues } from "./profile.types";
 
 export function useSaveTravelerProfileMutation(tripId: string) {
   const queryClient = useQueryClient();

@@ -1,6 +1,6 @@
+import { textFieldStyles } from "@traveler/components/ui";
 import { Label, TextArea, TextField } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { textFieldStyles } from "../../components/ui";
 
 export function TravelerDietaryFields({
   dietaryRequirements,

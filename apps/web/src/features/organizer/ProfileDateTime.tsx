@@ -1,3 +1,5 @@
+import { Button, textFieldStyles } from "@traveler/components/ui";
+import { getLocale } from "@traveler/i18n";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Calendar,
@@ -17,8 +19,6 @@ import {
   Popover,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { Button, textFieldStyles } from "../../components/ui";
-import { getLocale } from "../../i18n";
 import { parseDateTimeSafely } from "./profile-time-utils";
 export function ProfileDateTime({
   label,

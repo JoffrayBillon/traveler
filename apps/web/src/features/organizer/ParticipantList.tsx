@@ -1,9 +1,9 @@
+import type { StaffTraveler } from "@traveler/api/participants/participant.types";
+import { Button, messageStyles } from "@traveler/components/ui";
+import { getLocale } from "@traveler/i18n";
 import { UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button, messageStyles } from "../../components/ui";
-import { getLocale } from "../../i18n";
 import { roleTranslationKey } from "./participant-formatters";
-import type { StaffTraveler } from "./types";
 
 export function ParticipantList({
   participants,

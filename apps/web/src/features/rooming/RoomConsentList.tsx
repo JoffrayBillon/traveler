@@ -1,8 +1,8 @@
+import { useRoomingMutations } from "@traveler/api/rooming/mutations";
+import type { RoomRequestSummary } from "@traveler/api/rooming/rooming.types";
+import { Button, Card } from "@traveler/components/ui";
 import { useTranslation } from "react-i18next";
-import { Button, Card } from "../../components/ui";
-import type { RoomRequestSummary } from "./rooming.types";
 import { roomErrorLabel } from "./rooming-errors";
-import { useRoomingMutations } from "./rooming-mutations";
 
 export function RoomConsentList({
   tripId,

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiPost } from "../../shared/api/client";
-import { queryKeys } from "../../shared/query/query-keys";
+import { apiPost } from "@traveler/api/client";
+import { queryKeys } from "@traveler/api/query-keys";
 
 type RoomMove = {
   userId: string;

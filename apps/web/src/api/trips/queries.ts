@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "../../shared/api/client";
-import { queryKeys } from "../../shared/query/query-keys";
-import type { TravelerTripData } from "./traveler-trip.types";
+import { apiGet } from "@traveler/api/client";
+import { queryKeys } from "@traveler/api/query-keys";
+import type { TravelerTripData } from "./trip.types";
 
 export function useTravelerTripQuery(tripId: string) {
   return useQuery({

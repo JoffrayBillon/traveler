@@ -1,3 +1,8 @@
+import {
+  listBoxStyles,
+  SelectTrigger,
+  textFieldStyles,
+} from "@traveler/components/ui";
 import { useLayoutEffect, useRef, useState } from "react";
 import {
   Input,
@@ -11,11 +16,6 @@ import {
   TextField,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import {
-  listBoxStyles,
-  SelectTrigger,
-  textFieldStyles,
-} from "../../components/ui";
 
 export function TravelerIdentityFields({
   firstName,

@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "../../shared/api/client";
+import { apiRequest } from "@traveler/api/client";
 
 export function useUploadTravelerTicketMutation(tripId: string) {
   return useMutation({

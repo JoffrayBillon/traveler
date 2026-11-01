@@ -1,3 +1,10 @@
+import { ApiError } from "@traveler/api/client";
+import { useCreateParticipantMutation } from "@traveler/api/participants/mutations";
+import {
+  Button,
+  messageStyles,
+  textFieldStyles,
+} from "@traveler/components/ui";
 import { type FormEvent, useState } from "react";
 import {
   Dialog,
@@ -10,9 +17,6 @@ import {
   TextField,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { Button, messageStyles, textFieldStyles } from "../../components/ui";
-import { ApiError } from "../../shared/api/client";
-import { useCreateParticipantMutation } from "./participant-mutations";
 
 export function AddParticipantDialog({
   tripId,

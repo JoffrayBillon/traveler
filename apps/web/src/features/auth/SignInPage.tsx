@@ -1,7 +1,7 @@
+import { Button, textFieldStyles } from "@traveler/components/ui";
 import { ArrowRight, LockKeyhole, MountainSnow } from "lucide-react";
 import { Form, Input, Label, Text, TextField } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import { Button, textFieldStyles } from "../../components/ui";
 
 const heroPhoto =
   "https://images.unsplash.com/photo-1708213267571-07086f55dc5a?auto=format&fit=crop&w=1800&q=88";

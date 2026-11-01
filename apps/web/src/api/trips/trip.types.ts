@@ -5,7 +5,7 @@ export type TravelerTripData = {
     lastName: string;
     gender: "M" | "F" | null;
     genderConfirmed: boolean;
-    role: "traveler" | "companion" | "manager";
+    role: import("@traveler/types/profile").TripRole;
   };
   profile?: {
     dietaryRequirements: string | null;

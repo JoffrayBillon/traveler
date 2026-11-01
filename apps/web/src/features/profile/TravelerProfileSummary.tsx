@@ -1,6 +1,6 @@
+import { Button, Card } from "@traveler/components/ui";
 import { Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button, Card } from "../../components/ui";
 import type { TravelerProfileValues } from "./TravelerProfileEditorDialog";
 import { TravelerProfileValue } from "./TravelerProfileValue";
 

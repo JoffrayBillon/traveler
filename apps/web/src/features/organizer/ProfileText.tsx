@@ -1,5 +1,5 @@
+import { textFieldStyles } from "@traveler/components/ui";
 import { Input, Label, TextField } from "react-aria-components";
-import { textFieldStyles } from "../../components/ui";
 
 export function ProfileText({
   label,

@@ -1,13 +1,13 @@
-import { type FormEvent, useEffect, useState } from "react";
-import { Checkbox, Form } from "react-aria-components";
-import { useTranslation } from "react-i18next";
+import { useSaveCarpoolPreferencesMutation } from "@traveler/api/trips/mutations";
 import {
   Button,
   Card,
   checkboxStyles,
   messageStyles,
-} from "../../components/ui";
-import { useSaveCarpoolPreferencesMutation } from "./trip-mutations";
+} from "@traveler/components/ui";
+import { type FormEvent, useEffect, useState } from "react";
+import { Checkbox, Form } from "react-aria-components";
+import { useTranslation } from "react-i18next";
 
 export function CarpoolPreferences({
   tripId,

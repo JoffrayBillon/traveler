@@ -1,8 +1,8 @@
+import type { DetailsDraft } from "@traveler/api/participants/participant-form.types";
 import { useTranslation } from "react-i18next";
 import { ProfileDateTime } from "./ProfileDateTime";
 import { ProfileText } from "./ProfileText";
 import { ProfileTime } from "./ProfileTime";
-import type { DetailsDraft } from "./participant-directory.types";
 
 export function TransportScheduleFields({
   details,

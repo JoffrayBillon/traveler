@@ -8,9 +8,11 @@ The API package emits declarations with TypeScript and bundles its runtime entry
 
 ## Frontend boundaries
 
-- Put server state in TanStack Query hooks beside the feature that owns it. Keep query-key construction centralized in `apps/web/src/shared/query/query-keys.ts`.
-- Put each feature mutation in a domain hook. The hook owns its request, retry behavior and cache effects. Invalidate the narrowest affected query-key prefixes after success; use `onSettled` only when a request may have partially changed server state before failing.
-- Components own presentation and ephemeral interaction state. They call the feature hooks and render pending, error and success states; they do not assemble raw HTTP requests or decide unrelated cache invalidations.
+- Put request functions and all TanStack Query query/mutation definitions under `apps/web/src/api`, grouped by domain (`auth`, `imports`, `participants`, `profile`, `rooming`, `tickets`, `trips`). Keep query-key construction and QueryClient defaults in this API layer. Components consume domain hooks and do not assemble requests or choose cache invalidations.
+- Each domain hook owns its request, retry behavior and cache effects. Invalidate the narrowest affected query-key prefixes after success; use `onSettled` only when a request may have partially changed server state before failing. Keep cache updates close to the query data they update.
+- Components own presentation and short-lived interaction state. Store import selection, file, preview and mapping state in the import panel that uses it. Do not create a broad workflow hook that passes unrelated state through a page or layout; pass only the props each child actually consumes.
+- Use the `@traveler/*` aliases configured by `apps/web/tsconfig.json` and `apps/web/vite.config.ts` for cross-folder source imports. Keep `./` imports for files in the same directory. Name domain type modules with the `.types.ts` convention (`import.types.ts`, `trip.types.ts`, and similar).
+- Keep the router entry in `apps/web/src/router.tsx`, route declarations and route components under `apps/web/src/routes`, and persistent shared chrome in the route layout. Use React Router's `<Outlet>` for nested routes. Keep route transitions in the layout so routing remains animated without putting route composition in feature components.
 - Prefer one primary component per file. Split a large component by user-visible responsibility (for example list, editor, preview, transport section), not by arbitrary line ranges. Keep page composition separate from form state, mutations and repeated row rendering.
 - Keep reusable visual behavior in `components/ui` and its Tailwind Variants recipes. Feature components should use semantic theme tokens and UI variants; page-specific composition and artwork can stay local.
 - Translation keys remain English `camelCase`; maintain locale dictionaries separately in `i18n/en.ts` and `i18n/fr.ts`.

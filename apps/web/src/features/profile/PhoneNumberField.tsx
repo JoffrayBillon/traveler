@@ -1,4 +1,9 @@
 import {
+  listBoxStyles,
+  SelectTrigger,
+  textFieldStyles,
+} from "@traveler/components/ui";
+import {
   type CountryCode,
   getCountries,
   getCountryCallingCode,
@@ -17,11 +22,6 @@ import {
   TextField,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import {
-  listBoxStyles,
-  SelectTrigger,
-  textFieldStyles,
-} from "../../components/ui";
 
 const countryCodes = getCountries();
 

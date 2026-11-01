@@ -1,9 +1,12 @@
+import {
+  importChangeLabel,
+  importSummaryLabel,
+} from "@traveler/api/imports/formatters";
+import type { ImportPreview } from "@traveler/api/imports/import.types";
+import { Button, Card } from "@traveler/components/ui";
 import { useTranslation } from "react-i18next";
-import { Button, Card } from "../../components/ui";
 import { AgencyMatchPreview } from "./AgencyMatchPreview";
 import { ImportStaffAccountMapping } from "./ImportStaffAccountMapping";
-import { importChangeLabel, importSummaryLabel } from "./import-formatters";
-import type { ImportPreview } from "./import-types";
 
 export function ImportPreviewCard({
   importPreview,

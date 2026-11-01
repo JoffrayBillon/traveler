@@ -1,4 +1,4 @@
-import type { StaffTraveler } from "./types";
+import type { StaffTraveler } from "@traveler/api/participants/participant.types";
 
 export function formatMoney(amountMinor: number | null, locale: string) {
   return amountMinor === null

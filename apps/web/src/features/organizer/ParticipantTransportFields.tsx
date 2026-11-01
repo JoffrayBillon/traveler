@@ -1,3 +1,10 @@
+import type { DetailsDraft } from "@traveler/api/participants/participant-form.types";
+import {
+  checkboxStyles,
+  listBoxStyles,
+  SelectTrigger,
+  textFieldStyles,
+} from "@traveler/components/ui";
 import {
   Checkbox,
   Label,
@@ -8,13 +15,6 @@ import {
   SelectValue,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import {
-  checkboxStyles,
-  listBoxStyles,
-  SelectTrigger,
-  textFieldStyles,
-} from "../../components/ui";
-import type { DetailsDraft } from "./participant-directory.types";
 import { TransportScheduleFields } from "./TransportScheduleFields";
 
 export function ParticipantTransportFields({

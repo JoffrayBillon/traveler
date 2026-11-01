@@ -1,5 +1,5 @@
-import type { TranslationKey } from "../i18n/resources";
-import type { TripRole } from "../types/profile";
+import type { TranslationKey } from "@traveler/i18n/resources";
+import type { TripRole } from "@traveler/types/profile";
 
 export const roleLabel: Record<TripRole, TranslationKey> = {
   traveler: "traveler",

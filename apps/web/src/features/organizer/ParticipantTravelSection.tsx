@@ -1,7 +1,7 @@
+import type { DetailsDraft } from "@traveler/api/participants/participant-form.types";
 import { useTranslation } from "react-i18next";
 import { ParticipantActivityFields } from "./ParticipantActivityFields";
 import { ParticipantTransportFields } from "./ParticipantTransportFields";
-import type { DetailsDraft } from "./participant-directory.types";
 
 export function ParticipantTravelSection({
   details,

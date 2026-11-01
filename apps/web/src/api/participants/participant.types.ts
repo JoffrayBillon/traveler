@@ -1,4 +1,4 @@
-import type { TripRole } from "../../types/profile";
+import type { TripRole } from "@traveler/types/profile";
 
 export type StaffTraveler = {
   userId: string;

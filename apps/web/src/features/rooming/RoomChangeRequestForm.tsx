@@ -1,3 +1,11 @@
+import { useRoomingMutations } from "@traveler/api/rooming/mutations";
+import type { RoomSummary } from "@traveler/api/rooming/rooming.types";
+import {
+  Button,
+  listBoxStyles,
+  SelectTrigger,
+  textFieldStyles,
+} from "@traveler/components/ui";
 import { type FormEvent, useState } from "react";
 import {
   Form,
@@ -11,15 +19,7 @@ import {
   TextField,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  listBoxStyles,
-  SelectTrigger,
-  textFieldStyles,
-} from "../../components/ui";
-import type { RoomSummary } from "./rooming.types";
 import { roomErrorLabel } from "./rooming-errors";
-import { useRoomingMutations } from "./rooming-mutations";
 
 export function RoomChangeRequestForm({
   tripId,

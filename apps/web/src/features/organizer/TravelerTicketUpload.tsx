@@ -1,3 +1,13 @@
+import { ApiError } from "@traveler/api/client";
+import { useParticipantDirectoryQuery } from "@traveler/api/participants/queries";
+import { useUploadTravelerTicketMutation } from "@traveler/api/tickets/mutations";
+import {
+  Button,
+  Card,
+  listBoxStyles,
+  SelectTrigger,
+  textFieldStyles,
+} from "@traveler/components/ui";
 import { type FormEvent, useState } from "react";
 import {
   Form,
@@ -9,16 +19,6 @@ import {
   SelectValue,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  Card,
-  listBoxStyles,
-  SelectTrigger,
-  textFieldStyles,
-} from "../../components/ui";
-import { ApiError } from "../../shared/api/client";
-import { useUploadTravelerTicketMutation } from "./ticket-mutations";
-import { useParticipantDirectoryQuery } from "./useParticipantDirectoryQuery";
 
 export function TravelerTicketUpload({ tripId }: { tripId: string }) {
   const { t } = useTranslation();

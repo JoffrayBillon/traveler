@@ -1,6 +1,6 @@
+import type { RoomSummary } from "@traveler/api/rooming/rooming.types";
+import { Card } from "@traveler/components/ui";
 import { useTranslation } from "react-i18next";
-import { Card } from "../../components/ui";
-import type { RoomSummary } from "./rooming.types";
 
 export function RoomOverview({
   rooms,

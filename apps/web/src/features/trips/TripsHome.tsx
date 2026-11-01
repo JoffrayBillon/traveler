@@ -1,10 +1,10 @@
+import { PageContainer } from "@traveler/components/ui";
+import { roleLabel } from "@traveler/lib/trip-format";
+import type { TravelerProfile } from "@traveler/types/profile";
 import { ArrowUpRight, MountainSnow, Snowflake } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { PageContainer } from "../../components/ui";
-import { roleLabel } from "../../lib/trip-format";
-import type { TravelerProfile } from "../../types/profile";
 
 export function TripsHome({ profile }: { profile: TravelerProfile }) {
   const { t } = useTranslation();

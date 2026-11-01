@@ -1,8 +1,7 @@
+import { eyebrowStyles, PageContainer, Stack } from "@traveler/components/ui";
 import { ArrowLeft, Settings2 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { eyebrowStyles, PageContainer, Stack } from "../../components/ui";
 import { StaffTools } from "./StaffTools";
 
 export function OrganizerWorkspace({
@@ -15,10 +14,6 @@ export function OrganizerWorkspace({
   role: "companion" | "manager";
 }) {
   const { t } = useTranslation();
-  const [tripName, setTripName] = useState(initialTripName);
-  useEffect(() => {
-    setTripName(initialTripName);
-  }, [initialTripName]);
   return (
     <PageContainer spacing="regular" aria-labelledby="organizer-title">
       <Link
@@ -32,7 +27,7 @@ export function OrganizerWorkspace({
           <Settings2 aria-hidden="true" size={22} />
         </span>
         <div className="grid gap-1">
-          <p className={eyebrowStyles()}>{tripName}</p>
+          <p className={eyebrowStyles()}>{initialTripName}</p>
           <h1
             className="text-[clamp(2rem,4vw,3.4rem)] tracking-[-0.06em]"
             id="organizer-title"
@@ -47,11 +42,7 @@ export function OrganizerWorkspace({
         </div>
       </div>
       <Stack gap="lg">
-        <StaffTools
-          tripId={tripId}
-          tripName={tripName}
-          isManager={role === "manager"}
-        />
+        <StaffTools tripId={tripId} isManager={role === "manager"} />
       </Stack>
     </PageContainer>
   );
