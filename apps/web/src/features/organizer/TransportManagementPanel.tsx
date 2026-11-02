@@ -136,7 +136,11 @@ export function TransportManagementPanel({ tripId }: { tripId: string }) {
                       (segment) => segment.direction === "outbound",
                     ).length
                   }{" "}
-                  {t("transportSegmentsCount")}
+                  {t("transportSegmentsCount", {
+                    count: group.segments.filter(
+                      (segment) => segment.direction === "outbound",
+                    ).length,
+                  })}
                   {group.outboundMeetingPlace
                     ? ` · ${group.outboundMeetingPlace}`
                     : ""}
@@ -148,7 +152,11 @@ export function TransportManagementPanel({ tripId }: { tripId: string }) {
                       (segment) => segment.direction === "return",
                     ).length
                   }{" "}
-                  {t("transportSegmentsCount")}
+                  {t("transportSegmentsCount", {
+                    count: group.segments.filter(
+                      (segment) => segment.direction === "return",
+                    ).length,
+                  })}
                   {group.returnMeetingPlace
                     ? ` · ${group.returnMeetingPlace}`
                     : ""}

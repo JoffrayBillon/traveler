@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-02 — Group transport — Complete French and English translations
+
+- Details/impact: add the missing French and English labels and messages for transport groups, itinerary segments, traveler assignment, and carpool preferences; add localized singular/plural labels for travelers, passengers and segments.
+- Test status: Biome on the repository, web TypeScript checks and `git diff --check` passed under Node 26. All 72 transport translation keys are present in both languages; automated tests were not run.
+
 ## 2026-11-02 — Group transport and rooming lifecycle — Implement
 
 - Details/impact: add trip-scoped shared transport groups with ordered outbound/return segments, staff assignment, traveler itineraries and driver/passenger carpool choices. Replace the fixed room inventory with configurable per-trip capacity counts; add review-before-apply room generation, direct organizer moves, traveler room requests with withdrawal, rejection, seven-day expiry and composition-based approvals; preserve locked and assigned rooms. Add production ticket cleanup 90 days after trip end, guarded by `CRON_SECRET` and scheduled daily. Request states remain in-app only.
