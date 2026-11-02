@@ -55,10 +55,12 @@ export function RoomingPanel({
         </p>
       </header>
       <RoomOverview
+        tripId={tripId}
         rooms={rooms}
         ownRoom={ownRoom}
         userId={userId}
         isStaff={isStaff}
+        onMessage={setMessage}
       />
       <RoomChangeRequestForm
         tripId={tripId}

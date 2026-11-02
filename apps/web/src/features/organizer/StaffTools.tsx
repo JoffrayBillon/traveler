@@ -12,6 +12,11 @@ const ParticipantDirectory = lazy(() =>
     default: module.ParticipantDirectory,
   })),
 );
+const TransportManagementPanel = lazy(() =>
+  import("./TransportManagementPanel").then((module) => ({
+    default: module.TransportManagementPanel,
+  })),
+);
 
 export function StaffTools({
   tripId,
@@ -52,6 +57,23 @@ export function StaffTools({
                 )}
                 <span className="relative z-10 whitespace-nowrap">
                   {t("participantsAndUsers")}
+                </span>
+              </>
+            )}
+          </Tab>
+          <Tab
+            id="transport"
+            className="relative isolate cursor-pointer rounded-control px-4 py-2 text-sm font-semibold text-content-muted outline-none transition-colors data-[selected]:text-content data-[focus-visible]:outline-2 data-[focus-visible]:outline-focus"
+          >
+            {({ isSelected }) => (
+              <>
+                {isSelected && (
+                  <TabSelectionIndicator
+                    reduceMotion={Boolean(shouldReduceMotion)}
+                  />
+                )}
+                <span className="relative z-10 whitespace-nowrap">
+                  {t("groupTransport")}
                 </span>
               </>
             )}
@@ -100,6 +122,13 @@ export function StaffTools({
             <ParticipantDirectory tripId={tripId} isManager={isManager} />
           </Suspense>
           <TravelerTicketUpload tripId={tripId} />
+        </TabPanel>
+        <TabPanel id="transport" className="grid gap-5 outline-none">
+          <Suspense
+            fallback={<p role="status">{t("loadingTransportGroups")}</p>}
+          >
+            <TransportManagementPanel tripId={tripId} />
+          </Suspense>
         </TabPanel>
         {isManager && <ImportExportPanel tripId={tripId} />}
         {isManager && (

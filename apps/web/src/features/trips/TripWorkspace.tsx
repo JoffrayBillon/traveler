@@ -6,9 +6,9 @@ import type { TripRole } from "@traveler/types/profile";
 import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { CarpoolPreferences } from "./CarpoolPreferences";
 import { TravelerProfileSection } from "./TravelerProfileSection";
 import { TripTickets } from "./TripTickets";
+import { TripTransportSection } from "./TripTransportSection";
 import { TripTravelDetails } from "./TripTravelDetails";
 
 const RoomingPanel = lazy(() =>
@@ -81,17 +81,11 @@ export function TripWorkspace({
       />
 
       <TripTravelDetails details={data.details} t={t} />
+      <TripTransportSection tripId={tripId} />
       <TripTickets tripId={tripId} tickets={data.tickets} t={t} />
       <Suspense fallback={<p role="status">{t("loadingRoomAssignments")}</p>}>
         <RoomingPanel tripId={tripId} userId={userId} role={role} />
       </Suspense>
-      {data.details?.transportMode === "none" && (
-        <CarpoolPreferences
-          tripId={tripId}
-          carpoolPreference={data.details.carpoolPreference}
-          parkingPreference={data.details.parkingPreference}
-        />
-      )}
     </Stack>
   );
 }

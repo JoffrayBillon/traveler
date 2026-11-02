@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
 import type { TravelerDetailsInput } from "../services/traveler-details";
+import { staleRoomRequestsForRooms } from "./room-request.repository";
 
 export async function getTravelerProfileState(
   database: AppDatabase,
@@ -131,7 +132,10 @@ export async function refreshRoomComposition(
   roomId: string,
 ) {
   const occupants = await transaction
-    .select({ gender: schema.tripMemberships.gender })
+    .select({
+      gender: schema.tripMemberships.gender,
+      genderConfirmed: schema.tripMemberships.genderConfirmed,
+    })
     .from(schema.roomAssignments)
     .innerJoin(
       schema.tripMemberships,
@@ -148,6 +152,7 @@ export async function refreshRoomComposition(
     );
   const genders = new Set(
     occupants
+      .filter(({ genderConfirmed }) => genderConfirmed)
       .map(({ gender }) => gender)
       .filter((gender): gender is "M" | "F" => gender !== null),
   );
@@ -163,6 +168,7 @@ export async function refreshRoomComposition(
       compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
     })
     .where(and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)));
+  await staleRoomRequestsForRooms(transaction, tripId, [roomId]);
 }
 
 export async function saveTravelerDetails(
@@ -220,9 +226,12 @@ export async function updateTripName(
   database: AppDatabase,
   tripId: string,
   name: string,
+  endsOn?: string | null,
 ) {
+  const values: { name: string; endsOn?: string | null } = { name };
+  if (endsOn !== undefined) values.endsOn = endsOn;
   await database
     .update(schema.trips)
-    .set({ name })
+    .set(values)
     .where(eq(schema.trips.id, tripId));
 }

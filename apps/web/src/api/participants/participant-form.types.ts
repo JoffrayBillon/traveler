@@ -23,22 +23,5 @@ export type ProfileDraft = Pick<
 
 export type DetailsDraft = Pick<
   StaffTraveler,
-  | "activityProfile"
-  | "skiDayThree"
-  | "transportMode"
-  | "departureCity"
-  | "outboundDateTime"
-  | "outboundMeetingTime"
-  | "outboundDepartureTime"
-  | "outboundLocation"
-  | "outboundReference"
-  | "outboundSeat"
-  | "returnDateTime"
-  | "returnMeetingTime"
-  | "returnDepartureTime"
-  | "returnLocation"
-  | "returnReference"
-  | "returnSeat"
-  | "carpoolPreference"
-  | "parkingPreference"
+  "activityProfile" | "skiDayThree"
 >;

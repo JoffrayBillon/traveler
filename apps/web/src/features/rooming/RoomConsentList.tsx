@@ -17,6 +17,14 @@ export function RoomConsentList({
 }) {
   const { t } = useTranslation();
   const mutations = useRoomingMutations(tripId);
+  const requestStatusLabel = {
+    pending: "roomRequestPending",
+    applied: "roomRequestApplied",
+    rejected: "roomRequestRejected",
+    cancelled: "roomRequestWithdrawn",
+    expired: "roomRequestExpired",
+    stale: "roomRequestOutdated",
+  } as const;
 
   async function respond(requestId: string, approve: boolean) {
     try {
@@ -41,10 +49,23 @@ export function RoomConsentList({
     }
   }
 
+  async function withdraw(requestId: string) {
+    try {
+      const result = await mutations.withdrawRequest.mutateAsync(requestId);
+      onMessage(
+        result.status === "expired"
+          ? t("roomRequestExpired")
+          : t("roomRequestWithdrawn"),
+      );
+    } catch {
+      onMessage(t("roomRequestCouldNotBeWithdrawn"));
+    }
+  }
+
   if (requests.length === 0) return null;
   return (
     <section className="grid gap-3">
-      <h4 className="text-base font-bold">{t("requestsToApprove")}</h4>
+      <h4 className="text-base font-bold">{t("roomChangeRequests")}</h4>
       {requests.map((request) => {
         const ownConsent = request.requiredConsents.find(
           (consent) => consent.userId === userId,
@@ -60,6 +81,16 @@ export function RoomConsentList({
               {request.requester?.firstName} {request.requester?.lastName}{" "}
               {t("requestsARoomChange")}
             </p>
+            <p className="text-sm font-semibold text-content">
+              {t(requestStatusLabel[request.status])}
+            </p>
+            {request.status === "pending" && (
+              <p className="text-sm text-content-muted">
+                {t("roomRequestExpiresOn", {
+                  date: new Date(request.expiresAt).toLocaleDateString(),
+                })}
+              </p>
+            )}
             <ul className="list-inside list-disc space-y-1 leading-relaxed text-content-muted">
               {request.moves.map((move) => (
                 <li key={move.userId}>
@@ -68,25 +99,27 @@ export function RoomConsentList({
                 </li>
               ))}
             </ul>
-            {ownConsent && !ownConsent.approved && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  appearance="secondary"
-                  onPress={() => void respond(request.id, true)}
-                  isDisabled={mutations.respondToRequest.isPending}
-                >
-                  {t("approve")}
-                </Button>
-                <Button
-                  appearance="quiet"
-                  onPress={() => void respond(request.id, false)}
-                  isDisabled={mutations.respondToRequest.isPending}
-                >
-                  {t("decline")}
-                </Button>
-              </div>
-            )}
-            {ownConsent?.approved && (
+            {request.status === "pending" &&
+              ownConsent &&
+              !ownConsent.approved && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    appearance="secondary"
+                    onPress={() => void respond(request.id, true)}
+                    isDisabled={mutations.respondToRequest.isPending}
+                  >
+                    {t("approve")}
+                  </Button>
+                  <Button
+                    appearance="quiet"
+                    onPress={() => void respond(request.id, false)}
+                    isDisabled={mutations.respondToRequest.isPending}
+                  >
+                    {t("decline")}
+                  </Button>
+                </div>
+              )}
+            {request.status === "pending" && ownConsent?.approved && (
               <p className="text-sm text-success">
                 {t("yourApprovalIsRecorded")} ·{" "}
                 {
@@ -96,6 +129,16 @@ export function RoomConsentList({
                 /{request.requiredConsents.length} {t("approvals")}
               </p>
             )}
+            {request.status === "pending" &&
+              request.requesterUserId === userId && (
+                <Button
+                  appearance="quiet"
+                  onPress={() => void withdraw(request.id)}
+                  isDisabled={mutations.withdrawRequest.isPending}
+                >
+                  {t("withdrawRoomRequest")}
+                </Button>
+              )}
           </Card>
         );
       })}

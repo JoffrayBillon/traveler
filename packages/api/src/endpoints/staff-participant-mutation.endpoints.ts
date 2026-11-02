@@ -11,6 +11,74 @@ export function registerStaffParticipantMutationEndpoints(
   app: Hono,
   getAuthServices: () => AuthServices | undefined,
 ) {
+  app.patch(
+    "/api/trips/:tripId/participants/:userId/activity",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      const services = getAuthServices();
+      if (!services) return context.json({ error: "service_unavailable" }, 503);
+      const session = await getSession(services, context.req.raw.headers);
+      if (!session) return context.json({ error: "unauthorized" }, 401);
+      const tripId = context.req.param("tripId");
+      const userId = context.req.param("userId");
+      const [actor] = await services.database
+        .select({ role: schema.tripMemberships.role })
+        .from(schema.tripMemberships)
+        .where(
+          and(
+            eq(schema.tripMemberships.tripId, tripId),
+            eq(schema.tripMemberships.userId, session.user.id),
+          ),
+        )
+        .limit(1);
+      if (!actor) return context.json({ error: "not_found" }, 404);
+      if (actor.role === "traveler")
+        return context.json({ error: "forbidden" }, 403);
+      let body: unknown;
+      try {
+        body = await context.req.json();
+      } catch {
+        return context.json({ error: "invalid_activity" }, 400);
+      }
+      const input =
+        body && typeof body === "object" && !Array.isArray(body)
+          ? (body as Record<string, unknown>)
+          : {};
+      const activityProfile = input.activityProfile;
+      const skiDayThree = input.skiDayThree;
+      if (
+        (activityProfile !== null &&
+          activityProfile !== "ski" &&
+          activityProfile !== "spa") ||
+        typeof skiDayThree !== "boolean" ||
+        (skiDayThree && activityProfile !== "ski")
+      )
+        return context.json({ error: "invalid_activity" }, 400);
+      const [target] = await services.database
+        .select({ userId: schema.tripMemberships.userId })
+        .from(schema.tripMemberships)
+        .where(
+          and(
+            eq(schema.tripMemberships.tripId, tripId),
+            eq(schema.tripMemberships.userId, userId),
+          ),
+        )
+        .limit(1);
+      if (!target) return context.json({ error: "not_found" }, 404);
+      await services.database
+        .insert(schema.travelerDetails)
+        .values({ tripId, userId, activityProfile, skiDayThree })
+        .onConflictDoUpdate({
+          target: [
+            schema.travelerDetails.tripId,
+            schema.travelerDetails.userId,
+          ],
+          set: { activityProfile, skiDayThree, updatedAt: new Date() },
+        });
+      return context.json({ status: "saved" });
+    },
+  );
+
   app.put("/api/trips/:tripId/participants/:userId/role", async (context) => {
     context.header("Cache-Control", "no-store");
     const services = getAuthServices();

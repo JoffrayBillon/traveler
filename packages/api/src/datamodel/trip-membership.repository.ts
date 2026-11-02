@@ -6,16 +6,20 @@ export async function listTripMembershipsForUser(
   database: AppDatabase,
   userId: string,
 ) {
-  return database
+  const memberships = await database
     .select({
       tripId: schema.trips.id,
       tripName: schema.trips.name,
+      endsOn: schema.trips.endsOn,
       role: schema.tripMemberships.role,
     })
     .from(schema.tripMemberships)
     .innerJoin(schema.trips, eq(schema.tripMemberships.tripId, schema.trips.id))
     .where(eq(schema.tripMemberships.userId, userId))
     .orderBy(schema.trips.name, schema.trips.id);
+  return memberships.map(({ endsOn, ...membership }) =>
+    endsOn ? { ...membership, endsOn } : membership,
+  );
 }
 
 export async function getTripMembershipRole(

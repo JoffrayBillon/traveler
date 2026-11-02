@@ -4,6 +4,7 @@ export type RoomSummary = {
   capacity: number;
   occupiedCount: number;
   genderPolicy: "single_gender" | "mixed" | "unset";
+  isLocked: boolean;
   occupants: {
     userId: string;
     firstName: string;
@@ -14,6 +15,15 @@ export type RoomSummary = {
 
 export type RoomRequestSummary = {
   id: string;
+  requesterUserId: string;
+  status:
+    | "pending"
+    | "applied"
+    | "rejected"
+    | "cancelled"
+    | "expired"
+    | "stale";
+  expiresAt: string;
   requester?: { firstName: string; lastName: string };
   requiredConsents: {
     userId: string;
@@ -28,3 +38,20 @@ export type RoomRequestSummary = {
     targetRoom?: string;
   }[];
 };
+
+export type RoomAssignmentPlan = {
+  snapshot: string;
+  roomsToCreate: { id: string; name: string; capacity: number }[];
+  assignments: {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    gender: "M" | "F";
+    roomId: string;
+    roomName: string;
+  }[];
+  unassignedConfirmed: number;
+  unconfirmed: number;
+};
+
+export type RoomInventoryItem = { capacity: number; quantity: number };

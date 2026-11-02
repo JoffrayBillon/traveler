@@ -5,6 +5,9 @@ export const queryKeys = {
     includeTravelers === undefined
       ? (["trips", tripId, "rooming"] as const)
       : (["trips", tripId, "rooming", includeTravelers] as const),
+  roomInventory: (tripId: string) =>
+    ["trips", tripId, "room-inventory"] as const,
+  transport: (tripId: string) => ["trips", tripId, "transport"] as const,
   participantDirectory: (tripId: string) =>
     ["trips", tripId, "participants"] as const,
 } as const;

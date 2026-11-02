@@ -4,6 +4,45 @@ import * as schema from "../schema";
 import type { RoomMove } from "../services/rooming/model";
 import { getTripMembershipRole } from "./trip-membership.repository";
 
+type RoomingTransaction = Parameters<
+  Parameters<AppDatabase["transaction"]>[0]
+>[0];
+
+export async function staleRoomRequestsForRooms(
+  transaction: RoomingTransaction,
+  tripId: string,
+  roomIds: string[],
+  exceptRequestId?: string,
+) {
+  if (roomIds.length === 0) return;
+  const pending = await transaction
+    .select({
+      id: schema.roomChangeRequests.id,
+      changesJson: schema.roomChangeRequests.changesJson,
+    })
+    .from(schema.roomChangeRequests)
+    .where(
+      and(
+        eq(schema.roomChangeRequests.tripId, tripId),
+        eq(schema.roomChangeRequests.status, "pending"),
+      ),
+    );
+  const affected = pending
+    .filter((request) => {
+      if (request.id === exceptRequestId) return false;
+      const payload = JSON.parse(request.changesJson) as {
+        roomVersions?: Record<string, number>;
+      };
+      return roomIds.some((roomId) => roomId in (payload.roomVersions ?? {}));
+    })
+    .map((request) => request.id);
+  if (affected.length === 0) return;
+  await transaction
+    .update(schema.roomChangeRequests)
+    .set({ status: "stale", updatedAt: new Date() })
+    .where(inArray(schema.roomChangeRequests.id, affected));
+}
+
 export async function listRoomRequestsForMember(
   database: AppDatabase,
   tripId: string,
@@ -12,25 +51,39 @@ export async function listRoomRequestsForMember(
   const actor = await getTripMembershipRole(database, tripId, userId);
   if (!actor) return null;
 
+  const now = new Date();
+  await database
+    .update(schema.roomChangeRequests)
+    .set({ status: "expired", updatedAt: now })
+    .where(
+      and(
+        eq(schema.roomChangeRequests.tripId, tripId),
+        eq(schema.roomChangeRequests.status, "pending"),
+        sql`${schema.roomChangeRequests.expiresAt} <= ${now.getTime()}`,
+      ),
+    );
+
   const records = await database
     .select()
     .from(schema.roomChangeRequests)
     .where(
       and(
         eq(schema.roomChangeRequests.tripId, tripId),
-        eq(schema.roomChangeRequests.status, "pending"),
         ...(actor.role === "traveler"
           ? [
-              sql`EXISTS (
+              sql`(${schema.roomChangeRequests.requesterUserId} = ${userId} OR EXISTS (
                 SELECT 1
                 FROM json_each(${schema.roomChangeRequests.requiredConsentsJson}) AS consent
                 WHERE consent.value = ${userId}
-              )`,
+              ))`,
             ]
           : []),
       ),
     )
-    .orderBy(schema.roomChangeRequests.createdAt)
+    .orderBy(
+      sql`CASE WHEN ${schema.roomChangeRequests.status} = 'pending' THEN 0 ELSE 1 END`,
+      schema.roomChangeRequests.updatedAt,
+    )
     .limit(100);
 
   const userIds = new Set<string>();
@@ -86,6 +139,9 @@ export async function listRoomRequestsForMember(
       const payload = JSON.parse(record.changesJson) as { moves: RoomMove[] };
       return {
         id: record.id,
+        requesterUserId: record.requesterUserId,
+        status: record.status,
+        expiresAt: record.expiresAt,
         requester: personById.get(record.requesterUserId),
         requiredConsents: requiredConsents.map((consentUserId) => ({
           ...personById.get(consentUserId),

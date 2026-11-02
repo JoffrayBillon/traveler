@@ -14,6 +14,7 @@ export const trips = sqliteTable(
   {
     id: text("id").primaryKey().notNull(),
     name: text("name").notNull(),
+    endsOn: text("ends_on"),
   },
   (table) => [
     check("trips_name_not_blank", sql`length(trim(${table.name})) > 0`),
@@ -293,6 +294,18 @@ export const travelerDetails = sqliteTable(
     transportMode: text("transport_mode", {
       enum: ["train", "flight", "none"],
     }),
+    transportChoice: text("transport_choice", {
+      enum: ["group", "none", "unconfirmed"],
+    }),
+    carpoolRole: text("carpool_role", {
+      enum: ["none", "driver", "passenger", "undecided"],
+    })
+      .default("none")
+      .notNull(),
+    carpoolDriverUserId: text("carpool_driver_user_id").references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
     departureCity: text("departure_city"),
     outboundDateTime: text("outbound_date_time"),
     outboundTimezone: text("outbound_timezone"),
@@ -330,6 +343,18 @@ export const travelerDetails = sqliteTable(
     check(
       "traveler_details_parking_requires_carpool",
       sql`${table.parkingPreference} IS NULL OR ${table.parkingPreference} = 0 OR ${table.carpoolPreference} = 1`,
+    ),
+    check(
+      "traveler_details_carpool_driver_consistent",
+      sql`(${table.carpoolRole} = 'passenger' AND ${table.carpoolDriverUserId} IS NOT NULL AND ${table.carpoolDriverUserId} <> ${table.userId}) OR (${table.carpoolRole} <> 'passenger' AND ${table.carpoolDriverUserId} IS NULL)`,
+    ),
+    check(
+      "traveler_details_carpool_role_valid",
+      sql`${table.carpoolRole} IN ('none', 'driver', 'passenger', 'undecided')`,
+    ),
+    check(
+      "traveler_details_transport_choice_valid",
+      sql`${table.transportChoice} IS NULL OR ${table.transportChoice} IN ('group', 'none', 'unconfirmed')`,
     ),
   ],
 );
@@ -376,6 +401,9 @@ export const rooms = sqliteTable(
       .default("unset")
       .notNull(),
     compositionVersion: integer("composition_version").default(1).notNull(),
+    isLocked: integer("is_locked", { mode: "boolean" })
+      .default(false)
+      .notNull(),
   },
   (table) => [
     uniqueIndex("rooms_trip_name_unique").on(table.tripId, table.name),
@@ -384,6 +412,31 @@ export const rooms = sqliteTable(
     check(
       "rooms_gender_policy_valid",
       sql`${table.genderPolicy} IN ('single_gender', 'mixed', 'unset')`,
+    ),
+  ],
+);
+
+export const roomInventory = sqliteTable(
+  "room_inventory",
+  {
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    capacity: integer("capacity").notNull(),
+    quantity: integer("quantity").notNull(),
+  },
+  (table) => [
+    uniqueIndex("room_inventory_trip_capacity_unique").on(
+      table.tripId,
+      table.capacity,
+    ),
+    check(
+      "room_inventory_capacity_valid",
+      sql`${table.capacity} BETWEEN 1 AND 12`,
+    ),
+    check(
+      "room_inventory_quantity_valid",
+      sql`${table.quantity} BETWEEN 0 AND 200`,
     ),
   ],
 );
@@ -436,7 +489,7 @@ export const roomChangeRequests = sqliteTable(
     requiredConsentsJson: text("required_consents_json").notNull(),
     approvedConsentsJson: text("approved_consents_json").notNull(),
     status: text("status", {
-      enum: ["pending", "applied", "rejected", "cancelled", "stale"],
+      enum: ["pending", "applied", "rejected", "cancelled", "expired", "stale"],
     })
       .default("pending")
       .notNull(),
@@ -446,6 +499,7 @@ export const roomChangeRequests = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
     index("room_change_requests_trip_status_index").on(
@@ -454,8 +508,116 @@ export const roomChangeRequests = sqliteTable(
     ),
     check(
       "room_change_requests_status_valid",
-      sql`${table.status} IN ('pending', 'applied', 'rejected', 'cancelled', 'stale')`,
+      sql`${table.status} IN ('pending', 'applied', 'rejected', 'cancelled', 'expired', 'stale')`,
     ),
+  ],
+);
+
+export const transportGroups = sqliteTable(
+  "transport_groups",
+  {
+    id: text("id").primaryKey().notNull(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sourceCity: text("source_city").notNull(),
+    normalizedCity: text("normalized_city").notNull(),
+    isDraft: integer("is_draft", { mode: "boolean" }).default(true).notNull(),
+    outboundMeetingAt: text("outbound_meeting_at"),
+    outboundMeetingPlace: text("outbound_meeting_place"),
+    returnMeetingAt: text("return_meeting_at"),
+    returnMeetingPlace: text("return_meeting_place"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("transport_groups_trip_id_unique").on(table.tripId, table.id),
+    index("transport_groups_trip_city_index").on(
+      table.tripId,
+      table.normalizedCity,
+    ),
+    check(
+      "transport_groups_name_not_blank",
+      sql`length(trim(${table.name})) > 0`,
+    ),
+    check(
+      "transport_groups_city_not_blank",
+      sql`length(trim(${table.sourceCity})) > 0 AND length(trim(${table.normalizedCity})) > 0`,
+    ),
+  ],
+);
+
+export const transportGroupSegments = sqliteTable(
+  "transport_group_segments",
+  {
+    id: text("id").primaryKey().notNull(),
+    tripId: text("trip_id").notNull(),
+    groupId: text("group_id").notNull(),
+    direction: text("direction", { enum: ["outbound", "return"] }).notNull(),
+    position: integer("position").notNull(),
+    mode: text("mode", { enum: ["train", "flight"] }).notNull(),
+    origin: text("origin").notNull(),
+    destination: text("destination").notNull(),
+    departureAt: text("departure_at"),
+    arrivalAt: text("arrival_at"),
+    serviceReference: text("service_reference"),
+  },
+  (table) => [
+    uniqueIndex("transport_group_segments_order_unique").on(
+      table.tripId,
+      table.groupId,
+      table.direction,
+      table.position,
+    ),
+    foreignKey({
+      name: "transport_group_segments_group_trip_fk",
+      columns: [table.tripId, table.groupId],
+      foreignColumns: [transportGroups.tripId, transportGroups.id],
+    }).onDelete("cascade"),
+    check(
+      "transport_group_segments_position_nonnegative",
+      sql`${table.position} >= 0`,
+    ),
+    check(
+      "transport_group_segments_locations_not_blank",
+      sql`length(trim(${table.origin})) > 0 AND length(trim(${table.destination})) > 0`,
+    ),
+  ],
+);
+
+export const transportGroupAssignments = sqliteTable(
+  "transport_group_assignments",
+  {
+    tripId: text("trip_id").notNull(),
+    groupId: text("group_id").notNull(),
+    userId: text("user_id").notNull(),
+    assignedBy: text("assigned_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    assignedAt: integer("assigned_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("transport_group_assignments_trip_user_unique").on(
+      table.tripId,
+      table.userId,
+    ),
+    foreignKey({
+      name: "transport_group_assignments_group_trip_fk",
+      columns: [table.tripId, table.groupId],
+      foreignColumns: [transportGroups.tripId, transportGroups.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "transport_group_assignments_member_trip_fk",
+      columns: [table.tripId, table.userId],
+      foreignColumns: [tripMemberships.tripId, tripMemberships.userId],
+    }).onDelete("cascade"),
   ],
 );
 

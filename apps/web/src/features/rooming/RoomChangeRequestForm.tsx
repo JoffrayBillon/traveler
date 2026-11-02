@@ -41,6 +41,7 @@ export function RoomChangeRequestForm({
   const targetRooms = rooms.filter(
     (room) =>
       room.id !== ownRoom?.id &&
+      !room.isLocked &&
       (room.occupiedCount < room.capacity || Boolean(ownRoom)),
   );
   const selectedTargetRoom = rooms.find((room) => room.id === targetRoomId);

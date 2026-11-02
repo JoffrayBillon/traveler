@@ -12,16 +12,21 @@ export type CarpoolPreferencesInput = {
 export function useUpdateTripNameMutation(tripId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) =>
+    mutationFn: (input: { name: string; endsOn: string | null }) =>
       apiRequest(`/api/trips/${encodeURIComponent(tripId)}`, {
         method: "PUT",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(input),
       }),
-    onSuccess: (_result, name) => {
+    onSuccess: (_result, input) => {
       queryClient.setQueryData<TravelerTripData>(
         queryKeys.traveler(tripId),
         (current) =>
-          current ? { ...current, trip: { ...current.trip, name } } : current,
+          current
+            ? {
+                ...current,
+                trip: { ...current.trip, name: input.name },
+              }
+            : current,
       );
       queryClient.setQueryData<TravelerProfile | null>(
         queryKeys.me,
@@ -30,7 +35,13 @@ export function useUpdateTripNameMutation(tripId: string) {
             ? {
                 ...current,
                 trips: current.trips.map((trip) =>
-                  trip.tripId === tripId ? { ...trip, tripName: name } : trip,
+                  trip.tripId === tripId
+                    ? {
+                        ...trip,
+                        tripName: input.name,
+                        endsOn: input.endsOn,
+                      }
+                    : trip,
                 ),
               }
             : current,

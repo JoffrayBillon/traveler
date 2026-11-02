@@ -48,45 +48,10 @@ export function useSaveParticipantMutation(tripId: string) {
         body: JSON.stringify(profile),
       });
 
-      const hasBookedTransport =
-        details.transportMode === "train" || details.transportMode === "flight";
-      const savedDetails = hasBookedTransport
-        ? { ...details, carpoolPreference: null, parkingPreference: null }
-        : {
-            ...details,
-            departureCity: null,
-            outboundDateTime: null,
-            outboundMeetingTime: null,
-            outboundDepartureTime: null,
-            outboundLocation: null,
-            outboundReference: null,
-            outboundSeat: null,
-            returnDateTime: null,
-            returnMeetingTime: null,
-            returnDepartureTime: null,
-            returnLocation: null,
-            returnReference: null,
-            returnSeat: null,
-            carpoolPreference:
-              details.transportMode === "none"
-                ? details.carpoolPreference
-                : null,
-            parkingPreference:
-              details.transportMode === "none"
-                ? details.parkingPreference
-                : null,
-          };
-      await apiRequest(
-        `/api/trips/${encodeURIComponent(tripId)}/travelers/${encodeURIComponent(participant.userId)}/details`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            ...savedDetails,
-            outboundTimezone: null,
-            returnTimezone: null,
-          }),
-        },
-      );
+      await apiRequest(`${participantPath}/activity`, {
+        method: "PATCH",
+        body: JSON.stringify(details),
+      });
       if (isManager && role !== participant.role) {
         await apiRequest(`${participantPath}/role`, {
           method: "PUT",

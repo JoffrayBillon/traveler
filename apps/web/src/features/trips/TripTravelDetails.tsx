@@ -1,8 +1,6 @@
 import type { TravelerTripData } from "@traveler/api/trips/trip.types";
 import { Card } from "@traveler/components/ui";
-import { transportLabel } from "@traveler/lib/trip-format";
 import type { TFunction } from "i18next";
-import { JourneyCard } from "./JourneyCard";
 
 export function TripTravelDetails({
   details,
@@ -30,37 +28,6 @@ export function TripTravelDetails({
               : ""}
         </p>
       </Card>
-      <Card elevation="flat" className="grid content-start gap-2 p-4">
-        <span className="text-xs text-content-subtle">{t("transport")}</span>
-        <strong className="block break-words text-base">
-          {t(transportLabel[details?.transportMode ?? ""] ?? "toBeConfirmed")}
-        </strong>
-        <p className="text-sm leading-relaxed text-content-muted">
-          {details?.departureCity ??
-            details?.outboundLocation ??
-            t("theOrganizersWillAddThisInformation")}
-        </p>
-      </Card>
-      <JourneyCard
-        direction="outbound"
-        dateTime={details?.outboundDateTime}
-        departureTime={details?.outboundDepartureTime}
-        meetingTime={details?.outboundMeetingTime}
-        location={details?.outboundLocation}
-        reference={details?.outboundReference}
-        seat={details?.outboundSeat}
-        t={t}
-      />
-      <JourneyCard
-        direction="return"
-        dateTime={details?.returnDateTime}
-        departureTime={details?.returnDepartureTime}
-        meetingTime={details?.returnMeetingTime}
-        location={details?.returnLocation}
-        reference={details?.returnReference}
-        seat={details?.returnSeat}
-        t={t}
-      />
     </div>
   );
 }

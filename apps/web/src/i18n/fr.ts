@@ -139,12 +139,72 @@ export const fr = {
   proposeAnExchange: "Proposer l’échange",
   sendMyRequest: "Envoyer ma demande",
   requestsToApprove: "Demandes à valider",
+  roomChangeRequests: "Demandes de changement de chambre",
   requestsARoomChange: "demande un changement de chambre.",
+  roomRequestPending: "En attente des accords requis",
+  roomRequestApplied: "Changement appliqué",
+  roomRequestRejected: "Demande refusée",
+  roomRequestWithdrawn: "Demande retirée",
+  roomRequestExpired: "Demande expirée",
+  roomRequestOutdated: "Demande devenue obsolète",
+  withdrawRoomRequest: "Retirer ma demande",
+  roomRequestCouldNotBeWithdrawn: "La demande n’a pas pu être retirée.",
+  roomRequestExpiresOn: "Accords attendus jusqu’au {{date}}.",
+  lockRoom: "Verrouiller la chambre",
+  unlockRoom: "Déverrouiller la chambre",
+  roomLocked: "La chambre est verrouillée.",
+  roomUnlocked: "La chambre est déverrouillée.",
+  roomLockCouldNotBeChanged:
+    "Le verrouillage de la chambre n’a pas pu être modifié.",
+  thisRoomIsLocked:
+    "Cette chambre est verrouillée et n’accepte pas de demandes.",
   unassigned: "sans chambre",
   approve: "J’accepte",
   decline: "Je refuse",
   yourApprovalIsRecorded: "Votre accord est enregistré",
   approvedRequiredApprovals: "{{approved}}/{{required}} accords",
+  roomPlan: "Plan des chambres",
+  roomPlanInventoryDescription:
+    "Les affectations existantes et les chambres verrouillées sont conservées.",
+  roomInventory: "Inventaire des chambres",
+  roomInventoryDescription:
+    "Configurez le nombre de chambres par capacité avant de créer les premières chambres.",
+  roomInventoryLocked:
+    "L’inventaire ne peut plus être modifié après la création des chambres.",
+  roomQuantity: "Nombre de chambres",
+  addRoomCapacity: "Ajouter une capacité",
+  removeRoomCapacity: "Supprimer cette capacité",
+  saveRoomInventory: "Enregistrer l’inventaire",
+  roomInventorySaved: "L’inventaire des chambres a été enregistré.",
+  roomInventoryCouldNotBeSaved:
+    "Impossible d’enregistrer l’inventaire des chambres.",
+  generateRoomPlan: "Générer le plan",
+  generatingRoomPlan: "Génération…",
+  roomPlanPreview: "Aperçu du plan",
+  roomPlanPreviewSummary:
+    "{{assigned}} voyageurs répartis dans {{rooms}} chambres ; {{unassigned}} voyageurs confirmés resteront à placer et {{unconfirmed}} doivent encore confirmer leur sexe.",
+  roomInventoryWillBeCreated:
+    "Les {{rooms}} chambres de l’inventaire seront créées à la validation.",
+  roomAssignmentPreviewLine: "Chambre {{room}}",
+  noEligibleTravelerForRoomPlan:
+    "Aucune nouvelle affectation ne peut être proposée pour le moment.",
+  applyRoomPlan: "Appliquer ce plan",
+  roomPlanChangedRefreshPreview:
+    "Les données du rooming ont changé depuis l’aperçu. Vérifiez un nouveau plan avant de l’appliquer.",
+  roomPlanCouldNotBeGenerated: "Impossible de préparer le plan des chambres.",
+  roomAssignmentsGenerated: "{{assigned}} voyageurs affectés.",
+  roomAssignmentsGeneratedWithUnconfirmed:
+    "{{assigned}} voyageurs affectés. {{unconfirmed}} doivent confirmer leur sexe avant d’être placés.",
+  roomAssignmentsCouldNotBeGenerated:
+    "Impossible de générer le plan des chambres.",
+  mixedRoomCode: "Chambre mixte",
+  maleRoomCode: "Chambre d’hommes",
+  femaleRoomCode: "Chambre de femmes",
+  roomCompositionNotSet: "Composition non définie",
+  availableRoomTargets: "Chambres disponibles",
+  travelerToMove: "Voyageur à déplacer",
+  destinationRoom: "Chambre de destination",
+  alreadyAssigned: "déjà placé",
   createARoom: "Créer une chambre",
   roomName: "Nom de la chambre",
   yourRoomIsFull: "Votre chambre est complète.",
@@ -326,6 +386,8 @@ export const fr = {
   theTravelerListCouldNotBeLoadedRightNow:
     "La liste des voyageurs ne peut pas être chargée pour le moment.",
   roomAssignmentsHaveBeenUpdated: "La répartition a été mise à jour.",
+  roomAssignmentsCouldNotBeUpdated:
+    "Impossible de mettre à jour la répartition.",
   roomAssignmentsAreTemporarilyUnavailable:
     "La répartition des chambres est momentanément indisponible.",
   theTicketCouldNotBeUploadedCheckTheFileTypeAndSize:
@@ -358,6 +420,7 @@ export const fr = {
   confirmedParticipantList: "Liste des inscrits validés",
   detailedOrderList: "Liste détaillée des commandes",
   tripName: "Nom du voyage",
+  tripEndDate: "Date de fin du voyage",
   appointACompanion: "Nommer un accompagnateur",
   seat: "Place",
   seatsOutboundpreviousOutboundReturnReturnpreviousReturn:

@@ -64,6 +64,7 @@ export function createRoomingService(database: AppDatabase) {
             capacity: schema.rooms.capacity,
             genderPolicy: schema.rooms.genderPolicy,
             compositionVersion: schema.rooms.compositionVersion,
+            isLocked: schema.rooms.isLocked,
           })
           .from(schema.rooms)
           .where(eq(schema.rooms.tripId, tripId));
@@ -76,6 +77,15 @@ export function createRoomingService(database: AppDatabase) {
             throw new RoomingError("room_not_in_trip");
           }
         }
+        if (
+          moves.some(
+            (move) =>
+              (move.expectedRoomId &&
+                roomById.get(move.expectedRoomId)?.isLocked) ||
+              roomById.get(move.targetRoomId)?.isLocked,
+          )
+        )
+          throw new RoomingError("room_locked");
 
         const assignments = await transaction
           .select({
@@ -103,11 +113,15 @@ export function createRoomingService(database: AppDatabase) {
           .select({
             userId: schema.tripMemberships.userId,
             gender: schema.tripMemberships.gender,
+            genderConfirmed: schema.tripMemberships.genderConfirmed,
           })
           .from(schema.tripMemberships)
           .where(eq(schema.tripMemberships.tripId, tripId));
         const genderByUser = new Map(
-          memberRows.map((member) => [member.userId, member.gender]),
+          memberRows.map((member) => [
+            member.userId,
+            member.genderConfirmed ? member.gender : null,
+          ]),
         );
         const afterByUser = new Map(currentByUser);
         const affectedRoomIds = new Set<string>();
@@ -150,11 +164,20 @@ export function createRoomingService(database: AppDatabase) {
               ),
           );
           const room = roomById.get(roomId);
-          const wasMixed =
-            room?.genderPolicy === "mixed" || beforeGender.size > 1;
-          if (!wasMixed && afterGender.size > 1) {
+          const isMixed = afterGender.size > 1;
+          if (isMixed) {
             for (const occupantId of afterOccupants)
               requiredConsents.add(occupantId);
+          } else if (room?.genderPolicy === "mixed" || beforeGender.size > 1) {
+            // When a room becomes single-gender, only the people moving need
+            // to agree; the broad approval rule applies to mixed rooms.
+            for (const move of moves) {
+              if (
+                move.expectedRoomId === roomId ||
+                move.targetRoomId === roomId
+              )
+                requiredConsents.add(move.userId);
+            }
           }
         }
 
@@ -167,11 +190,7 @@ export function createRoomingService(database: AppDatabase) {
         const payload: RoomChangePayload = { moves, roomVersions };
         const id = randomUUID();
         const approved = [requesterUserId];
-        const status = [...requiredConsents].every((userId) =>
-          approved.includes(userId),
-        )
-          ? "pending"
-          : "pending";
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         await transaction.insert(schema.roomChangeRequests).values({
           id,
           tripId,
@@ -179,7 +198,7 @@ export function createRoomingService(database: AppDatabase) {
           changesJson: JSON.stringify(payload),
           requiredConsentsJson: JSON.stringify([...requiredConsents].sort()),
           approvedConsentsJson: JSON.stringify(approved),
-          status,
+          expiresAt,
         });
 
         if (
@@ -197,6 +216,38 @@ export function createRoomingService(database: AppDatabase) {
           status: "pending",
           requiredConsents: [...requiredConsents].sort(),
         };
+      });
+    },
+
+    async withdrawRequest(tripId: string, requestId: string, userId: string) {
+      return database.transaction(async (transaction) => {
+        const [request] = await transaction
+          .select()
+          .from(schema.roomChangeRequests)
+          .where(
+            and(
+              eq(schema.roomChangeRequests.tripId, tripId),
+              eq(schema.roomChangeRequests.id, requestId),
+            ),
+          )
+          .limit(1);
+        if (!request) throw new RoomingError("request_not_found");
+        if (request.requesterUserId !== userId)
+          throw new RoomingError("withdrawal_not_allowed");
+        if (request.status !== "pending")
+          throw new RoomingError("request_not_pending");
+        if (request.expiresAt.getTime() <= Date.now()) {
+          await transaction
+            .update(schema.roomChangeRequests)
+            .set({ status: "expired", updatedAt: new Date() })
+            .where(eq(schema.roomChangeRequests.id, requestId));
+          return { status: "expired" as const };
+        }
+        await transaction
+          .update(schema.roomChangeRequests)
+          .set({ status: "cancelled", updatedAt: new Date() })
+          .where(eq(schema.roomChangeRequests.id, requestId));
+        return { status: "cancelled" as const };
       });
     },
 
@@ -220,6 +271,13 @@ export function createRoomingService(database: AppDatabase) {
         if (!request) throw new RoomingError("request_not_found");
         if (request.status !== "pending")
           throw new RoomingError("request_not_pending");
+        if (request.expiresAt.getTime() <= Date.now()) {
+          await transaction
+            .update(schema.roomChangeRequests)
+            .set({ status: "expired", updatedAt: new Date() })
+            .where(eq(schema.roomChangeRequests.id, requestId));
+          return { status: "expired" as const };
+        }
         const required = JSON.parse(request.requiredConsentsJson) as string[];
         if (!required.includes(userId))
           throw new RoomingError("consent_not_required");

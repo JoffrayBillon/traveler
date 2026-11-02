@@ -9,6 +9,7 @@ import {
 import { type FormEvent, useEffect, useState } from "react";
 import { Form, Input, Label, TextField } from "react-aria-components";
 import { useTranslation } from "react-i18next";
+import { ProfileDate } from "./ProfileDate";
 
 export function TripSettingsPanel({ tripId }: { tripId: string }) {
   const { t } = useTranslation();
@@ -16,16 +17,23 @@ export function TripSettingsPanel({ tripId }: { tripId: string }) {
   const tripName =
     profileQuery.data?.trips.find((trip) => trip.tripId === tripId)?.tripName ??
     "";
+  const tripEndDate =
+    profileQuery.data?.trips.find((trip) => trip.tripId === tripId)?.endsOn ??
+    "";
   const mutation = useUpdateTripNameMutation(tripId);
   const [name, setName] = useState(tripName);
+  const [endsOn, setEndsOn] = useState(tripEndDate);
   const [message, setMessage] = useState("");
 
-  useEffect(() => setName(tripName), [tripName]);
+  useEffect(() => {
+    setName(tripName);
+    setEndsOn(tripEndDate);
+  }, [tripEndDate, tripName]);
 
   async function saveTripName(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      await mutation.mutateAsync(name.trim());
+      await mutation.mutateAsync({ name: name.trim(), endsOn: endsOn || null });
       setMessage(t("theTripNameHasBeenUpdated"));
     } catch {
       setMessage(t("theTripNameCouldNotBeUpdated"));
@@ -57,6 +65,11 @@ export function TripSettingsPanel({ tripId }: { tripId: string }) {
           <Label className={textFieldStyles().label()}>{t("tripName")}</Label>
           <Input className={textFieldStyles().input()} maxLength={120} />
         </TextField>
+        <ProfileDate
+          label={t("tripEndDate")}
+          value={endsOn}
+          onChange={setEndsOn}
+        />
         <Button
           appearance="secondary"
           type="submit"

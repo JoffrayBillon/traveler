@@ -11,6 +11,9 @@ import { registerRoomingReadEndpoints } from "./endpoints/rooming-read.endpoints
 import { registerStaffEndpoints } from "./endpoints/staff.endpoints";
 import { registerSystemEndpoints } from "./endpoints/system.endpoints";
 import { registerTicketEndpoints } from "./endpoints/ticket.endpoints";
+import { registerTicketRetentionEndpoint } from "./endpoints/ticket-retention.endpoint";
+import { registerTransportManagementEndpoints } from "./endpoints/transport-management.endpoints";
+import { registerTransportReadEndpoints } from "./endpoints/transport-read.endpoints";
 import { registerTravelerEndpoints } from "./endpoints/traveler.endpoints";
 import { registerTravelerDetailsEndpoints } from "./endpoints/traveler-details.endpoints";
 import type { TicketBlobStorage } from "./ports/ticket-storage";
@@ -43,6 +46,8 @@ export function createApp(
   registerAgencyRoomingExportEndpoint(app, getAuthServices);
   registerRoomingMutationEndpoints(app, getAuthServices);
   registerTravelerDetailsEndpoints(app, getAuthServices);
+  registerTransportReadEndpoints(app, getAuthServices);
+  registerTransportManagementEndpoints(app, getAuthServices);
 
   registerStaffEndpoints(app, getAuthServices, authEnvironment);
   registerImportEndpoints(app, getAuthServices);
@@ -52,6 +57,12 @@ export function createApp(
     getAuthServices,
     ticketStorage,
     ticketStorageAvailable,
+  );
+  registerTicketRetentionEndpoint(
+    app,
+    getAuthServices,
+    ticketStorage,
+    authEnvironment,
   );
 
   app.notFound((context) => context.json({ error: "not_found" }, 404));

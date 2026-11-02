@@ -69,8 +69,21 @@ export function registerTravelerProfileEndpoints(
       body && typeof body === "object" && !Array.isArray(body)
         ? (body as Record<string, unknown>).name
         : undefined;
-    const result = await renameTrip(services.database, tripId, nameValue);
+    const endsOnValue =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>).endsOn
+        : undefined;
+    const result = await renameTrip(
+      services.database,
+      tripId,
+      nameValue,
+      endsOnValue,
+    );
     if (!result.ok) return context.json({ error: result.error }, 400);
-    return context.json({ status: "saved", name: result.name });
+    return context.json({
+      status: "saved",
+      name: result.name,
+      ...(result.endsOn !== undefined ? { endsOn: result.endsOn } : {}),
+    });
   });
 }

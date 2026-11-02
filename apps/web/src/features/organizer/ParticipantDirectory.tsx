@@ -73,22 +73,6 @@ export function ParticipantDirectory({
     setDetails({
       activityProfile: person.activityProfile,
       skiDayThree: person.skiDayThree,
-      transportMode: person.transportMode,
-      departureCity: person.departureCity,
-      outboundDateTime: person.outboundDateTime,
-      outboundMeetingTime: person.outboundMeetingTime,
-      outboundDepartureTime: person.outboundDepartureTime,
-      outboundLocation: person.outboundLocation,
-      outboundReference: person.outboundReference,
-      outboundSeat: person.outboundSeat,
-      returnDateTime: person.returnDateTime,
-      returnMeetingTime: person.returnMeetingTime,
-      returnDepartureTime: person.returnDepartureTime,
-      returnLocation: person.returnLocation,
-      returnReference: person.returnReference,
-      returnSeat: person.returnSeat,
-      carpoolPreference: person.carpoolPreference,
-      parkingPreference: person.parkingPreference,
     });
     setEmail(person.email);
     setRole(person.role);

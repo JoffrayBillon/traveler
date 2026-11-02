@@ -17,6 +17,7 @@ export async function getRoomingView(
       firstName: sql<string>`coalesce(${schema.travelerProfiles.firstName}, ${schema.tripMemberships.firstName})`,
       lastName: sql<string>`coalesce(${schema.travelerProfiles.lastName}, ${schema.tripMemberships.lastName})`,
       gender: schema.tripMemberships.gender,
+      genderConfirmed: schema.tripMemberships.genderConfirmed,
     })
     .from(schema.tripMemberships)
     .leftJoin(
@@ -52,12 +53,16 @@ export async function getRoomingView(
       name: schema.rooms.name,
       capacity: schema.rooms.capacity,
       genderPolicy: schema.rooms.genderPolicy,
+      isLocked: schema.rooms.isLocked,
     })
     .from(schema.rooms)
     .where(eq(schema.rooms.tripId, tripId))
     .orderBy(schema.rooms.name);
   const memberById = new Map(
-    memberships.map((member) => [member.userId, member]),
+    memberships.map(({ genderConfirmed, ...member }) => [
+      member.userId,
+      { ...member, gender: genderConfirmed ? member.gender : null },
+    ]),
   );
 
   return {

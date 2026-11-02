@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
+import { staleRoomRequestsForRooms } from "../../datamodel/room-request.repository";
 import * as schema from "../../schema";
 import { type RoomChangePayload, RoomingError } from "./model";
 
@@ -98,6 +99,7 @@ export async function applyApprovedRequest(
     .select({
       roomId: schema.roomAssignments.roomId,
       gender: schema.tripMemberships.gender,
+      genderConfirmed: schema.tripMemberships.genderConfirmed,
     })
     .from(schema.roomAssignments)
     .innerJoin(
@@ -116,7 +118,10 @@ export async function applyApprovedRequest(
   for (const roomId of roomIds) {
     const genders = new Set(
       assignments
-        .filter((assignment) => assignment.roomId === roomId)
+        .filter(
+          (assignment) =>
+            assignment.roomId === roomId && assignment.genderConfirmed,
+        )
         .map((assignment) => assignment.gender)
         .filter((gender): gender is "M" | "F" => gender !== null),
     );
@@ -134,6 +139,7 @@ export async function applyApprovedRequest(
       })
       .where(and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)));
   }
+  await staleRoomRequestsForRooms(transaction, tripId, roomIds, requestId);
   await transaction
     .update(schema.roomChangeRequests)
     .set({ status: "applied", updatedAt: new Date() })
