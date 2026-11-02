@@ -4,6 +4,7 @@ import type { AppDatabase } from "../auth";
 import { normalizeEmail } from "../email";
 import * as schema from "../schema";
 import type { ValidatedRosterRow } from "../source-import/types";
+import { batchRows } from "./batch-rows";
 import { cancelMissingValidatedRegistrations } from "./cancel-missing-validated-registrations";
 import type { DatabaseTransaction } from "./database.types";
 import { DuplicateNormalizedEmailError } from "./errors";
@@ -24,6 +25,8 @@ export async function importValidatedRoster(
         paymentStatus: schema.tripRegistrations.paymentStatus,
         amountPaidMinor: schema.tripRegistrations.amountPaidMinor,
         amountDueMinor: schema.tripRegistrations.amountDueMinor,
+        sourcePhone: schema.tripRegistrations.sourcePhone,
+        createdAt: schema.tripRegistrations.createdAt,
         gender: schema.tripRegistrations.gender,
         activityProfile: schema.tripRegistrations.activityProfile,
         skiDayThree: schema.tripRegistrations.skiDayThree,
@@ -35,6 +38,7 @@ export async function importValidatedRoster(
     const registrationByReference = new Map(
       existingRows.map((row) => [row.reference, row]),
     );
+    const registrationById = new Map(existingRows.map((row) => [row.id, row]));
     const incomingReferences = new Set(rows.map((row) => row.reference));
     const previousActiveRows = existingRows.filter(
       (row) => row.status === "validated",
@@ -75,6 +79,9 @@ export async function importValidatedRoster(
       .where(eq(schema.tripMemberships.tripId, tripId));
     const membershipByUser = new Map(
       existingMemberships.map((membership) => [membership.userId, membership]),
+    );
+    const membershipById = new Map(
+      existingMemberships.map((membership) => [membership.id, membership]),
     );
     const detailsByUser = new Map<
       string,
@@ -187,64 +194,132 @@ export async function importValidatedRoster(
       activeUserIds.add(userId);
     }
 
-    for (const user of usersToInsert)
-      await transaction.insert(schema.users).values(user);
-    for (const membership of membershipsToInsert)
-      await transaction.insert(schema.tripMemberships).values(membership);
-    for (const { id, row, userId } of registriesToUpdate) {
-      const current = existingRows.find(
-        (registration) => registration.id === id,
-      );
-      await transaction
-        .update(schema.tripRegistrations)
-        .set({
-          userId,
-          status: "validated",
-          sourceEmail: normalizeEmail(row.email),
-          firstName: row.firstName,
-          lastName: row.lastName,
-          gender: row.gender,
-          activityProfile: row.activityProfile,
-          paymentStatus: row.paymentStatus ?? current?.paymentStatus ?? null,
-          amountPaidMinor:
-            row.amountPaidMinor ?? current?.amountPaidMinor ?? null,
-          amountDueMinor: row.amountDueMinor ?? current?.amountDueMinor ?? null,
-          lastImportedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(schema.tripRegistrations.id, id));
-    }
-    for (const registration of registriesToInsert)
-      await transaction.insert(schema.tripRegistrations).values(registration);
+    for (const batch of batchRows(usersToInsert))
+      await transaction.insert(schema.users).values(batch);
 
-    for (const { id, row } of membershipsToUpdate) {
-      const current = existingMemberships.find(
-        (membership) => membership.id === id,
-      );
+    const registrationWrites = [
+      ...registriesToInsert,
+      ...registriesToUpdate.flatMap(({ id, row, userId }) => {
+        const current = registrationById.get(id);
+        if (!current) return [];
+        return [
+          {
+            id,
+            tripId,
+            reference: current.reference,
+            userId,
+            status: "validated" as const,
+            sourceEmail: normalizeEmail(row.email),
+            firstName: row.firstName,
+            lastName: row.lastName,
+            sourcePhone: current.sourcePhone,
+            gender: row.gender,
+            activityProfile: row.activityProfile,
+            paymentStatus: row.paymentStatus ?? current.paymentStatus,
+            amountPaidMinor: row.amountPaidMinor ?? current.amountPaidMinor,
+            amountDueMinor: row.amountDueMinor ?? current.amountDueMinor,
+            skiDayThree: current.skiDayThree,
+            transportMode: current.transportMode,
+            departureCity: current.departureCity,
+            lastImportedAt: now,
+            createdAt: current.createdAt,
+            updatedAt: now,
+          },
+        ];
+      }),
+    ];
+    for (const batch of batchRows(registrationWrites))
       await transaction
-        .update(schema.tripMemberships)
-        .set({
-          firstName: row.firstName,
-          lastName: row.lastName,
-          ...(current?.genderConfirmed || row.gender === null
-            ? {}
-            : { gender: row.gender }),
-        })
-        .where(eq(schema.tripMemberships.id, id));
-    }
-    for (const detail of detailsToInsert)
-      await transaction.insert(schema.travelerDetails).values(detail);
-    for (const detail of detailsToUpdate) {
+        .insert(schema.tripRegistrations)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [
+            schema.tripRegistrations.tripId,
+            schema.tripRegistrations.reference,
+          ],
+          set: {
+            userId: sql`excluded.user_id`,
+            status: sql`excluded.status`,
+            sourceEmail: sql`excluded.source_email`,
+            firstName: sql`excluded.first_name`,
+            lastName: sql`excluded.last_name`,
+            gender: sql`excluded.gender`,
+            activityProfile: sql`excluded.activity_profile`,
+            paymentStatus: sql`excluded.payment_status`,
+            amountPaidMinor: sql`excluded.amount_paid_minor`,
+            amountDueMinor: sql`excluded.amount_due_minor`,
+            lastImportedAt: sql`excluded.last_imported_at`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        });
+
+    const membershipWrites = [
+      ...membershipsToInsert,
+      ...membershipsToUpdate.flatMap(({ id, row }) => {
+        const current = membershipById.get(id);
+        if (!current) return [];
+        return [
+          {
+            id,
+            tripId,
+            userId: current.userId,
+            role: current.role,
+            firstName: row.firstName,
+            lastName: row.lastName,
+            gender:
+              current.genderConfirmed || row.gender === null
+                ? current.gender
+                : row.gender,
+            genderConfirmed: current.genderConfirmed,
+          },
+        ];
+      }),
+    ];
+    for (const batch of batchRows(membershipWrites))
       await transaction
-        .update(schema.travelerDetails)
-        .set({ activityProfile: detail.activityProfile, updatedAt: now })
-        .where(
-          and(
-            eq(schema.travelerDetails.tripId, tripId),
-            eq(schema.travelerDetails.userId, detail.userId),
-          ),
-        );
-    }
+        .insert(schema.tripMemberships)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [
+            schema.tripMemberships.tripId,
+            schema.tripMemberships.userId,
+          ],
+          set: {
+            firstName: sql`excluded.first_name`,
+            lastName: sql`excluded.last_name`,
+            gender: sql`CASE WHEN ${schema.tripMemberships.genderConfirmed} = 1 OR excluded.gender IS NULL THEN ${schema.tripMemberships.gender} ELSE excluded.gender END`,
+          },
+        });
+
+    const detailWrites = [
+      ...detailsToInsert,
+      ...detailsToUpdate.flatMap((detail) => {
+        const current = detailsByUser.get(detail.userId);
+        return current
+          ? [
+              {
+                ...current,
+                activityProfile: detail.activityProfile,
+                updatedAt: now,
+              },
+            ]
+          : [];
+      }),
+    ];
+    for (const batch of batchRows(detailWrites))
+      await transaction
+        .insert(schema.travelerDetails)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [
+            schema.travelerDetails.tripId,
+            schema.travelerDetails.userId,
+          ],
+          set: {
+            activityProfile: sql`excluded.activity_profile`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        });
 
     const cancelledCount = await cancelMissingValidatedRegistrations(
       transaction,

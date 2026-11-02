@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-02 — Source imports — Batch database writes
+
+- Details/impact: replace per-row writes with bounded SQLite upsert batches for the validated roster, detailed-order, staff and agency rooming imports; group registration cancellations and room cleanup queries. Forty rows per statement keeps the widest insert below SQLite's conservative bind-variable limit while preserving existing manual fields, traveler confirmations and role rules.
+- Test status: targeted Biome, API typecheck and `git diff --check` passed under Node 24.22.1 with pnpm's engine-strict check disabled; the repository requires Node 26. Tests were not run.
+
 ## 2026-11-02 — Product specification — Align manager access actions
 
 - Details/impact: document the agreed manager workflow: assign roles from participant profiles and generate/copy a one-time login link for support without sending an email.

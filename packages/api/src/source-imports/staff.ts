@@ -4,6 +4,7 @@ import type { AppDatabase } from "../auth";
 import { normalizeEmail } from "../email";
 import * as schema from "../schema";
 import type { StaffImportRow } from "../source-import/types";
+import { batchRows } from "./batch-rows";
 import type { DatabaseExecutor, DatabaseTransaction } from "./database.types";
 import {
   DuplicateNormalizedEmailError,
@@ -121,7 +122,10 @@ export async function importStaffRows(
         id: schema.tripMemberships.id,
         userId: schema.tripMemberships.userId,
         role: schema.tripMemberships.role,
+        gender: schema.tripMemberships.gender,
         genderConfirmed: schema.tripMemberships.genderConfirmed,
+        isVip: schema.tripMemberships.isVip,
+        lastLoginAt: schema.tripMemberships.lastLoginAt,
       })
       .from(schema.tripMemberships)
       .where(eq(schema.tripMemberships.tripId, tripId));
@@ -148,7 +152,16 @@ export async function importStaffRows(
     const usersToInsert: (typeof schema.users.$inferInsert)[] = [];
     const membershipsToInsert: (typeof schema.tripMemberships.$inferInsert)[] =
       [];
+    const membershipsToUpdate: {
+      current: (typeof existingMemberships)[number];
+      row: StaffImportRow;
+      role: "manager" | "companion" | "traveler";
+    }[] = [];
     const insertedDetails: (typeof schema.travelerDetails.$inferInsert)[] = [];
+    const detailsToUpdate: {
+      current: typeof schema.travelerDetails.$inferSelect;
+      row: StaffImportRow;
+    }[] = [];
     let updated = 0;
     let created = 0;
     for (const row of rows) {
@@ -175,16 +188,11 @@ export async function importStaffRows(
       const role: "manager" | "companion" | "traveler" =
         normalizedManagerEmails.has(email) ? "manager" : row.role;
       if (membership) {
-        await transaction
-          .update(schema.tripMemberships)
-          .set({
-            firstName: row.firstName,
-            lastName: row.lastName,
-            gender: membership.genderConfirmed ? undefined : row.gender,
-            role: membership.role === "manager" ? "manager" : role,
-            isVip: row.isVip,
-          })
-          .where(eq(schema.tripMemberships.id, membership.id));
+        membershipsToUpdate.push({
+          current: membership,
+          row,
+          role: membership.role === "manager" ? "manager" : role,
+        });
         updated += 1;
       } else {
         const newMembership = {
@@ -197,6 +205,7 @@ export async function importStaffRows(
           lastName: row.lastName,
           gender: row.gender,
           genderConfirmed: false,
+          lastLoginAt: null,
         };
         membershipsToInsert.push(newMembership);
         membershipByUser.set(user.id, newMembership);
@@ -204,21 +213,7 @@ export async function importStaffRows(
       }
       const currentDetails = detailsByUser.get(user.id);
       if (currentDetails) {
-        await transaction
-          .update(schema.travelerDetails)
-          .set({
-            activityProfile: row.activityProfile,
-            skiDayThree: row.skiDayThree,
-            transportMode: row.transportMode,
-            departureCity: row.departureCity,
-            updatedAt: now,
-          })
-          .where(
-            and(
-              eq(schema.travelerDetails.tripId, tripId),
-              eq(schema.travelerDetails.userId, user.id),
-            ),
-          );
+        detailsToUpdate.push({ current: currentDetails, row });
       } else {
         insertedDetails.push({
           tripId,
@@ -231,12 +226,75 @@ export async function importStaffRows(
         });
       }
     }
-    for (const user of usersToInsert)
-      await transaction.insert(schema.users).values(user);
-    for (const membership of membershipsToInsert)
-      await transaction.insert(schema.tripMemberships).values(membership);
-    for (const details of insertedDetails)
-      await transaction.insert(schema.travelerDetails).values(details);
+    for (const batch of batchRows(usersToInsert))
+      await transaction.insert(schema.users).values(batch);
+
+    const membershipWrites = [
+      ...membershipsToInsert,
+      ...membershipsToUpdate.map(({ current, row, role }) => ({
+        id: current.id,
+        tripId,
+        userId: current.userId,
+        role,
+        isVip: row.isVip,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        gender: current.genderConfirmed ? current.gender : row.gender,
+        genderConfirmed: current.genderConfirmed,
+        lastLoginAt: current.lastLoginAt,
+      })),
+    ];
+    for (const batch of batchRows(membershipWrites))
+      await transaction
+        .insert(schema.tripMemberships)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [
+            schema.tripMemberships.tripId,
+            schema.tripMemberships.userId,
+          ],
+          set: {
+            role: sql`excluded.role`,
+            isVip: sql`excluded.is_vip`,
+            firstName: sql`excluded.first_name`,
+            lastName: sql`excluded.last_name`,
+            gender: sql`excluded.gender`,
+          },
+        });
+
+    const detailWrites = [
+      ...insertedDetails,
+      ...detailsToUpdate.map(({ current, row }) => ({
+        ...current,
+        activityProfile: row.activityProfile,
+        skiDayThree: row.skiDayThree,
+        transportMode: row.transportMode,
+        departureCity: row.departureCity,
+        ...(row.transportMode === "none"
+          ? {}
+          : { carpoolPreference: null, parkingPreference: null }),
+        updatedAt: now,
+      })),
+    ];
+    for (const batch of batchRows(detailWrites))
+      await transaction
+        .insert(schema.travelerDetails)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [
+            schema.travelerDetails.tripId,
+            schema.travelerDetails.userId,
+          ],
+          set: {
+            activityProfile: sql`excluded.activity_profile`,
+            skiDayThree: sql`excluded.ski_day_three`,
+            transportMode: sql`excluded.transport_mode`,
+            departureCity: sql`excluded.departure_city`,
+            carpoolPreference: sql`excluded.carpool_preference`,
+            parkingPreference: sql`excluded.parking_preference`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        });
     return { created, updated };
   };
   return existingTransaction

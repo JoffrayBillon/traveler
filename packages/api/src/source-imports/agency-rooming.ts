@@ -1,8 +1,9 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
 import { normalizePersonName } from "../source-import/shared";
 import type { AgencyRoomingRow } from "../source-import/types";
+import { batchRows } from "./batch-rows";
 import type { DatabaseExecutor, DatabaseTransaction } from "./database.types";
 export async function previewAgencyRooming(
   database: DatabaseExecutor,
@@ -71,52 +72,66 @@ export async function importAgencyRooming(
     const preview = await previewAgencyRooming(transaction, tripId, rows);
     if (preview.unmatched || preview.ambiguous)
       throw new InvalidAgencyRoomingMatchError();
-    const now = new Date();
-    let updated = 0;
-    for (const row of preview.rows) {
-      if (!row.userId) continue;
-      const values = {
-        ...(row.outboundSeat === null
-          ? {}
-          : { outboundSeat: row.outboundSeat }),
-        ...(row.returnSeat === null ? {} : { returnSeat: row.returnSeat }),
-        updatedAt: now,
-      };
-      if (row.outboundSeat === null && row.returnSeat === null) continue;
-      const [existing] = await transaction
-        .select({ userId: schema.travelerDetails.userId })
-        .from(schema.travelerDetails)
-        .where(
-          and(
-            eq(schema.travelerDetails.tripId, tripId),
-            eq(schema.travelerDetails.userId, row.userId),
-          ),
-        )
-        .limit(1);
-      if (existing) {
-        await transaction
-          .update(schema.travelerDetails)
-          .set(values)
+    const rowsWithSeats = preview.rows.filter(
+      (row): row is (typeof preview.rows)[number] & { userId: string } =>
+        Boolean(
+          row.userId && (row.outboundSeat !== null || row.returnSeat !== null),
+        ),
+    );
+    const userIds = [...new Set(rowsWithSeats.map((row) => row.userId))];
+    const existingDetails = userIds.length
+      ? await transaction
+          .select()
+          .from(schema.travelerDetails)
           .where(
             and(
               eq(schema.travelerDetails.tripId, tripId),
-              eq(schema.travelerDetails.userId, row.userId),
+              inArray(schema.travelerDetails.userId, userIds),
             ),
-          );
-      } else {
-        await transaction.insert(schema.travelerDetails).values({
+          )
+      : [];
+    const detailsByUser = new Map(
+      existingDetails.map((detail) => [detail.userId, detail]),
+    );
+    const writesByUser = new Map<
+      string,
+      typeof schema.travelerDetails.$inferInsert
+    >();
+    const now = new Date();
+    for (const row of rowsWithSeats) {
+      if (!row.userId) continue;
+      const current = writesByUser.get(row.userId) ??
+        detailsByUser.get(row.userId) ?? {
           tripId,
           userId: row.userId,
           activityProfile: null,
           skiDayThree: false,
           transportMode: null,
           departureCity: null,
-          ...values,
-        });
-      }
-      updated += 1;
+        };
+      writesByUser.set(row.userId, {
+        ...current,
+        outboundSeat: row.outboundSeat ?? current.outboundSeat ?? null,
+        returnSeat: row.returnSeat ?? current.returnSeat ?? null,
+        updatedAt: now,
+      });
     }
-    return { updated };
+    for (const batch of batchRows([...writesByUser.values()]))
+      await transaction
+        .insert(schema.travelerDetails)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [
+            schema.travelerDetails.tripId,
+            schema.travelerDetails.userId,
+          ],
+          set: {
+            outboundSeat: sql`excluded.outbound_seat`,
+            returnSeat: sql`excluded.return_seat`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        });
+    return { updated: writesByUser.size };
   };
   return existingTransaction
     ? run(existingTransaction)
