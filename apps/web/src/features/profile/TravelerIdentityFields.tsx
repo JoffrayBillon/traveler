@@ -21,6 +21,7 @@ export function TravelerIdentityFields({
   firstName,
   lastName,
   gender,
+  isGenderConfirmed,
   onFirstNameChange,
   onLastNameChange,
   onGenderChange,
@@ -29,6 +30,7 @@ export function TravelerIdentityFields({
   firstName: string;
   lastName: string;
   gender: "M" | "F" | null;
+  isGenderConfirmed: boolean;
   onFirstNameChange: (value: string) => void;
   onLastNameChange: (value: string) => void;
   onGenderChange: (value: "M" | "F" | null) => void;
@@ -87,6 +89,7 @@ export function TravelerIdentityFields({
           onSelectionChange={(key) =>
             onGenderChange(key === "M" || key === "F" ? key : null)
           }
+          isDisabled={isGenderConfirmed}
           isRequired
         >
           <Label className="flex items-center gap-2 text-sm font-semibold text-content">
@@ -115,7 +118,9 @@ export function TravelerIdentityFields({
             slot="description"
             className="text-xs leading-relaxed text-content-muted"
           >
-            {t("genderFieldDescription")}
+            {isGenderConfirmed
+              ? `${t("genderFieldDescription")} ${t("confirmedSexCannotBeChangedContactAnOrganizerIfItIsIncorrect")}`
+              : t("genderFieldDescription")}
           </Text>
         </Select>
       </div>

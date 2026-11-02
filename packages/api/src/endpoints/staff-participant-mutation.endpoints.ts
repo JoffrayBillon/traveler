@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { parsePhoneNumberFromString } from "libphonenumber-js/max";
 import type { AuthServices } from "../auth";
+import { refreshRoomComposition } from "../datamodel/traveler.repository";
 import * as schema from "../schema";
 import { getSession } from "../services/auth/get-session";
 import { updateParticipantRole } from "../services/participant-management";
@@ -160,11 +161,6 @@ export function registerStaffParticipantMutationEndpoints(
         )
         .limit(1);
       if (!target) return context.json({ error: "not_found" }, 404);
-      if (target.roomId && target.gender !== gender)
-        return context.json(
-          { error: "gender_change_requires_room_review" },
-          409,
-        );
       const now = new Date();
       const emergencyContactIsComplete = Boolean(
         emergencyContactFirstName &&
@@ -220,6 +216,8 @@ export function registerStaffParticipantMutationEndpoints(
               updatedAt: now,
             },
           });
+        if (target.roomId && target.gender !== gender)
+          await refreshRoomComposition(transaction, tripId, target.roomId);
       });
       return context.json({ status: "saved" });
     },

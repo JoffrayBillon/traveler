@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
 import type { TravelerDetailsInput } from "../services/traveler-details";
@@ -11,6 +11,7 @@ export async function getTravelerProfileState(
   const [membership] = await database
     .select({
       gender: schema.tripMemberships.gender,
+      genderConfirmed: schema.tripMemberships.genderConfirmed,
       roomId: schema.roomAssignments.roomId,
     })
     .from(schema.tripMemberships)
@@ -47,16 +48,47 @@ export async function saveTravelerProfile(
   },
 ) {
   const now = new Date();
-  await database.transaction(async (transaction) => {
-    await transaction
+  return database.transaction(async (transaction) => {
+    const [membership] = await transaction
+      .select({
+        gender: schema.tripMemberships.gender,
+        genderConfirmed: schema.tripMemberships.genderConfirmed,
+        roomId: schema.roomAssignments.roomId,
+      })
+      .from(schema.tripMemberships)
+      .leftJoin(
+        schema.roomAssignments,
+        and(
+          eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
+          eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
+        ),
+      )
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (!membership) return false;
+    if (membership.genderConfirmed && membership.gender !== profile.gender)
+      return false;
+
+    const [updatedMembership] = await transaction
       .update(schema.tripMemberships)
       .set({ gender: profile.gender, genderConfirmed: true })
       .where(
         and(
           eq(schema.tripMemberships.tripId, tripId),
           eq(schema.tripMemberships.userId, userId),
+          sql`(${schema.tripMemberships.genderConfirmed} = 0 OR ${schema.tripMemberships.gender} = ${profile.gender})`,
         ),
-      );
+      )
+      .returning({ userId: schema.tripMemberships.userId });
+    if (!updatedMembership) return false;
+    if (membership.roomId && membership.gender !== profile.gender)
+      await refreshRoomComposition(transaction, tripId, membership.roomId);
+
     await transaction
       .insert(schema.travelerProfiles)
       .values({
@@ -89,7 +121,48 @@ export async function saveTravelerProfile(
           updatedAt: now,
         },
       });
+    return true;
   });
+}
+
+export async function refreshRoomComposition(
+  transaction: Parameters<Parameters<AppDatabase["transaction"]>[0]>[0],
+  tripId: string,
+  roomId: string,
+) {
+  const occupants = await transaction
+    .select({ gender: schema.tripMemberships.gender })
+    .from(schema.roomAssignments)
+    .innerJoin(
+      schema.tripMemberships,
+      and(
+        eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
+        eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
+      ),
+    )
+    .where(
+      and(
+        eq(schema.roomAssignments.tripId, tripId),
+        eq(schema.roomAssignments.roomId, roomId),
+      ),
+    );
+  const genders = new Set(
+    occupants
+      .map(({ gender }) => gender)
+      .filter((gender): gender is "M" | "F" => gender !== null),
+  );
+  await transaction
+    .update(schema.rooms)
+    .set({
+      genderPolicy:
+        genders.size === 0
+          ? "unset"
+          : genders.size > 1
+            ? "mixed"
+            : "single_gender",
+      compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
+    })
+    .where(and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)));
 }
 
 export async function saveTravelerDetails(

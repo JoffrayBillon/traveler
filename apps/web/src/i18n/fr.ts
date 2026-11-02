@@ -105,8 +105,8 @@ export const fr = {
   yourProfileCouldNotBeSavedPleaseTryAgain:
     "Votre fiche n’a pas pu être enregistrée. Réessayez.",
   chooseAnOptionForSex: "Choisissez une option pour le sexe.",
-  sexCannotBeChangedWhileYouAreAssignedToARoomContactTheOrganizersToReviewTheRoomAssignment:
-    "Le sexe ne peut pas être changé tant que vous êtes affecté·e à une chambre. Contactez l’équipe pour vérifier le rooming.",
+  confirmedSexCannotBeChangedContactAnOrganizerIfItIsIncorrect:
+    "Une fois confirmé, le sexe ne peut plus être modifié. Contactez un organisateur en cas d’erreur.",
   saving: "Enregistrement…",
   cancel: "Annuler",
   emergencyContact: "Contact d’urgence",
@@ -188,8 +188,6 @@ export const fr = {
   participantChangesSaved: "Les modifications ont été enregistrées.",
   participantChangesCouldNotBeSaved:
     "Les modifications n’ont pas pu être enregistrées.",
-  genderChangeRequiresRoomReview:
-    "Retirez cette personne de sa chambre avant de modifier cette information.",
   roleChangeNotAllowed: "Ce changement de rôle n’est pas autorisé.",
   copySignInLink: "Générer et copier le lien de connexion",
   copied: "Copié",

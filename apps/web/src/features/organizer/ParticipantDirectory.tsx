@@ -112,14 +112,12 @@ export function ParticipantDirectory({
     } catch (error) {
       const code = error instanceof Error ? error.message : "save_failed";
       setMessage(
-        code === "gender_change_requires_room_review"
-          ? t("genderChangeRequiresRoomReview")
-          : code === "email_in_use"
-            ? t("thisEmailAddressIsAlreadyLinkedToAnotherAccount")
-            : code === "last_manager_required" ||
-                code === "cannot_change_own_role"
-              ? t("roleChangeNotAllowed")
-              : t("participantChangesCouldNotBeSaved"),
+        code === "email_in_use"
+          ? t("thisEmailAddressIsAlreadyLinkedToAnotherAccount")
+          : code === "last_manager_required" ||
+              code === "cannot_change_own_role"
+            ? t("roleChangeNotAllowed")
+            : t("participantChangesCouldNotBeSaved"),
       );
     }
   }

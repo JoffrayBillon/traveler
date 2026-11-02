@@ -123,12 +123,12 @@ export async function completeTravelerProfile(
     !parsedPhone?.isValid()
   )
     return { ok: false as const, error: "invalid_profile" };
-  if (membership.roomId && membership.gender !== gender)
+  if (membership.genderConfirmed && membership.gender !== gender)
     return {
       ok: false as const,
-      error: "gender_change_requires_room_review",
+      error: "gender_locked",
     };
-  await persistTravelerProfile(database, tripId, userId, {
+  const saved = await persistTravelerProfile(database, tripId, userId, {
     firstName,
     lastName,
     gender,
@@ -138,6 +138,7 @@ export async function completeTravelerProfile(
     emergencyContactLastName,
     emergencyContactPhone: parsedPhone.number,
   });
+  if (!saved) return { ok: false as const, error: "gender_locked" };
   return { ok: true as const };
 }
 

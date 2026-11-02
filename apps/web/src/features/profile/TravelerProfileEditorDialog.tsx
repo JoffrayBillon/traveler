@@ -113,9 +113,7 @@ export function TravelerProfileEditorDialog({
     } catch (error) {
       setMessage(
         error instanceof ApiError && error.status === 409
-          ? t(
-              "sexCannotBeChangedWhileYouAreAssignedToARoomContactTheOrganizersToReviewTheRoomAssignment",
-            )
+          ? t("confirmedSexCannotBeChangedContactAnOrganizerIfItIsIncorrect")
           : t("yourProfileCouldNotBeSavedPleaseTryAgain"),
       );
     }
@@ -139,6 +137,7 @@ export function TravelerProfileEditorDialog({
         firstName={firstName}
         lastName={lastName}
         gender={gender}
+        isGenderConfirmed={initial.genderConfirmed}
         onFirstNameChange={setFirstName}
         onLastNameChange={setLastName}
         onGenderChange={setGender}

@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-02 — Profile — Lock confirmed gender for travelers
+
+- Details/impact: travelers can confirm an imported or entered `H`/`F` value once, then cannot change it through their profile. API updates enforce the lock transactionally; organizers can correct the value, which refreshes the assigned room's composition policy and version. Room generation still leaves unconfirmed travelers unassigned.
+- Test status: Biome and API/web typechecks pass. Tests not run.
+
 ## 2026-11-02 — Product specification — Specify grouped transport and room planner
 
 - Details/impact: specify organizer-managed group itineraries with city-based import assignment and draft groups, driver/passenger declarations, anonymous app-numbered rooms, gender-aware room generation, H/F/M badges, organizer overrides, full-room locks and mixed-room approval by every occupant. Keep in-app explanations neutral and mark gender-confirmation timing, request withdrawal/expiry and notifications open.

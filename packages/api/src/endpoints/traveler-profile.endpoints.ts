@@ -35,7 +35,7 @@ export function registerTravelerProfileEndpoints(
         { error: result.error },
         result.error === "not_found"
           ? 404
-          : result.error === "gender_change_requires_room_review"
+          : result.error === "gender_locked"
             ? 409
             : 400,
       );

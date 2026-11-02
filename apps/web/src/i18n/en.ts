@@ -104,8 +104,8 @@ export const en = {
   yourProfileCouldNotBeSavedPleaseTryAgain:
     "Your profile could not be saved. Please try again.",
   chooseAnOptionForSex: "Choose an option for sex.",
-  sexCannotBeChangedWhileYouAreAssignedToARoomContactTheOrganizersToReviewTheRoomAssignment:
-    "Sex cannot be changed while you are assigned to a room. Contact the organizers to review the room assignment.",
+  confirmedSexCannotBeChangedContactAnOrganizerIfItIsIncorrect:
+    "Once confirmed, sex cannot be changed. Contact an organizer if it is incorrect.",
   saving: "Saving…",
   cancel: "Cancel",
   emergencyContact: "Emergency contact",
@@ -184,8 +184,6 @@ export const en = {
   returnSeat: "Return seat",
   participantChangesSaved: "Participant changes saved.",
   participantChangesCouldNotBeSaved: "Participant changes could not be saved.",
-  genderChangeRequiresRoomReview:
-    "Remove this person from their room before changing this information.",
   roleChangeNotAllowed: "This role change is not allowed.",
   copySignInLink: "Generate and copy sign-in link",
   copied: "Copied",
