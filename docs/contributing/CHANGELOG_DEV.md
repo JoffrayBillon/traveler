@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-02 — Product specification — Draft grouped transport and room planner
+
+- Details/impact: record the new direction for organizer-managed group itineraries, traveler assignment to transport groups, anonymous per-trip room inventory, generated room plans, organizer drag-and-drop, traveler room requests and full-room request locks. Mark unresolved consent, auto-placement, carpool and import-mapping rules instead of guessing.
+- Test status: documentation review only; implementation is intentionally pending the open product decisions.
+
 ## 2026-11-02 — Source imports — Batch database writes
 
 - Details/impact: replace per-row writes with bounded SQLite upsert batches for the validated roster, detailed-order, staff and agency rooming imports; group registration cancellations and room cleanup queries. Forty rows per statement keeps the widest insert below SQLite's conservative bind-variable limit while preserving existing manual fields, traveler confirmations and role rules.

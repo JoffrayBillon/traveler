@@ -22,6 +22,7 @@ This guide documents the workbook formats reviewed for the ski trip and the agre
 - The rooming template contains room inventory and one row per bed. Room identity includes both room type and room number because room numbers repeat. The export accepts the supplied template, preserves its workbook layout and fills its existing columns.
 - `FORFAIT SKI LUNDI` means the third ski day for this trip. The rooming export appends `3e jour de ski` in `Commentaires` while preserving existing comments.
 - The validated roster's `Restant dû sur la commande` determines payment state: zero is paid; positive remaining due with a positive amount already paid is partially paid; positive remaining due with no amount paid is unpaid. Store amounts in minor currency units. Payment status is shown to managers only.
+- The new group-transport model replaces per-person train/flight schedules. Source departure city may help assign a participant to a configured transport group, but the city-to-group mapping is not yet defined. Do not create groups or assign a participant from a text match without an explicit mapping rule.
 - The source workbooks include invoice and postal-address information that is not needed for the trip profile. Import only fields required for agreed app behavior, with a clear retention policy.
 
 ## Agreed import flow
