@@ -13,6 +13,7 @@ export function OrganizerRoute({ profile }: { profile: TravelerProfile }) {
       tripId={tripId}
       tripName={trip.tripName}
       role={trip.role}
+      userId={profile.user.id}
     />
   );
 }

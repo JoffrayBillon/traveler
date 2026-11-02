@@ -145,7 +145,7 @@ export function AddParticipantDialog({
               )}
               <footer className="flex justify-end gap-2 border-t border-border pt-4">
                 <Button
-                  appearance="quietNeutral"
+                  appearance="quiet"
                   type="button"
                   onPress={() => setIsOpen(false)}
                   isDisabled={createParticipantMutation.isPending}

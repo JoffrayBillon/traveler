@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   textFieldStyles,
 } from "@traveler/components/ui";
+import { getTranslationKey } from "@traveler/i18n/resources";
 import {
   Checkbox,
   Label,
@@ -15,6 +16,7 @@ import {
   SelectValue,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
+import { roleTranslationKey } from "./participant-formatters";
 
 type StaffRow = NonNullable<ImportPreview["staffRows"]>[number];
 type Member = NonNullable<ImportPreview["availableMembers"]>[number];
@@ -37,6 +39,11 @@ export function ImportStaffAccountMapping({
   ) => void;
 }) {
   const { t } = useTranslation();
+  function translatedRole(role: string) {
+    const translationKey = getTranslationKey(role);
+    return translationKey ? t(translationKey) : role;
+  }
+
   return (
     <fieldset className="grid gap-2">
       <legend className="text-sm font-semibold">
@@ -56,9 +63,13 @@ export function ImportStaffAccountMapping({
               {person.firstName} {person.lastName}
               <span className="block text-xs text-content-muted">
                 {person.email} ·{" "}
-                {person.isVip ? t("vipTraveler") : t(person.proposedRole)}
+                {person.isVip
+                  ? t("vipTraveler")
+                  : t(roleTranslationKey(person.proposedRole))}
                 {person.existingRole
-                  ? ` · ${t("currentRoleRole", { role: t(person.existingRole) })}`
+                  ? ` · ${t("currentRoleRole", {
+                      role: translatedRole(person.existingRole),
+                    })}`
                   : ""}
               </span>
             </span>
@@ -99,7 +110,7 @@ export function ImportStaffAccountMapping({
                       )}
                     >
                       {member.firstName} {member.lastName} · {member.email} ·{" "}
-                      {t(member.role)}
+                      {translatedRole(member.role)}
                     </ListBoxItem>
                   ))}
                 </ListBox>

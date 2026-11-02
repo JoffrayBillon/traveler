@@ -1,3 +1,4 @@
+import type { TripRole } from "@traveler/types/profile";
 import { useReducedMotion } from "motion/react";
 import { lazy, Suspense } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "react-aria-components";
@@ -17,12 +18,21 @@ const TransportManagementPanel = lazy(() =>
     default: module.TransportManagementPanel,
   })),
 );
+const RoomingPanel = lazy(() =>
+  import("@traveler/features/rooming/RoomingPanel").then((module) => ({
+    default: module.RoomingPanel,
+  })),
+);
 
 export function StaffTools({
   tripId,
+  role,
+  userId,
   isManager,
 }: {
   tripId: string;
+  role: Exclude<TripRole, "traveler">;
+  userId: string;
   isManager: boolean;
 }) {
   const { t } = useTranslation();
@@ -78,6 +88,23 @@ export function StaffTools({
               </>
             )}
           </Tab>
+          <Tab
+            id="rooms"
+            className="relative isolate cursor-pointer rounded-control px-4 py-2 text-sm font-semibold text-content-muted outline-none transition-colors data-[selected]:text-content data-[focus-visible]:outline-2 data-[focus-visible]:outline-focus"
+          >
+            {({ isSelected }) => (
+              <>
+                {isSelected && (
+                  <TabSelectionIndicator
+                    reduceMotion={Boolean(shouldReduceMotion)}
+                  />
+                )}
+                <span className="relative z-10 whitespace-nowrap">
+                  {t("roomPlan")}
+                </span>
+              </>
+            )}
+          </Tab>
           {isManager && (
             <Tab
               id="imports"
@@ -128,6 +155,13 @@ export function StaffTools({
             fallback={<p role="status">{t("loadingTransportGroups")}</p>}
           >
             <TransportManagementPanel tripId={tripId} />
+          </Suspense>
+        </TabPanel>
+        <TabPanel id="rooms" className="grid gap-5 outline-none">
+          <Suspense
+            fallback={<p role="status">{t("loadingRoomAssignments")}</p>}
+          >
+            <RoomingPanel tripId={tripId} userId={userId} role={role} />
           </Suspense>
         </TabPanel>
         {isManager && <ImportExportPanel tripId={tripId} />}

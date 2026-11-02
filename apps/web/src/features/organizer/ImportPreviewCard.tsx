@@ -4,6 +4,7 @@ import {
 } from "@traveler/api/imports/formatters";
 import type { ImportPreview } from "@traveler/api/imports/import.types";
 import { Button, Card } from "@traveler/components/ui";
+import { getTranslationKey } from "@traveler/i18n/resources";
 import { useTranslation } from "react-i18next";
 import { AgencyMatchPreview } from "./AgencyMatchPreview";
 import { ImportStaffAccountMapping } from "./ImportStaffAccountMapping";
@@ -43,10 +44,10 @@ export function ImportPreviewCard({
     >
       <h5 className="text-sm font-bold">{t("importPreview")}</h5>
       <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-        {Object.entries(importPreview.summary).map(([key, value]) => (
+        {Object.keys(importPreview.summary).map((key) => (
           <div key={key}>
             <dt className="text-content-muted">{importSummaryLabel(key, t)}</dt>
-            <dd className="font-semibold">{value}</dd>
+            <dd className="font-semibold">{importPreview.summary[key]}</dd>
           </div>
         ))}
       </dl>
@@ -63,7 +64,13 @@ export function ImportPreviewCard({
               {change.fields.length > 0 && (
                 <span className="text-content-muted">
                   {" "}
-                  — {change.fields.map((field) => t(field)).join(", ")}
+                  —{" "}
+                  {change.fields
+                    .map((field) => {
+                      const translationKey = getTranslationKey(field);
+                      return translationKey ? t(translationKey) : field;
+                    })
+                    .join(", ")}
                 </span>
               )}
             </p>

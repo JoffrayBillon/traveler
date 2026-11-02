@@ -192,7 +192,7 @@ export function TransportGroupEditor({
           </Button>
           {group && (
             <Button
-              appearance="quiet"
+              appearance="quietDanger"
               onPress={() => void deleteGroup()}
               isDisabled={mutations.deleteGroup.isPending}
             >

@@ -1,5 +1,20 @@
 # Technical changelog
 
+## 2026-11-02 — UI tokens and translations — Normalize quiet actions and remove unused keys
+
+- Details/impact: make the shared `quiet` button appearance neutral, reserve `quietDanger` for destructive actions, and replace all `quietNeutral` usages. Remove 138 unreferenced translation entries from both catalogs; add catalog parity and typed i18next keys so invalid/missing keys are caught during typecheck. Fix the missing trip-options label and map payment/import/room error values to valid translation keys.
+- Test status: full Biome check, web/API typechecks and translation key scan passed; no test suite run.
+
+## 2026-11-02 — Room plan — Move staff controls into organizer workspace
+
+- Details/impact: move the complete staff rooming view into an animated “Room plan” tab in the organizer workspace and keep the participant trip page limited to traveler-facing room details and requests. Remove manual room creation and its API operations; room instances are generated from the configured inventory and use their generated numeric identifiers.
+- Test status: targeted Biome and web/API TypeScript checks passed under Node 24. No tests run.
+
+## 2026-11-02 — Room inventory — Complete translations and neutral action styles
+
+- Details/impact: add the missing French and English room-capacity label and use neutral quiet button styling for inventory add/remove controls and room-plan cancellation. Room inventory access remains limited to accompanying staff and managers; traveler requests are rejected by the API.
+- Test status: targeted Biome and web/API TypeScript checks passed under Node 24. No tests run.
+
 ## 2026-11-02 — Group transport — Complete French and English translations
 
 - Details/impact: add the missing French and English labels and messages for transport groups, itinerary segments, traveler assignment, and carpool preferences; add localized singular/plural labels for travelers, passengers and segments.

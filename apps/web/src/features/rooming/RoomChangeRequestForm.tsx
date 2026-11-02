@@ -79,7 +79,7 @@ export function RoomChangeRequestForm({
       setExchangeEmail("");
     } catch (error) {
       const code = (error as { code?: string }).code;
-      onMessage(t(roomErrorLabel[code ?? ""] ?? "L’opération a échoué."));
+      onMessage(t(roomErrorLabel[code ?? ""] ?? "operationFailed"));
     }
   }
 

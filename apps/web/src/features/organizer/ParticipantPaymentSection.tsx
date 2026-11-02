@@ -16,8 +16,14 @@ export function ParticipantPaymentSection({
     <section className="grid gap-2 border-t border-border pt-5">
       <h3 className="text-base font-bold">{t("payment")}</h3>
       <p className="text-sm text-content-muted">
-        {t("paymentStatus", { status: t(participant.paymentStatus) })} ·{" "}
-        {t("amountPaid")}:{" "}
+        {t("paymentStatus", {
+          status: t(
+            participant.paymentStatus === "partially_paid"
+              ? "partiallyPaid"
+              : participant.paymentStatus,
+          ),
+        })}{" "}
+        · {t("amountPaid")}:{" "}
         {formatMoney(participant.amountPaidMinor, getLocale())} ·{" "}
         {t("amountRemaining", {
           amount: formatMoney(participant.amountDueMinor, getLocale()),

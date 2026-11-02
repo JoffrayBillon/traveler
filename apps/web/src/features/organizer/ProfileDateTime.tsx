@@ -50,7 +50,7 @@ export function ProfileDateTime({
             )}
           </DateInput>
           <Button
-            appearance="quietNeutral"
+            appearance="quiet"
             aria-label={t("openDatePicker")}
             className="size-9 min-h-0 shrink-0 rounded-control px-0"
           >
@@ -63,7 +63,7 @@ export function ProfileDateTime({
               <header className="flex items-center justify-between gap-3">
                 <Button
                   slot="previous"
-                  appearance="quietNeutral"
+                  appearance="quiet"
                   aria-label={t("previousMonth")}
                   className="size-9 min-h-0 rounded-control px-0"
                 >
@@ -72,7 +72,7 @@ export function ProfileDateTime({
                 <CalendarHeading className="text-sm font-semibold" />
                 <Button
                   slot="next"
-                  appearance="quietNeutral"
+                  appearance="quiet"
                   aria-label={t("nextMonth")}
                   className="size-9 min-h-0 rounded-control px-0"
                 >

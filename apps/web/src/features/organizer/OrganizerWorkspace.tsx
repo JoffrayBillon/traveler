@@ -8,10 +8,12 @@ export function OrganizerWorkspace({
   tripId,
   tripName: initialTripName,
   role,
+  userId,
 }: {
   tripId: string;
   tripName: string;
   role: "companion" | "manager";
+  userId: string;
 }) {
   const { t } = useTranslation();
   return (
@@ -42,7 +44,12 @@ export function OrganizerWorkspace({
         </div>
       </div>
       <Stack gap="lg">
-        <StaffTools tripId={tripId} isManager={role === "manager"} />
+        <StaffTools
+          tripId={tripId}
+          role={role}
+          userId={userId}
+          isManager={role === "manager"}
+        />
       </Stack>
     </PageContainer>
   );

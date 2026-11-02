@@ -1,8 +1,12 @@
-import { getTranslationKeyForFrenchSourceText } from "@traveler/i18n/resources";
+import {
+  getTranslationKey,
+  getTranslationKeyForFrenchSourceText,
+  type TranslationKey,
+} from "@traveler/i18n/resources";
 import type { TFunction } from "i18next";
 
 export function importSummaryLabel(key: string, t: TFunction) {
-  const labels: Record<string, string> = {
+  const labels: Record<string, TranslationKey> = {
     added: "toAdd",
     updated: "toUpdate",
     unchanged: "unchangedItems",
@@ -16,11 +20,12 @@ export function importSummaryLabel(key: string, t: TFunction) {
     outboundPlacements: "outboundPlacements",
     returnPlacements: "returnPlacements",
   };
-  return t(labels[key] ?? key);
+  const translationKey = labels[key] ?? getTranslationKey(key);
+  return translationKey ? t(translationKey) : key;
 }
 
 export function importChangeLabel(action: string, t: TFunction) {
-  const labels: Record<string, string> = {
+  const labels: Record<string, TranslationKey> = {
     added: "toAdd2",
     updated: "toUpdate2",
     unchanged: "unchangedItems",
@@ -28,7 +33,8 @@ export function importChangeLabel(action: string, t: TFunction) {
     enriched: "existingDetails",
     new_detail: "newDetails",
   };
-  return t(labels[action] ?? action);
+  const translationKey = labels[action] ?? getTranslationKey(action);
+  return translationKey ? t(translationKey) : action;
 }
 
 function translateSourceText(value: string, t: TFunction) {
@@ -68,13 +74,13 @@ export function formatImportError(
   } else if (duplicatePerson?.[1]) {
     localizedMessage = t("duplicatePersonRowRow", { row: duplicatePerson[1] });
   } else if (rowLimit?.[1] && rowLimit[2]) {
-    const limitKinds: Record<string, string> = {
+    const limitKinds: Record<string, TranslationKey> = {
       commandes: "orders",
       voyageurs: "travelers",
       lignes: "rows",
     };
     localizedMessage = t("theFileExceedsTheLimitOfCountKind", {
-      count: rowLimit[1],
+      count: Number(rowLimit[1]),
       kind: t(limitKinds[rowLimit[2]] ?? "rows"),
     });
   } else if (missingColumns?.[1]) {

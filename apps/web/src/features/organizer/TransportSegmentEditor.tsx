@@ -117,7 +117,7 @@ export function TransportSegmentEditor({
           onChange({ ...segment, serviceReference: serviceReference || null })
         }
       />
-      <Button appearance="quiet" onPress={onRemove}>
+      <Button appearance="quietDanger" onPress={onRemove}>
         {t("removeSegment")}
       </Button>
     </fieldset>

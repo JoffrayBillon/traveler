@@ -55,7 +55,7 @@ export function ProfileTime({
         >
           <Button
             slot="trigger"
-            appearance="quietNeutral"
+            appearance="quiet"
             aria-label={t("openTimePicker")}
             className="size-9 min-h-0 shrink-0 rounded-control px-0"
           >

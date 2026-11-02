@@ -83,9 +83,11 @@ export function TripWorkspace({
       <TripTravelDetails details={data.details} t={t} />
       <TripTransportSection tripId={tripId} />
       <TripTickets tripId={tripId} tickets={data.tickets} t={t} />
-      <Suspense fallback={<p role="status">{t("loadingRoomAssignments")}</p>}>
-        <RoomingPanel tripId={tripId} userId={userId} role={role} />
-      </Suspense>
+      {role === "traveler" && (
+        <Suspense fallback={<p role="status">{t("loadingRoomAssignments")}</p>}>
+          <RoomingPanel tripId={tripId} userId={userId} role={role} />
+        </Suspense>
+      )}
     </Stack>
   );
 }

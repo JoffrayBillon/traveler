@@ -60,11 +60,7 @@ export function ModalForm({
                 {description}
               </Text>
             </div>
-            <Button
-              appearance="quietNeutral"
-              aria-label={closeLabel}
-              slot="close"
-            >
+            <Button appearance="quiet" aria-label={closeLabel} slot="close">
               <X aria-hidden="true" size={18} />
             </Button>
           </header>

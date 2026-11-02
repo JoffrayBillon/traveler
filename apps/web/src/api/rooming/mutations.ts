@@ -53,11 +53,6 @@ export function useRoomingMutations(tripId: string) {
       ),
     onSuccess: invalidateRooming,
   });
-  const createRoom = useMutation({
-    mutationFn: (input: { name: string; capacity: number }) =>
-      apiPost(`${base}/rooms`, input),
-    onSuccess: invalidateRooming,
-  });
   const generateRoomAssignments = useMutation({
     mutationFn: (snapshot: string) =>
       apiPost<{
@@ -72,14 +67,6 @@ export function useRoomingMutations(tripId: string) {
   const previewRoomAssignments = useMutation({
     mutationFn: () =>
       apiPost<RoomAssignmentPlan>(`${base}/rooms/plan-preview`, {}),
-  });
-  const assignInitialRoom = useMutation({
-    mutationFn: ({ roomId, userId }: { roomId: string; userId: string }) =>
-      apiPost(
-        `${base}/rooms/${encodeURIComponent(roomId)}/initial-assignment`,
-        { userId },
-      ),
-    onSuccess: invalidateRooming,
   });
   const moveTraveler = useMutation({
     mutationFn: ({
@@ -123,11 +110,9 @@ export function useRoomingMutations(tripId: string) {
   return {
     createRequest,
     respondToRequest,
-    createRoom,
     saveRoomInventory,
     generateRoomAssignments,
     previewRoomAssignments,
-    assignInitialRoom,
     moveTraveler,
     setRoomLock,
     withdrawRequest,

@@ -81,11 +81,7 @@ export function ParticipantEditorDialog({
                 {selected?.email}
               </p>
             </div>
-            <Button
-              appearance="quietNeutral"
-              slot="close"
-              aria-label={t("close")}
-            >
+            <Button appearance="quiet" slot="close" aria-label={t("close")}>
               <X aria-hidden="true" size={18} />
             </Button>
           </header>
@@ -132,11 +128,7 @@ export function ParticipantEditorDialog({
               <span />
             )}
             <div className="flex gap-2">
-              <Button
-                appearance="quietNeutral"
-                slot="close"
-                isDisabled={isSaving}
-              >
+              <Button appearance="quiet" slot="close" isDisabled={isSaving}>
                 {t("cancel")}
               </Button>
               <Button

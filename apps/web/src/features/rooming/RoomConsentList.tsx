@@ -43,7 +43,7 @@ export function RoomConsentList({
       const code = (error as { code?: string }).code;
       onMessage(
         code
-          ? t(roomErrorLabel[code] ?? "L’opération a échoué.")
+          ? t(roomErrorLabel[code] ?? "operationFailed")
           : t("yourResponseCouldNotBeSentCheckYourConnectionAndTryAgain"),
       );
     }
@@ -111,7 +111,7 @@ export function RoomConsentList({
                     {t("approve")}
                   </Button>
                   <Button
-                    appearance="quiet"
+                    appearance="quietDanger"
                     onPress={() => void respond(request.id, false)}
                     isDisabled={mutations.respondToRequest.isPending}
                   >

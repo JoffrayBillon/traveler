@@ -14,14 +14,12 @@ import {
 import { type FormEvent, useState } from "react";
 import {
   Form,
-  Input,
   Label,
   ListBox,
   ListBoxItem,
   Popover,
   Select,
   SelectValue,
-  TextField,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { RoomInventoryEditor } from "./RoomInventoryEditor";
@@ -42,8 +40,6 @@ export function RoomManagementPanel({
   const { t } = useTranslation();
   const mutations = useRoomingMutations(tripId);
   const inventoryQuery = useRoomInventoryQuery(tripId, true);
-  const [roomName, setRoomName] = useState("");
-  const [roomCapacity, setRoomCapacity] = useState("4");
   const [travelerId, setTravelerId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomPlan, setRoomPlan] = useState<RoomAssignmentPlan | null>(null);
@@ -58,22 +54,6 @@ export function RoomManagementPanel({
     );
     return room.occupiedCount < room.capacity || isCurrentRoom;
   });
-
-  async function createRoom(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    try {
-      await mutations.createRoom.mutateAsync({
-        name: roomName,
-        capacity: Number(roomCapacity),
-      });
-    } catch {
-      onMessage(t("thisRoomCouldNotBeCreatedCheckItsNameAndCapacity"));
-      return;
-    }
-    setRoomName("");
-    setRoomCapacity("4");
-    onMessage(t("theRoomWasCreated"));
-  }
 
   async function generateAssignments() {
     try {
@@ -138,7 +118,7 @@ export function RoomManagementPanel({
       setTravelerId(null);
     } catch (error) {
       const code = (error as { code?: string }).code;
-      onMessage(t(roomErrorLabel[code ?? ""] ?? "L’opération a échoué."));
+      onMessage(t(roomErrorLabel[code ?? ""] ?? "operationFailed"));
     }
   }
 
@@ -175,46 +155,6 @@ export function RoomManagementPanel({
         isSaving={mutations.saveRoomInventory.isPending}
         onSave={(inventory) => void saveInventory(inventory)}
       />
-      <h4 className="text-base font-bold">{t("createARoom")}</h4>
-      <Form
-        className="grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3 max-[420px]:grid-cols-1"
-        onSubmit={createRoom}
-      >
-        <TextField
-          className="grid min-w-0 gap-2"
-          value={roomName}
-          onChange={setRoomName}
-          isRequired
-        >
-          <Label className={textFieldStyles().label()}>{t("roomName")}</Label>
-          <Input
-            className={textFieldStyles().input()}
-            placeholder={t("eG101")}
-            maxLength={80}
-          />
-        </TextField>
-        <TextField
-          className="grid min-w-0 gap-2"
-          value={roomCapacity}
-          onChange={setRoomCapacity}
-          isRequired
-        >
-          <Label className={textFieldStyles().label()}>{t("capacity")}</Label>
-          <Input
-            className={textFieldStyles().input()}
-            type="number"
-            min="1"
-            max="12"
-          />
-        </TextField>
-        <Button
-          appearance="secondary"
-          type="submit"
-          isDisabled={mutations.createRoom.isPending}
-        >
-          {t("create")}
-        </Button>
-      </Form>
       {travelers.length > 0 && availableRooms.length > 0 && (
         <Form
           className="grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3 max-[420px]:grid-cols-1"

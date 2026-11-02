@@ -87,9 +87,6 @@ export const fr = {
   editMyProfile: "Modifier ma fiche",
   lastName: "Nom",
   sex: "Sexe",
-  whyDoYouNeedThisInformation: "Pourquoi cette information est demandée ?",
-  thisInformationIsUsedOnlyToOrganizeRoomsAndApplyRoomCompositionRules:
-    "Cette information sert uniquement à organiser les chambres et appliquer leurs règles de composition.",
   man: "Homme",
   woman: "Femme",
   dietaryRequirements: "Régime alimentaire",
@@ -101,7 +98,6 @@ export const fr = {
   emergencyContactLastName: "Nom du contact d’urgence",
   emergencyContactPhone: "Téléphone du contact d’urgence",
   saveMyProfile: "Enregistrer ma fiche",
-  yourProfileHasBeenSaved: "Votre fiche a été enregistrée.",
   yourProfileCouldNotBeSavedPleaseTryAgain:
     "Votre fiche n’a pas pu être enregistrée. Réessayez.",
   chooseAnOptionForSex: "Choisissez une option pour le sexe.",
@@ -119,8 +115,6 @@ export const fr = {
   text3DaySkiPass: "Forfait ski 3 jours",
   text2DaySkiPass: "Forfait ski 2 jours",
   transport: "Transport",
-  yourTransportDetailsAreNotAvailableYet:
-    "Votre transport n’est pas encore renseigné.",
   yourRoomAndPendingRequests: "Votre chambre et les demandes en attente.",
   rooms: "Chambres",
   loadingRoomAssignments: "Chargement du rooming…",
@@ -136,9 +130,9 @@ export const fr = {
   emailOfThePersonToExchangeWith: "E-mail de la personne avec qui échanger",
   required: " (obligatoire)",
   optional: " (facultatif)",
+  operationFailed: "L’opération a échoué.",
   proposeAnExchange: "Proposer l’échange",
   sendMyRequest: "Envoyer ma demande",
-  requestsToApprove: "Demandes à valider",
   roomChangeRequests: "Demandes de changement de chambre",
   requestsARoomChange: "demande un changement de chambre.",
   roomRequestPending: "En attente des accords requis",
@@ -162,7 +156,6 @@ export const fr = {
   approve: "J’accepte",
   decline: "Je refuse",
   yourApprovalIsRecorded: "Votre accord est enregistré",
-  approvedRequiredApprovals: "{{approved}}/{{required}} accords",
   roomPlan: "Plan des chambres",
   roomPlanInventoryDescription:
     "Les affectations existantes et les chambres verrouillées sont conservées.",
@@ -171,6 +164,7 @@ export const fr = {
     "Configurez le nombre de chambres par capacité avant de créer les premières chambres.",
   roomInventoryLocked:
     "L’inventaire ne peut plus être modifié après la création des chambres.",
+  roomCapacity: "Capacité de la chambre",
   roomQuantity: "Nombre de chambres",
   addRoomCapacity: "Ajouter une capacité",
   removeRoomCapacity: "Supprimer cette capacité",
@@ -195,8 +189,6 @@ export const fr = {
   roomAssignmentsGenerated: "{{assigned}} voyageurs affectés.",
   roomAssignmentsGeneratedWithUnconfirmed:
     "{{assigned}} voyageurs affectés. {{unconfirmed}} doivent confirmer leur sexe avant d’être placés.",
-  roomAssignmentsCouldNotBeGenerated:
-    "Impossible de générer le plan des chambres.",
   mixedRoomCode: "Chambre mixte",
   maleRoomCode: "Chambre d’hommes",
   femaleRoomCode: "Chambre de femmes",
@@ -205,21 +197,14 @@ export const fr = {
   travelerToMove: "Voyageur à déplacer",
   destinationRoom: "Chambre de destination",
   alreadyAssigned: "déjà placé",
-  createARoom: "Créer une chambre",
-  roomName: "Nom de la chambre",
-  yourRoomIsFull: "Votre chambre est complète.",
-  assignAnUnassignedTraveler: "Attribuer un voyageur non placé",
   traveler: "Voyageur",
-  chooseATraveler: "Choisir un voyageur",
-  chooseARoom: "Choisir une chambre",
-  assign: "Affecter",
   organizerSpace: "Espace organisation",
   toolsSharedByTheTripOrganizers: "Les outils partagés par l’équipe du séjour.",
   backToTrip: "Retour au voyage",
-  participantAccess: "Accès des participants",
   participantsAndUsers: "Voyageurs et utilisateurs",
   importsAndExports: "Imports et exports",
   tripAndOptions: "Voyage et options",
+  tripOptions: "Options du séjour",
   manageTripAndOptionsDescription:
     "Gérez les informations du voyage et les options partagées avec les voyageurs.",
   organizerSections: "Sections de l’organisation",
@@ -228,23 +213,8 @@ export const fr = {
   noSearchResults: "Aucun utilisateur ne correspond à cette recherche.",
   accountInformation: "Informations du compte",
   contactAndDietaryDetails: "Contacts et besoins alimentaires",
-  transportAndOptions: "Transport et options du séjour",
   role: "Rôle",
   amountPaid: "Montant payé",
-  outboundDateAndTime: "Date et heure de l’aller",
-  outboundTimezone: "Fuseau horaire de l’aller",
-  outboundMeetingTime: "Heure de rendez-vous à l’aller",
-  outboundDepartureTime: "Heure de départ à l’aller",
-  outboundLocation: "Lieu / gare de l’aller",
-  outboundReference: "Référence de l’aller",
-  outboundSeat: "Place à l’aller",
-  returnDateAndTime: "Date et heure du retour",
-  returnTimezone: "Fuseau horaire du retour",
-  returnMeetingTime: "Heure de rendez-vous au retour",
-  returnDepartureTime: "Heure de départ du retour",
-  returnLocation: "Lieu / gare du retour",
-  returnReference: "Référence du retour",
-  returnSeat: "Place au retour",
   participantChangesSaved: "Les modifications ont été enregistrées.",
   participantChangesCouldNotBeSaved:
     "Les modifications n’ont pas pu être enregistrées.",
@@ -256,48 +226,24 @@ export const fr = {
   signInLinkCouldNotBeCopied:
     "Impossible de générer ou de copier le lien de connexion.",
   saveChanges: "Enregistrer les modifications",
-  trackTheirFirstSignInAndSendANewLinkWhenNeeded:
-    "Suivez leur première connexion et renvoyez un lien si besoin.",
   loadingParticipants: "Chargement des participants…",
   theParticipantListIsUnavailable:
     "La liste des participants est indisponible.",
   noParticipantsHaveBeenImportedForThisTrip:
     "Aucun participant importé pour ce voyage.",
-  newEmailAddress: "Nouvelle adresse e-mail",
-  saveEmailAddress: "Enregistrer l’adresse",
   hasNotSignedInYet: "Pas encore connecté",
   lastSignedInDate: "Dernière connexion le {{date}}",
-  multipleReferencesToReview: " · plusieurs références à vérifier",
   paymentStatus: "Paiement : {{status}}",
   amountRemaining: " · reste {{amount}}",
-  editEmail: "Modifier l’e-mail",
-  sending2: "Envoi…",
-  resendLink: "Renvoyer un lien",
-  sendLink: "Envoyer un lien",
-  partiallyPaid: "Partiellement payé",
   unpaid: "Non payé",
   notProvided: "Non renseigné",
-  unknownDate: "date inconnue",
-  theSignInLinkWasSentToThisPerson:
-    "Le lien de connexion a été envoyé à cette personne.",
-  theLinkCouldNotBeSentPleaseTryAgainLater:
-    "Le lien n’a pas pu être envoyé. Réessayez plus tard.",
-  aLinkWasJustSentTryAgainInSecondsSeconds:
-    "Un lien vient d’être envoyé. Réessayez dans {{seconds}} secondes.",
   thisEmailAddressIsAlreadyLinkedToAnotherAccount:
     "Cette adresse est déjà rattachée à un autre compte.",
-  theAddressCannotBeChangedRightNow:
-    "L’adresse ne peut pas être changée pour le moment.",
-  addressUpdatedTheParticipantMustUseThisAddressToReceiveANewSignInLink:
-    "Adresse mise à jour. La personne devra utiliser cette adresse pour recevoir un nouveau lien de connexion.",
-  theEmailAddressCouldNotBeUpdated:
-    "L’adresse e-mail n’a pas pu être mise à jour.",
   countStay: "{{count}} séjour",
   countStays: "{{count}} séjours",
   companionsAndVips: "Accompagnateurs et VIP",
   approvals: "accords",
   emailAddress: "Adresse e-mail",
-  addCompanion: "Ajouter l’accompagnateur",
   addATravelTicket: "Ajouter un titre de transport",
   outbound: "Aller",
   reviewSpreadsheet: "Analyser le classeur",
@@ -311,9 +257,6 @@ export const fr = {
     "Aucun compte trouvé : vérifiez l’orthographe exacte.",
   otherDocument: "Autre document",
   plane: "Avion",
-  theseContactDetailsAreReservedForCompanionsAndManagers:
-    "Ces coordonnées sont réservées à l’équipe d’accompagnement et de gestion.",
-  roomWithAnAvailableBed: "Chambre avec une place libre",
   loadingTripInformation: "Chargement des informations du voyage…",
   chooseAnExcelSpreadsheetToImport: "Choisissez un classeur Excel à importer.",
   chooseATicketFileToUpload: "Choisissez un fichier de billet à téléverser.",
@@ -322,34 +265,19 @@ export const fr = {
   excelSpreadsheetXlsx: "Classeur Excel .xlsx",
   accountToLink: "Compte à rattacher",
   confirmImport: "Confirmer l’import",
-  participantsEmergencyContacts: "Contacts d’urgence des participants",
   createAnAccountWithThisEmail: "Créer un compte avec cet e-mail",
-  dateAndTime: "Date et heure",
   changesByReference: "Détail par référence",
   save: "Enregistrer",
-  saveInformation: "Enregistrer les informations",
   saveMyPreferences: "Enregistrer mes préférences",
-  saveYourProfileToAccessTripInformationAndDocuments:
-    "Enregistrez votre fiche pour accéder aux informations et documents du voyage.",
-  eG101: "Ex. 101",
   exportTheRoomingSummary: "Exporter le récapitulatif des chambres",
-  profileNotCompleted: "Fiche non complétée",
   pdfPngOrJpegFile4MbMax: "Fichier PDF, PNG ou JPEG (4 Mo max)",
   package: "Formule",
-  timeZone: "Fuseau horaire",
-  departureTime: "Heure de départ",
-  meetingTime: "Heure de rendez-vous",
   importCompleteInformationAddedByTheOrganizersHasBeenPreserved:
     "Import terminé. Les données ajoutées par l’équipe sont conservées.",
   tripImports: "Imports du voyage",
-  thisRoomCouldNotBeCreatedCheckItsNameAndCapacity:
-    "Impossible de créer cette chambre. Vérifiez son nom et sa capacité.",
   enterTheEmailAddressOfThePersonYouWantToSwapWith:
     "Indiquez l’e-mail de la personne avec qui échanger.",
-  tellUsWhetherYouNeedACarpoolAndIfSoAParkingSpace:
-    "Indiquez si vous cherchez un covoiturage et, si oui, une place de parking.",
   informationToCome: "Informations à venir",
-  travelerAndTransportDetails: "Informations de voyageur et de transport",
   tripInformation: "Informations du voyage",
   addUserManually: "Ajouter un utilisateur",
   addUser: "Ajouter l’utilisateur",
@@ -367,15 +295,9 @@ export const fr = {
   agencySpreadsheetIsReady: "Le fichier complété pour l’agence est prêt.",
   agencySpreadsheetCouldNotBePrepared:
     "Impossible de préparer le fichier de l’agence. Vérifiez le modèle et réessayez.",
-  iNeedAParkingSpace: "Je demande une place de parking",
-  iAmTravelingByCarpool: "Je viens en covoiturage",
-  theCompanionCouldNotBeAdded: "L’accompagnateur n’a pas pu être ajouté.",
-  theCompanionCanNowRequestASignInLink:
-    "L’accompagnateur peut maintenant demander son lien de connexion.",
   theImportFailedReviewTheSpreadsheetAgain:
     "L’import a échoué. Analysez à nouveau le classeur.",
   theFileImportFailed: "L’import du fichier a échoué.",
-  theRoomWasCreated: "La chambre a été créée.",
   theRoomCompositionChangedThisRequestWasNotApplied:
     "La composition de la chambre a changé. Cette demande n’a pas été appliquée.",
   signInIsTemporarilyUnavailablePleaseTryAgainLater:
@@ -383,8 +305,6 @@ export const fr = {
   signOutIsTemporarilyUnavailable:
     "La déconnexion est momentanément indisponible.",
   theRequestWasDeclined: "La demande a été refusée.",
-  theTravelerListCouldNotBeLoadedRightNow:
-    "La liste des voyageurs ne peut pas être chargée pour le moment.",
   roomAssignmentsHaveBeenUpdated: "La répartition a été mise à jour.",
   roomAssignmentsCouldNotBeUpdated:
     "Impossible de mettre à jour la répartition.",
@@ -410,10 +330,6 @@ export const fr = {
   youAreNotInvolvedInThisRequest: "Vous n’êtes pas concerné par cette demande.",
   thisPersonCouldNotBeFoundInTheSelectedRoom:
     "Impossible de retrouver cette personne dans la chambre sélectionnée.",
-  tripInformationCouldNotBeSavedCheckThatDayThreeSkiingIsOnlyAssignedToSkiers:
-    "Les informations de voyage n’ont pas pu être enregistrées. Vérifiez que le ski J3 est réservé aux skieurs.",
-  tripInformationHasBeenUpdated:
-    "Les informations de voyage ont été mises à jour.",
   theOrganizersWillAddThisInformation:
     "Les informations seront ajoutées par l’équipe.",
   rowRowFieldMessage: "Ligne {{row}} · {{field}} : {{message}}",
@@ -421,7 +337,6 @@ export const fr = {
   detailedOrderList: "Liste détaillée des commandes",
   tripName: "Nom du voyage",
   tripEndDate: "Date de fin du voyage",
-  appointACompanion: "Nommer un accompagnateur",
   seat: "Place",
   seatsOutboundpreviousOutboundReturnReturnpreviousReturn:
     "Places : {{outboundPrevious}} → {{outbound}} · retour : {{returnPrevious}} → {{return}}",
@@ -446,7 +361,6 @@ export const fr = {
   uploadTicket: "Téléverser le billet",
   travelTickets: "Titres de transport",
   journey: "Trajet",
-  bookedTransport: "Transport réservé",
   transportRoomingAndParticipantInformation:
     "Transport, rooming et données des participants.",
   tooManyRequestsTryAgainInSecondsSeconds:
@@ -470,8 +384,6 @@ export const fr = {
     "Votre proposition d’échange a été envoyée aux personnes concernées.",
   yourResponseCouldNotBeSentCheckYourConnectionAndTryAgain:
     "Votre réponse n’a pas pu être envoyée. Vérifiez votre connexion puis réessayez.",
-  travelerToUpdate: "Voyageur à mettre à jour",
-  travelerToAssign: "Voyageur à placer",
   you: "vous",
   photoBy: "Photo de",
   sirisvisualUnsplash: "Sirisvisual · Unsplash",
@@ -490,8 +402,6 @@ export const fr = {
   unchangedItems: "Inchangés",
   outboundPlacements: "Places aller",
   returnPlacements: "Places retour",
-  outboundSeats: "Places aller",
-  returnSeats: "Places retour",
   toAdd2: "à ajouter",
   toUpdate2: "à mettre à jour",
   toCancel: "à annuler",
@@ -500,99 +410,22 @@ export const fr = {
   traveler2: "Voyageur",
   companion: "Accompagnateur",
   manager: "Gestionnaire",
-  europeParis: "Europe/Paris",
   uploadThe2025MatriceRoominglisteSkiOnePointXlsxTemplateToFillItWithRoomsTravelersDietaryRequirementsAndTransportInformationKeepTheTrainSeatColumnsFromTheTemplate:
     "Importez le modèle « 2025_matrice_roomingliste_ski_ONE POINT.xlsx » pour le remplir avec les chambres, voyageurs, régimes et informations de transport. Les colonnes de placement train restent celles du modèle.",
-  locationStation: "Lieu / gare",
-  registration: "Inscription",
   payment: "Paiement",
   email: "E-mail",
-  prefilledSex: "Sexe prérempli",
-  paidDueAmounts: "Montants réglé / dû",
-  cancellation: "Annulation",
-  roomReleaseIfApplicable: "Libération de chambre si applicable",
-  thirdSkiDay: "3e jour de ski",
-  noTransport: "Sans transport",
   file: "Fichier",
-  email2: "Email",
-  email3: "Mail",
   firstName: "Prénom",
-  sex2: "Genre",
-  type: "Type",
-  orderStatus: "Statut de la commande",
-  productReference: "Référence produit",
-  amountAlreadyPaid: "Montant déjà réglé",
-  remainingOrderBalance: "Restant dû sur la commande",
-  variantOption: "Déclinaison / Option",
-  product: "Produit",
-  invoiceStatus: "Statut de la facture",
-  mondaySkiPass: "FORFAIT SKI LUNDI",
-  variant: "Declinaison",
-  thirdDaySkiAddOn: "Supp 3j ski",
-  outboundTrainSeat: "Placement train Aller",
-  returnTrainSeat: "Placement train Retour",
-  firstNames: "Prenoms",
-  lastNames: "NOMS",
-  lastNameFirstName: "NOMS / Prénoms",
-  theSpreadsheetIsInvalidOrExceedsTheAllowedUncompressedSize:
-    "Le classeur est invalide ou dépasse la taille décompressée autorisée.",
-  theExcelSpreadsheetCouldNotBeRead: "Le classeur Excel est illisible.",
-  theSpreadsheetHasNoWorksheets: "Le classeur ne contient aucune feuille.",
-  theSheetContainsNoOrders: "La feuille ne contient aucune commande.",
-  noTravelerSeatAssignmentsWereFound: "Aucun placement de voyageur trouvé.",
-  theSkiTrainHotelWorksheetIsRequired:
-    "La feuille « SKI TRAIN HOTEL » est obligatoire.",
-  aReferenceIsRequired: "La référence est obligatoire.",
   referenceAlreadyUsedOnRowRow: "Référence déjà utilisée ligne {{row}}.",
   duplicateReferenceOnRowRow: "Référence en double ligne {{row}}.",
-  aReferenceIsRequiredOnEachProductOrOptionRow:
-    "La référence est obligatoire sur chaque ligne de produit ou d’option.",
-  theLineTypeMustBeProductOrOption:
-    "Le type de ligne doit être Produit ou Option.",
-  aVariantOrOptionIsRequired: "La déclinaison ou l’option est obligatoire.",
-  aFirstNameIsRequired: "Le prénom est obligatoire.",
-  aLastNameIsRequired: "Le nom est obligatoire.",
-  theEmailAddressIsInvalid: "L’adresse e-mail est invalide.",
-  theConfirmedListCanOnlyContainConfirmedOrders:
-    "La liste validée ne doit contenir que des commandes validées.",
-  theVariantMustIncludeSkiOrSpa: "La déclinaison doit contenir SKI ou SPA.",
-  invalidAmount: "Montant invalide.",
-  unknownOrderStatus: "Statut de commande inconnu.",
-  unknownInvoiceStatus: "Statut de facture inconnu.",
-  noSkiOrSpaVariantWasFoundForThisReference:
-    "Déclinaison SKI ou SPA introuvable pour cette référence.",
-  exactlyOneSkiOrSpaVariantIsExpectedForEachReference:
-    "Une seule déclinaison SKI ou SPA est attendue par référence.",
-  theThirdDayOptionRequiresTheSkiVariant:
-    "L’option du troisième jour nécessite la déclinaison SKI.",
-  onlyOneDepartureCityIsAllowedForEachReference:
-    "Une seule ville de départ est autorisée par référence.",
-  aProductLineReferenceDoesNotExistInTheOrdersWorksheet:
-    "Une référence de ligne produit n’existe pas dans la feuille de commandes.",
   theFileExceedsTheLimitOfCountKind:
     "Le fichier dépasse la limite de {{count}} {{kind}}.",
-  orders2: "commandes",
   travelers: "voyageurs",
   rows: "lignes",
-  theSheetContainsNoPeople: "La feuille ne contient aucune personne.",
-  sexMustBeMOrF: "Le sexe doit être H ou F.",
-  typeMustBeCompanionOrPartner: "Le type doit être Accompagnant ou Partner.",
-  variantMustBeSkiOrSpa: "La déclinaison doit être SKI ou SPA.",
-  theThirdDayOfSkiingRequiresTheSkiVariant:
-    "Le troisième jour de ski nécessite la déclinaison SKI.",
-  enterACityOrNone: "La ville ou Sans doit être indiquée.",
   missingColumnSColumns: "Colonne(s) absente(s) : {{columns}}.",
   requiredColumnMissingColumn: "Colonne obligatoire absente : {{column}}.",
-  aFirstAndLastNameAreRequiredForARowWithASeatAssignment:
-    "Nom et prénom requis pour une ligne avec placement.",
   duplicatePersonRowRow: "Personne en double (ligne {{row}}).",
   addressAlreadyUsedOnRowRow: "Adresse déjà utilisée ligne {{row}}.",
-  duplicateColumn: "Colonne en double.",
-  theSheetContainsNoRegistrations: "La feuille ne contient aucune inscription.",
-  theByOrderAndByOrderLineWorksheetsAreRequired:
-    "Les feuilles « Par commande » et « Par ligne de commande » sont obligatoires.",
-  theFileExceedsTheLimitOfCountRows:
-    "Le fichier dépasse la limite de {{count}} lignes.",
   activity: "Activité",
   allergens: "Allergènes",
   capacity: "Capacité",
@@ -600,6 +433,7 @@ export const fr = {
   explore: "Découvrir",
   french: "Français",
   paid: "Payé",
+  partiallyPaid: "Partiellement payé",
   reference: "Référence",
   download: "Télécharger",
   system: "Système",

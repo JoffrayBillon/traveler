@@ -23,7 +23,9 @@ export function TripsHome({ profile }: { profile: TravelerProfile }) {
             data-route-heading
             tabIndex={-1}
           >
-            {t("helloName", { name: profile.user.name.split(" ")[0] })}
+            {t("helloName", {
+              name: profile.user.name.split(" ")[0] ?? profile.user.name,
+            })}
             <span className="text-accent-warm">.</span>
           </h1>
           <p className="text-lg text-content-muted">

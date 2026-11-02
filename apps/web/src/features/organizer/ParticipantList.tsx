@@ -73,7 +73,11 @@ export function ParticipantList({
               </span>
               {isManager && person.paymentStatus && (
                 <span className="shrink-0 rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold text-content-muted">
-                  {t(person.paymentStatus)}
+                  {t(
+                    person.paymentStatus === "partially_paid"
+                      ? "partiallyPaid"
+                      : person.paymentStatus,
+                  )}
                   {person.paymentNeedsReview ? " · !" : ""}
                 </span>
               )}

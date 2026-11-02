@@ -9,8 +9,8 @@ export const buttonStyles = tv({
         "border border-border bg-surface-muted text-content hover:bg-surface",
       select:
         "w-full justify-between border border-border bg-surface text-left text-content",
-      quiet: "bg-transparent text-danger hover:bg-surface-muted",
-      quietNeutral: "bg-transparent text-content hover:bg-surface-muted",
+      quiet: "bg-transparent text-content hover:bg-surface-muted",
+      quietDanger: "bg-transparent text-danger hover:bg-surface-muted",
       toggle:
         "min-h-11 rounded-full border border-border bg-surface text-sm text-content hover:border-content-subtle hover:bg-surface-muted data-[selected]:bg-surface-muted",
     },
