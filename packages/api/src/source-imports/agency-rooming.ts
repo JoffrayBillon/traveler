@@ -3,8 +3,9 @@ import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
 import { normalizePersonName } from "../source-import/shared";
 import type { AgencyRoomingRow } from "../source-import/types";
+import type { DatabaseExecutor, DatabaseTransaction } from "./database.types";
 export async function previewAgencyRooming(
-  database: AppDatabase,
+  database: DatabaseExecutor,
   tripId: string,
   rows: AgencyRoomingRow[],
 ) {
@@ -64,12 +65,13 @@ export async function importAgencyRooming(
   database: AppDatabase,
   tripId: string,
   rows: AgencyRoomingRow[],
+  existingTransaction?: DatabaseTransaction,
 ) {
-  const preview = await previewAgencyRooming(database, tripId, rows);
-  if (preview.unmatched || preview.ambiguous)
-    throw new InvalidAgencyRoomingMatchError();
-  const now = new Date();
-  return database.transaction(async (transaction) => {
+  const run = async (transaction: DatabaseTransaction) => {
+    const preview = await previewAgencyRooming(transaction, tripId, rows);
+    if (preview.unmatched || preview.ambiguous)
+      throw new InvalidAgencyRoomingMatchError();
+    const now = new Date();
     let updated = 0;
     for (const row of preview.rows) {
       if (!row.userId) continue;
@@ -115,7 +117,10 @@ export async function importAgencyRooming(
       updated += 1;
     }
     return { updated };
-  });
+  };
+  return existingTransaction
+    ? run(existingTransaction)
+    : database.transaction(run);
 }
 
 export class InvalidAgencyRoomingMatchError extends Error {}

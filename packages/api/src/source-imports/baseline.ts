@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
-import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
+import type { DatabaseExecutor } from "./database.types";
+
 export async function getImportBaselineHash(
-  database: AppDatabase,
+  database: DatabaseExecutor,
   tripId: string,
 ) {
   const [registrations, members, assignments, seats] = await Promise.all([

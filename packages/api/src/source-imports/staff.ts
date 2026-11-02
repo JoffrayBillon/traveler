@@ -4,12 +4,13 @@ import type { AppDatabase } from "../auth";
 import { normalizeEmail } from "../email";
 import * as schema from "../schema";
 import type { StaffImportRow } from "../source-import/types";
+import type { DatabaseExecutor, DatabaseTransaction } from "./database.types";
 import {
   DuplicateNormalizedEmailError,
   InvalidStaffAccountMappingError,
 } from "./errors";
 export async function previewStaffImport(
-  database: AppDatabase,
+  database: DatabaseExecutor,
   tripId: string,
   rows: StaffImportRow[],
 ) {
@@ -69,10 +70,11 @@ export async function importStaffRows(
   rows: StaffImportRow[],
   managerEmails: string[],
   accountMappings: Record<string, string>,
+  existingTransaction?: DatabaseTransaction,
 ) {
   const normalizedManagerEmails = new Set(managerEmails.map(normalizeEmail));
   const now = new Date();
-  return database.transaction(async (transaction) => {
+  const run = async (transaction: DatabaseTransaction) => {
     const emails = [...new Set(rows.map((row) => normalizeEmail(row.email)))];
     const mappedTargetValues = Object.values(accountMappings);
     if (new Set(mappedTargetValues).size !== mappedTargetValues.length)
@@ -236,5 +238,8 @@ export async function importStaffRows(
     for (const details of insertedDetails)
       await transaction.insert(schema.travelerDetails).values(details);
     return { created, updated };
-  });
+  };
+  return existingTransaction
+    ? run(existingTransaction)
+    : database.transaction(run);
 }

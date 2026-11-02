@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
 import * as schema from "../../schema";
 import {
@@ -52,10 +52,6 @@ export async function commitImportSource(
     .limit(1);
   if (!preview) throw new ImportCommitConflict("import_preview_expired");
 
-  const currentBaselineHash = await getImportBaselineHash(database, tripId);
-  if (currentBaselineHash !== preview.baseSnapshotHash)
-    throw new ImportCommitConflict("import_preview_stale");
-
   const contentHash = createHash("sha256")
     .update(new Uint8Array(data))
     .digest("hex");
@@ -65,26 +61,48 @@ export async function commitImportSource(
   const parsed = await parseImportSource(sourceType, data);
   if (parsed.errors.length) return { errors: parsed.errors } as const;
 
-  let result: unknown;
-  if (parsed.sourceType === "validated_roster") {
-    result = await importValidatedRoster(database, tripId, parsed.rows);
-  } else if (parsed.sourceType === "detailed_orders") {
-    result = await importDetailedOrders(database, tripId, parsed.rows);
-  } else if (parsed.sourceType === "companions_vips") {
-    result = await importStaffRows(
-      database,
-      tripId,
-      parsed.rows,
-      staffOptions.managerEmails,
-      staffOptions.accountMappings,
-    );
-  } else {
-    result = await importAgencyRooming(database, tripId, parsed.rows);
-  }
+  // Claim the preview, validate the baseline and apply imported rows together.
+  // A concurrent commit then observes either the old state or the complete new one.
+  const result = await database.transaction(async (transaction) => {
+    const [claimedPreview] = await transaction
+      .delete(schema.tripImportPreviews)
+      .where(
+        and(
+          eq(schema.tripImportPreviews.id, preview.id),
+          eq(schema.tripImportPreviews.tripId, tripId),
+          eq(schema.tripImportPreviews.actorUserId, actorUserId),
+          eq(schema.tripImportPreviews.sourceType, sourceType),
+          eq(schema.tripImportPreviews.contentHash, contentHash),
+          gt(schema.tripImportPreviews.expiresAt, new Date()),
+        ),
+      )
+      .returning({ id: schema.tripImportPreviews.id });
+    if (!claimedPreview)
+      throw new ImportCommitConflict("import_preview_expired");
 
-  await database
-    .delete(schema.tripImportPreviews)
-    .where(eq(schema.tripImportPreviews.id, preview.id));
+    const currentBaselineHash = await getImportBaselineHash(
+      transaction,
+      tripId,
+    );
+    if (currentBaselineHash !== preview.baseSnapshotHash)
+      throw new ImportCommitConflict("import_preview_stale");
+
+    if (parsed.sourceType === "validated_roster")
+      return importValidatedRoster(database, tripId, parsed.rows, transaction);
+    if (parsed.sourceType === "detailed_orders")
+      return importDetailedOrders(database, tripId, parsed.rows, transaction);
+    if (parsed.sourceType === "companions_vips")
+      return importStaffRows(
+        database,
+        tripId,
+        parsed.rows,
+        staffOptions.managerEmails,
+        staffOptions.accountMappings,
+        transaction,
+      );
+    return importAgencyRooming(database, tripId, parsed.rows, transaction);
+  });
+
   return { result } as const;
 }
 

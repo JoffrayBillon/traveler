@@ -4,6 +4,7 @@ import type { AppDatabase } from "../auth";
 import { normalizeEmail } from "../email";
 import * as schema from "../schema";
 import type { DetailedOrderRow } from "../source-import/types";
+import type { DatabaseTransaction } from "./database.types";
 export async function previewDetailedOrders(
   database: AppDatabase,
   tripId: string,
@@ -36,9 +37,10 @@ export async function importDetailedOrders(
   database: AppDatabase,
   tripId: string,
   rows: DetailedOrderRow[],
+  existingTransaction?: DatabaseTransaction,
 ) {
   const now = new Date();
-  return database.transaction(async (transaction) => {
+  const run = async (transaction: DatabaseTransaction) => {
     let created = 0;
     let updated = 0;
     for (const row of rows) {
@@ -111,5 +113,8 @@ export async function importDetailedOrders(
       }
     }
     return { created, updated };
-  });
+  };
+  return existingTransaction
+    ? run(existingTransaction)
+    : database.transaction(run);
 }

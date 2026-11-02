@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-02 — Imports — Make preview commits atomic
+
+- Details/impact: claim the preview, verify its baseline and apply imported rows in a single database transaction. Concurrent commits now observe either the state before the import or its complete result; failed/stale commits roll back the preview claim.
+- Test status: targeted Biome and API typecheck passed. Typecheck ran under Node 24.22.1 with pnpm's engine-strict check disabled because Node 26 is not installed in this shell; the repository requires Node 26. Tests were not run.
+
 ## 2026-11-01 — Frontend data and routing boundaries — Centralize TanStack Query by domain
 
 - Details/impact: move every browser request, TanStack Query hook, query key and cache effect into `apps/web/src/api` domain modules. Add `@traveler/*` aliases for source folders, move route declarations and components under `src/routes`, and render nested routes through a persistent React Router layout and animated `<Outlet>`. Replace the broad organizer workflow hook with panel-owned import and trip-settings state so `StaffTools` no longer forwards import callbacks or values it does not use. Rename type modules to the `.types.ts` convention.

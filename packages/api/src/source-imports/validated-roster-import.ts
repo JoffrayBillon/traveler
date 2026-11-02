@@ -5,14 +5,16 @@ import { normalizeEmail } from "../email";
 import * as schema from "../schema";
 import type { ValidatedRosterRow } from "../source-import/types";
 import { cancelMissingValidatedRegistrations } from "./cancel-missing-validated-registrations";
+import type { DatabaseTransaction } from "./database.types";
 import { DuplicateNormalizedEmailError } from "./errors";
 export async function importValidatedRoster(
   database: AppDatabase,
   tripId: string,
   rows: ValidatedRosterRow[],
+  existingTransaction?: DatabaseTransaction,
 ) {
   const now = new Date();
-  return database.transaction(async (transaction) => {
+  const run = async (transaction: DatabaseTransaction) => {
     const existingRows = await transaction
       .select({
         id: schema.tripRegistrations.id,
@@ -257,5 +259,8 @@ export async function importValidatedRoster(
       updated: registriesToUpdate.length,
       cancelled: cancelledCount,
     };
-  });
+  };
+  return existingTransaction
+    ? run(existingTransaction)
+    : database.transaction(run);
 }
