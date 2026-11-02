@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-02 — Organizer workspace — Keep tab content anchored to the top
+
+- Details/impact: align the animated organizer route container to the top of the shared main region so changing tabs with different content heights no longer shifts the workspace vertically. Other routes retain their existing alignment.
+- Test status: targeted Biome and web typecheck passed under the available Node 24 shell; no tests run.
+
 ## 2026-11-02 — UI tokens and translations — Normalize quiet actions and remove unused keys
 
 - Details/impact: make the shared `quiet` button appearance neutral, reserve `quietDanger` for destructive actions, and replace all `quietNeutral` usages. Remove 138 unreferenced translation entries from both catalogs; add catalog parity and typed i18next keys so invalid/missing keys are caught during typecheck. Fix the missing trip-options label and map payment/import/room error values to valid translation keys.

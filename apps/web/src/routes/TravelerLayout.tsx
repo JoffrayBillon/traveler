@@ -24,6 +24,7 @@ export function TravelerLayout({
   const { t } = useTranslation();
   const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
+  const isOrganizerRoute = location.pathname.endsWith("/organize");
 
   useEffect(() => {
     const main = mainRef.current;
@@ -56,7 +57,7 @@ export function TravelerLayout({
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
-          className="min-h-px w-full"
+          className={`min-h-px w-full${isOrganizerRoute ? " self-start" : ""}`}
           data-route-path={location.pathname}
           key={location.pathname}
           initial={
