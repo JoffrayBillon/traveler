@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-02 — Product specification — Align manager access actions
+
+- Details/impact: document the agreed manager workflow: assign roles from participant profiles and generate/copy a one-time login link for support without sending an email.
+- Test status: documentation consistency review only.
+
 ## 2026-11-02 — Imports — Make preview commits atomic
 
 - Details/impact: claim the preview, verify its baseline and apply imported rows in a single database transaction. Concurrent commits now observe either the state before the import or its complete result; failed/stale commits roll back the preview claim.
