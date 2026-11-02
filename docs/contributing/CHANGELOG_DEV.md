@@ -3,7 +3,7 @@
 ## 2026-11-02 — Group transport and rooming lifecycle — Implement
 
 - Details/impact: add trip-scoped shared transport groups with ordered outbound/return segments, staff assignment, traveler itineraries and driver/passenger carpool choices. Replace the fixed room inventory with configurable per-trip capacity counts; add review-before-apply room generation, direct organizer moves, traveler room requests with withdrawal, rejection, seven-day expiry and composition-based approvals; preserve locked and assigned rooms. Add production ticket cleanup 90 days after trip end, guarded by `CRON_SECRET` and scheduled daily. Request states remain in-app only.
-- Test status: source Biome, API/web TypeScript, API/web production builds and `git diff --check` passed under Node 26. No tests were run. Repository-wide Biome also inspects `.agents/skills` reference documents and reports pre-existing Markdown formatting diagnostics there; application sources are clean.
+- Test status: Biome, API/web TypeScript, API/web production builds and `git diff --check` passed under Node 26. Biome excludes externally sourced agent skills/configuration and the long-form product spec. No tests were run.
 
 ## 2026-11-02 — Product specification — Close rooming request and ticket lifecycle decisions
 

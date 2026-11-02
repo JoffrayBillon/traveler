@@ -7,6 +7,11 @@
       "!!**/dist",
       "!!**/coverage",
       "!!pnpm-lock.yaml",
+      "!!.agents/skills",
+      "!!.claude",
+      "!!.copilot",
+      "!!.cursor",
+      "!!docs/PRODUCT_SPEC.md",
       "!!docs/MISSION_ORIGINAL.md"
     ]
   },
