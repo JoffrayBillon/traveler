@@ -1,8 +1,8 @@
 # Technical changelog
 
-## 2026-11-02 — Product specification — Draft grouped transport and room planner
+## 2026-11-02 — Product specification — Specify grouped transport and room planner
 
-- Details/impact: record the new direction for organizer-managed group itineraries, traveler assignment to transport groups, anonymous per-trip room inventory, generated room plans, organizer drag-and-drop, traveler room requests and full-room request locks. Mark unresolved consent, auto-placement, carpool and import-mapping rules instead of guessing.
+- Details/impact: specify organizer-managed group itineraries with city-based import assignment and draft groups, driver/passenger declarations, anonymous app-numbered rooms, gender-aware room generation, H/F/M badges, organizer overrides, full-room locks and mixed-room approval by every occupant. Keep in-app explanations neutral and mark gender-confirmation timing, request withdrawal/expiry and notifications open.
 - Test status: documentation review only; implementation is intentionally pending the open product decisions.
 
 ## 2026-11-02 — Source imports — Batch database writes
