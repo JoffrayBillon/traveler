@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-03 — Drizzle metadata — Apply Biome formatting
+
+- Details/impact: format the generated snapshot and migration journal to satisfy the repository-wide Biome check.
+- Test status: targeted Biome formatting and check passed under the available Node 24 runtime; CI rerun pending. No tests run.
+
 ## 2026-11-03 — Route transitions — Preserve pages during navigation
 
 - Details/impact: keep the matched React Router outlet stable while `AnimatePresence` waits for the outgoing page, preventing the trips list from being replaced inside a hidden exiting route. Hold protected routes until session lookup completes and use a centered, reduced-motion-aware loading indicator.
