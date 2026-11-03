@@ -102,6 +102,8 @@ describe("ParticipantDirectory", () => {
     expect(
       within(dialog).getByDisplayValue("alex@example.com"),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText("Paris Ski · Paris")).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: /Paris Ski · Paris/ }),
+    ).toBeInTheDocument();
   });
 });

@@ -2,8 +2,8 @@
 
 ## 2026-11-03 — CI tests — Align test setup with runtime contracts
 
-- Details/impact: share the frontend's source aliases with Vitest, provide a QueryClient to the participant-directory test, inject the same Brevo adapter used by production in its email test, and mark rooming fixture genders as confirmed before asserting mixed-room consent.
-- Test status: 18 targeted API auth/rooming tests and the participant-directory test pass; Biome passes. Full workspace test and GitHub CI are pending. Local checks currently run under Node 24 because the installed Node 26 NVM path is inaccessible in this session.
+- Details/impact: share source aliases with Vitest, supply React Query and ResizeObserver test setup, align web integration mocks/assertions with the current grouped-transport and session flows, inject the Brevo adapter in auth tests, and confirm rooming fixture genders before asserting mixed-room consent.
+- Test status: all 18 web tests and 48 API source tests pass; Biome and translation checks pass. Local Node is 24, so API distribution/build and the repository's Node 26 checks remain for GitHub CI.
 
 ## 2026-11-03 — Drizzle metadata — Apply Biome formatting
 

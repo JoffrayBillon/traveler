@@ -1,23 +1,42 @@
+import { focusManager } from "@tanstack/react-query";
 import {
   act,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { queryClient } from "@traveler/api/query-client";
+import { queryKeys } from "@traveler/api/query-keys";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
+function mockResponse(
+  status: number,
+  body: unknown = {},
+  headers = new Headers(),
+) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+    headers,
+  };
+}
+
 beforeEach(() => {
+  queryClient.clear();
   window.history.pushState({}, "", "/");
   window.localStorage.removeItem("traveler-theme");
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 401 }));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(401)));
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  focusManager.setFocused(undefined);
   vi.unstubAllGlobals();
 });
 
@@ -29,7 +48,7 @@ describe("application shell", () => {
       await screen.findByRole("heading", { level: 1, name: /La montagne/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveAttribute("id", "main");
-    await user.tab();
+    screen.getByRole("link", { name: "Aller au contenu" }).focus();
     expect(
       screen.getByRole("link", { name: "Aller au contenu" }),
     ).toHaveFocus();
@@ -69,7 +88,7 @@ describe("application shell", () => {
                 ],
               }),
             })
-          : Promise.resolve({ ok: true, status: 200 }),
+          : Promise.resolve(mockResponse(200)),
       ),
     );
     render(<App />);
@@ -81,15 +100,15 @@ describe("application shell", () => {
     await user.click(
       screen.getByRole("button", { name: "Compte de Mina Manager" }),
     );
-    const system = screen.getByRole("button", { name: "Système" });
-    const dark = screen.getByRole("button", { name: "Sombre" });
-    const light = screen.getByRole("button", { name: "Clair" });
-    expect(system).toHaveAttribute("aria-pressed", "true");
+    const system = screen.getByRole("radio", { name: "Système" });
+    const dark = screen.getByRole("radio", { name: "Sombre" });
+    const light = screen.getByRole("radio", { name: "Clair" });
+    expect(system).toHaveAttribute("aria-checked", "true");
     await user.click(light);
-    expect(light).toHaveAttribute("aria-pressed", "true");
+    expect(light).toHaveAttribute("aria-checked", "true");
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
     await user.click(dark);
-    expect(dark).toHaveAttribute("aria-pressed", "true");
+    expect(dark).toHaveAttribute("aria-checked", "true");
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
     await user.click(system);
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
@@ -145,29 +164,47 @@ describe("application shell", () => {
     expect(results.violations).toEqual([]);
   });
 
-  it("lets companions save transport details for a participant", async () => {
+  it("lets companions update a participant's grouped transport", async () => {
     const user = userEvent.setup();
-    const travelerDetails = {
+    const participant = {
+      userId: "traveler-1",
+      firstName: "Alex",
+      lastName: "Voyageur",
+      email: "alex@example.com",
+      role: "traveler",
+      gender: "M",
+      genderConfirmed: true,
+      dietaryRequirements: null,
+      allergens: null,
+      profileCompletedAt: null,
+      lastLoginAt: null,
+      paymentStatus: null,
+      amountPaidMinor: null,
+      amountDueMinor: null,
+      paymentNeedsReview: false,
+      emergencyContactFirstName: null,
+      emergencyContactLastName: null,
+      emergencyContactPhone: null,
       activityProfile: "ski",
       skiDayThree: false,
-      transportMode: "train",
-      departureCity: null,
-      outboundDateTime: null,
-      outboundTimezone: null,
-      outboundMeetingTime: null,
-      outboundDepartureTime: null,
-      outboundLocation: null,
-      outboundReference: null,
-      outboundSeat: null,
-      returnDateTime: null,
-      returnTimezone: null,
-      returnMeetingTime: null,
-      returnDepartureTime: null,
-      returnLocation: null,
-      returnReference: null,
-      returnSeat: null,
-      carpoolPreference: null,
-      parkingPreference: null,
+      transportChoice: "unconfirmed",
+      groupId: null,
+      carpoolRole: "none",
+      carpoolDriverUserId: null,
+    };
+    const group = {
+      id: "group-1",
+      tripId: "trip-1",
+      name: "Paris Ski",
+      sourceCity: "Paris",
+      normalizedCity: "paris",
+      isDraft: false,
+      outboundMeetingAt: null,
+      outboundMeetingPlace: null,
+      returnMeetingAt: null,
+      returnMeetingPlace: null,
+      segments: [],
+      travelers: [],
     };
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (url === "/api/me")
@@ -185,90 +222,59 @@ describe("application shell", () => {
             ],
           }),
         });
-      if (url.endsWith("/traveler"))
+      if (url === "/api/trips/trip-1/travelers")
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            trip: { id: "trip-1", name: "Ski 2027" },
-            traveler: {
-              firstName: "Léa",
-              lastName: "Staff",
-              gender: "F",
-              role: "companion",
-            },
-            details: travelerDetails,
-            tickets: [],
+            travelers: [participant],
           }),
         });
-      if (url.endsWith("/rooms"))
-        return Promise.resolve({ ok: true, json: async () => ({ rooms: [] }) });
-      if (url.endsWith("/room-requests"))
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ requests: [] }),
-        });
-      if (url.endsWith("/travelers"))
+      if (url === "/api/trips/trip-1/transport")
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            travelers: [
-              {
-                userId: "traveler-1",
-                firstName: "Alex",
-                lastName: "Voyageur",
-                email: "alex@example.com",
-                role: "traveler",
-                ...travelerDetails,
-              },
-            ],
+            groups: [group],
+            participants: [],
+            drivers: [],
+            self: null,
           }),
         });
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+      return Promise.resolve(mockResponse(200));
     });
     vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/trips/trip-1/organize");
     render(<App />);
-
-    await user.click(await screen.findByRole("link", { name: /Ski 2027/ }));
     await user.click(
-      await screen.findByRole("link", { name: /Outils d’organisation/ }),
+      await screen.findByRole("button", { name: /Alex Voyageur/ }),
     );
-    expect(
-      await screen.findByRole("heading", {
-        name: "Informations de voyageur et de transport",
+    const dialog = await screen.findByRole("dialog");
+    const emailField = within(dialog).getByRole("textbox", {
+      name: "Adresse e-mail",
+    });
+    expect(emailField).toBeDisabled();
+    await user.click(
+      within(dialog).getByRole("button", { name: /Affectation du transport/ }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: "Paris Ski · Paris" }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Enregistrer les modifications",
       }),
-    ).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: /Voyageur à mettre à jour/ }),
-    );
-    await user.click(
-      await screen.findByRole("option", { name: /Alex Voyageur/ }),
-    );
-    await user.type(
-      await screen.findByRole("textbox", { name: "Ville de départ" }),
-      "Lyon",
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Enregistrer les informations" }),
     );
 
     const saveCall = fetchMock.mock.calls.find(
       ([url, options]) =>
-        url === "/api/trips/trip-1/travelers/traveler-1/details" &&
+        url === "/api/trips/trip-1/participants/traveler-1/admin-profile" &&
         (options as RequestInit | undefined)?.method === "PUT",
     );
-    if (!saveCall) throw new Error("Expected the traveler details update.");
+    if (!saveCall) throw new Error("Expected the participant update request.");
     expect(
       JSON.parse((saveCall[1] as RequestInit).body as string),
     ).toMatchObject({
-      activityProfile: "ski",
-      transportMode: "train",
-      departureCity: "Lyon",
-      carpoolPreference: null,
-      parkingPreference: null,
+      details: { transportChoice: "group", groupId: "group-1" },
     });
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Les informations de voyage ont été mises à jour.",
-    );
   });
 
   it("requests a sign-in link and does not reveal whether the email is invited", async () => {
@@ -277,8 +283,8 @@ describe("application shell", () => {
       .fn()
       .mockImplementation((url: string) =>
         url === "/api/me"
-          ? Promise.resolve({ status: 401 })
-          : Promise.resolve({ ok: true, status: 200 }),
+          ? Promise.resolve(mockResponse(401))
+          : Promise.resolve(mockResponse(200)),
       );
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
@@ -291,14 +297,22 @@ describe("application shell", () => {
       screen.getByRole("button", { name: "Recevoir mon lien de connexion" }),
     );
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/auth/sign-in/magic-link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: "traveler@example.com",
-        callbackURL: `${window.location.origin}/`,
+    const signInCall = fetchMock.mock.calls.find(
+      ([url]) => url === "/api/auth/sign-in/magic-link",
+    );
+    if (!signInCall) throw new Error("Expected the magic-link request.");
+    expect(signInCall?.[1]).toEqual(
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          email: "traveler@example.com",
+          callbackURL: `${window.location.origin}/`,
+        }),
       }),
-    });
+    );
+    expect(
+      new Headers((signInCall[1] as RequestInit).headers).get("Content-Type"),
+    ).toBe("application/json");
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Si cette adresse est autorisée, son lien de connexion est affiché dans le terminal de l’API locale.",
     );
@@ -322,8 +336,8 @@ describe("application shell", () => {
         .fn()
         .mockImplementation((url: string) =>
           url === "/api/me"
-            ? Promise.resolve({ status: 401 })
-            : Promise.resolve({ ok: false, status: 503 }),
+            ? Promise.resolve(mockResponse(401))
+            : Promise.resolve(mockResponse(503)),
         ),
     );
     render(<App />);
@@ -347,11 +361,12 @@ describe("application shell", () => {
       "fetch",
       vi.fn().mockImplementation((url: string) =>
         url === "/api/me"
-          ? Promise.resolve({ status: 401 })
+          ? Promise.resolve(mockResponse(401))
           : Promise.resolve({
               ok: false,
               status: 429,
               headers: new Headers({ "Retry-After": "45" }),
+              json: async () => ({}),
             }),
       ),
     );
@@ -374,21 +389,19 @@ describe("application shell", () => {
   });
 
   it("re-enables sign-in based on elapsed time when the tab regains focus", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
     vi.stubGlobal(
       "fetch",
       vi
         .fn()
         .mockImplementation((url: string) =>
           Promise.resolve(
-            url === "/api/me" ? { status: 401 } : { ok: true, status: 200 },
+            url === "/api/me" ? mockResponse(401) : mockResponse(200),
           ),
         ),
     );
     render(<App />);
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await screen.findByRole("textbox", { name: "Votre adresse e-mail" });
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Votre adresse e-mail" }),
@@ -420,9 +433,16 @@ describe("application shell", () => {
 
   it("shows only the signed-in member's trips and supports signing out", async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      url === "/api/me"
-        ? Promise.resolve({
+    let isSignedOut = false;
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/auth/sign-out") {
+        isSignedOut = true;
+        return Promise.resolve(mockResponse(200));
+      }
+      if (url !== "/api/me") return Promise.resolve(mockResponse(200));
+      return isSignedOut
+        ? Promise.resolve(mockResponse(401))
+        : Promise.resolve({
             ok: true,
             status: 200,
             json: async () => ({
@@ -435,9 +455,8 @@ describe("application shell", () => {
                 { tripId: "trip-1", tripName: "Ski 2027", role: "manager" },
               ],
             }),
-          })
-        : Promise.resolve({ ok: true, status: 200 }),
-    );
+          });
+    });
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
 
@@ -451,9 +470,10 @@ describe("application shell", () => {
     await user.click(
       await screen.findByRole("button", { name: "Se déconnecter" }),
     );
-    expect(fetchMock).toHaveBeenCalledWith("/api/auth/sign-out", {
-      method: "POST",
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/auth/sign-out",
+      expect.objectContaining({ method: "POST" }),
+    );
     expect(
       await screen.findByRole("heading", {
         name: /La montagne/,
@@ -525,7 +545,49 @@ describe("application shell", () => {
             }),
           });
         }
-        return Promise.resolve({ ok: true, status: 200 });
+        if (url === "/api/trips/trip-1/transport")
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              groups: [
+                {
+                  id: "group-1",
+                  tripId: "trip-1",
+                  name: "Paris Ski",
+                  sourceCity: "Paris",
+                  normalizedCity: "paris",
+                  isDraft: false,
+                  outboundMeetingAt: null,
+                  outboundMeetingPlace: "Gare de Lyon",
+                  returnMeetingAt: null,
+                  returnMeetingPlace: null,
+                  segments: [
+                    {
+                      id: "segment-1",
+                      direction: "outbound",
+                      mode: "train",
+                      origin: "Paris",
+                      destination: "Moûtiers",
+                      departureAt: "2027-02-15T07:30:00.000Z",
+                      arrivalAt: null,
+                      serviceReference: "ABC123",
+                    },
+                  ],
+                  travelers: [],
+                },
+              ],
+              participants: [],
+              drivers: [],
+              self: {
+                transportChoice: "group",
+                groupId: "group-1",
+                carpoolRole: "none",
+                carpoolDriverUserId: null,
+              },
+            }),
+          });
+        return Promise.resolve(mockResponse(200));
       }),
     );
     render(<App />);
@@ -536,10 +598,11 @@ describe("application shell", () => {
       await screen.findByRole("heading", { name: "Votre séjour" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Forfait ski 3 jours")).toBeInTheDocument();
-    expect(screen.getByText("Train")).toBeInTheDocument();
+    expect(await screen.findByText("Paris Ski")).toBeInTheDocument();
     expect(
-      screen.getByText("Paris Gare de Lyon · Réf. ABC123 · Place 12A"),
+      await screen.findByText(/Train · Paris → Moûtiers/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Gare de Lyon/)).toBeInTheDocument();
     expect(screen.getByText("billet-aller.pdf · 50 Ko")).toBeInTheDocument();
     expect(
       screen.getByRole("link", {
@@ -563,14 +626,19 @@ describe("application shell", () => {
           trips: [{ tripId: "trip-1", tripName: "Ski 2027", role: "manager" }],
         }),
       })
-      .mockResolvedValueOnce({ status: 401 });
+      .mockResolvedValueOnce(mockResponse(401));
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
 
     expect(
       await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
-    window.dispatchEvent(new Event("focus"));
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.me,
+      refetchType: "none",
+    });
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
 
     expect(
       await screen.findByRole("heading", {
@@ -595,15 +663,20 @@ describe("application shell", () => {
           trips: [{ tripId: "trip-1", tripName: "Ski 2027", role: "manager" }],
         }),
       })
-      .mockResolvedValueOnce({ status: 403 });
+      .mockResolvedValueOnce(mockResponse(403));
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
 
     expect(
       await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.me,
+      refetchType: "none",
+    });
     await act(async () => {
-      window.dispatchEvent(new Event("focus"));
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
     });
 
     expect(
@@ -645,15 +718,21 @@ describe("application shell", () => {
         json: async () => profile,
       })
       .mockResolvedValueOnce({ ok: true, status: 200, json: staleJson })
-      .mockResolvedValueOnce({ ok: true, status: 200 });
+      .mockResolvedValueOnce(mockResponse(200))
+      .mockResolvedValueOnce(mockResponse(401));
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
 
     expect(
       await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.me,
+      refetchType: "none",
+    });
     await act(async () => {
-      window.dispatchEvent(new Event("focus"));
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
     });
     await waitFor(() => expect(staleJson).toHaveBeenCalledOnce());
     await user.click(

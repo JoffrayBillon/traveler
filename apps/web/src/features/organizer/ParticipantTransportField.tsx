@@ -95,6 +95,7 @@ export function ParticipantTransportField({
               <ListBoxItem
                 key={group.id}
                 id={`group:${group.id}`}
+                textValue={`${group.name} · ${group.sourceCity}`}
                 className={listBoxStyles().item()}
               >
                 {group.name} · {group.sourceCity}
