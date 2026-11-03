@@ -3,6 +3,10 @@ import type {
   DetailsDraft,
   ProfileDraft,
 } from "@traveler/api/participants/participant-form.types";
+import type {
+  TransportGroup,
+  TransportView,
+} from "@traveler/api/transport/transport.types";
 import { Button } from "@traveler/components/ui";
 import { Check, Copy, X } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
@@ -17,6 +21,9 @@ export function ParticipantEditorDialog({
   selected,
   profile,
   details,
+  transportGroups,
+  transportDrivers,
+  isTransportLoading,
   email,
   onEmailChange,
   role,
@@ -33,6 +40,9 @@ export function ParticipantEditorDialog({
   selected: StaffTraveler | null;
   profile: ProfileDraft | null;
   details: DetailsDraft | null;
+  transportGroups: TransportGroup[];
+  transportDrivers: TransportView["drivers"];
+  isTransportLoading: boolean;
   email: string;
   onEmailChange: (email: string) => void;
   role: StaffTraveler["role"];
@@ -47,6 +57,14 @@ export function ParticipantEditorDialog({
   onCopyLink: () => void;
 }) {
   const { t } = useTranslation();
+  const hasInvalidCarpoolDriver = Boolean(
+    details?.transportChoice === "none" &&
+      details.carpoolRole === "passenger" &&
+      (!details.carpoolDriverUserId ||
+        !transportDrivers.some(
+          (driver) => driver.userId === details.carpoolDriverUserId,
+        )),
+  );
   function changeProfile<K extends keyof ProfileDraft>(
     key: K,
     value: ProfileDraft[K],
@@ -102,6 +120,10 @@ export function ParticipantEditorDialog({
               />
               <ParticipantTravelSection
                 details={details}
+                groups={transportGroups}
+                drivers={transportDrivers}
+                participantId={selected.userId}
+                isTransportLoading={isTransportLoading}
                 onChange={changeDetails}
               />
               <ParticipantPaymentSection
@@ -134,7 +156,9 @@ export function ParticipantEditorDialog({
               <Button
                 appearance="primary"
                 onPress={() => onSave()}
-                isDisabled={isSaving || !profile || !details}
+                isDisabled={
+                  isSaving || !profile || !details || hasInvalidCarpoolDriver
+                }
               >
                 {isSaving ? t("saving") : t("saveChanges")}
               </Button>

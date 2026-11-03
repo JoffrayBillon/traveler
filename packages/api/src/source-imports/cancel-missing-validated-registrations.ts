@@ -1,5 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
+import { recordRoomAssignmentHistory } from "../datamodel/room-assignment-history.repository";
 import * as schema from "../schema";
 
 type DatabaseTransaction = Parameters<
@@ -13,6 +14,7 @@ export async function cancelMissingValidatedRegistrations(
   incomingReferences: ReadonlySet<string>,
   activeUserIds: ReadonlySet<string>,
   now: Date,
+  actorUserId?: string,
 ) {
   const cancelledRegistrations = previousActiveRows.filter(
     (row) => !incomingReferences.has(row.reference),
@@ -86,6 +88,21 @@ export async function cancelMissingValidatedRegistrations(
 
   if (usersToRelease.length) {
     const usersToReleaseSet = new Set(usersToRelease);
+    if (actorUserId) {
+      await recordRoomAssignmentHistory(
+        transaction,
+        tripId,
+        actorUserId,
+        "roster_import",
+        priorAssignments
+          .filter(({ userId }) => usersToReleaseSet.has(userId))
+          .map(({ userId, roomId }) => ({
+            userId,
+            fromRoomId: roomId,
+            toRoomId: null,
+          })),
+      );
+    }
     await transaction
       .delete(schema.roomAssignments)
       .where(
@@ -121,8 +138,25 @@ export async function cancelMissingValidatedRegistrations(
             inArray(schema.roomAssignments.roomId, roomIds),
           ),
         );
+      const roomCapacities = await transaction
+        .select({ id: schema.rooms.id, capacity: schema.rooms.capacity })
+        .from(schema.rooms)
+        .where(
+          and(
+            eq(schema.rooms.tripId, tripId),
+            inArray(schema.rooms.id, roomIds),
+          ),
+        );
+      const capacityByRoom = new Map(
+        roomCapacities.map((room) => [room.id, room.capacity]),
+      );
+      const occupantCountByRoom = new Map<string, number>();
       const gendersByRoom = new Map<string, Set<"M" | "F">>();
       for (const { roomId, gender } of remainingAssignments) {
+        occupantCountByRoom.set(
+          roomId,
+          (occupantCountByRoom.get(roomId) ?? 0) + 1,
+        );
         if (!gender) continue;
         const genders = gendersByRoom.get(roomId) ?? new Set<"M" | "F">();
         genders.add(gender);
@@ -141,6 +175,11 @@ export async function cancelMissingValidatedRegistrations(
           .set({
             genderPolicy,
             compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
+            ...(capacityByRoom.has(roomId) &&
+            (occupantCountByRoom.get(roomId) ?? 0) <
+              (capacityByRoom.get(roomId) ?? 0)
+              ? { isLocked: false }
+              : {}),
           })
           .where(
             and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)),

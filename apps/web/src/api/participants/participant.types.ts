@@ -20,7 +20,11 @@ export type StaffTraveler = {
   emergencyContactLastName: string | null;
   emergencyContactPhone: string | null;
   activityProfile: "ski" | "spa" | null;
-  skiDayThree: boolean;
+  skiDayThree: boolean | null;
+  transportChoice: "group" | "none" | "unconfirmed" | null;
+  groupId: string | null;
+  carpoolRole: "none" | "driver" | "passenger" | "undecided" | null;
+  carpoolDriverUserId: string | null;
   transportMode: "train" | "flight" | "none" | null;
   departureCity: string | null;
   outboundDateTime: string | null;

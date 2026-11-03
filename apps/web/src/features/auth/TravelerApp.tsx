@@ -4,6 +4,7 @@ import {
 } from "@traveler/api/auth/mutations";
 import { useCurrentTravelerQuery } from "@traveler/api/auth/queries";
 import { ApiError } from "@traveler/api/client";
+import { LoadingIndicator } from "@traveler/components/ui";
 import { useThemePreference } from "@traveler/hooks/useThemePreference";
 import { AppRoutes } from "@traveler/routes/AppRoutes";
 import { MountainSnow } from "lucide-react";
@@ -126,7 +127,7 @@ export function TravelerApp() {
         <p>{t("preparingYourSpace")}</p>
       </section>
     ) : (
-      <Suspense fallback={<p role="status">{t("loadingYourSpace")}</p>}>
+      <Suspense fallback={<LoadingIndicator label={t("loadingYourSpace")} />}>
         <SignInPage
           email={email}
           isSending={signInMutation.isPending || cooldownSeconds > 0}
@@ -148,6 +149,7 @@ export function TravelerApp() {
     <MotionConfig reducedMotion="user">
       <AppRoutes
         profile={profile}
+        profileStatus={profileStatus}
         signInPage={signInPage}
         preference={preference}
         profileError={profileError}

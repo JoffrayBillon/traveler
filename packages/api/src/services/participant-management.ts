@@ -7,49 +7,62 @@ import {
 import { normalizeEmail } from "../email";
 import * as schema from "../schema";
 
+type ParticipantTransaction = Parameters<
+  Parameters<AppDatabase["transaction"]>[0]
+>[0];
+
 export async function updateParticipantRole(
   database: AppDatabase,
   tripId: string,
   userId: string,
   role: "traveler" | "companion" | "manager",
 ) {
-  return database.transaction(async (transaction) => {
-    const [current] = await transaction
-      .select({ role: schema.tripMemberships.role })
+  return database.transaction((transaction) =>
+    updateParticipantRoleInTransaction(transaction, tripId, userId, role),
+  );
+}
+
+export async function updateParticipantRoleInTransaction(
+  transaction: ParticipantTransaction,
+  tripId: string,
+  userId: string,
+  role: "traveler" | "companion" | "manager",
+) {
+  const [current] = await transaction
+    .select({ role: schema.tripMemberships.role })
+    .from(schema.tripMemberships)
+    .where(
+      and(
+        eq(schema.tripMemberships.tripId, tripId),
+        eq(schema.tripMemberships.userId, userId),
+      ),
+    )
+    .limit(1);
+  if (!current) return "not_found" as const;
+
+  if (current.role === "manager" && role !== "manager") {
+    const managers = await transaction
+      .select({ userId: schema.tripMemberships.userId })
       .from(schema.tripMemberships)
       .where(
         and(
           eq(schema.tripMemberships.tripId, tripId),
-          eq(schema.tripMemberships.userId, userId),
-        ),
-      )
-      .limit(1);
-    if (!current) return "not_found" as const;
-
-    if (current.role === "manager" && role !== "manager") {
-      const managers = await transaction
-        .select({ userId: schema.tripMemberships.userId })
-        .from(schema.tripMemberships)
-        .where(
-          and(
-            eq(schema.tripMemberships.tripId, tripId),
-            eq(schema.tripMemberships.role, "manager"),
-          ),
-        );
-      if (managers.length <= 1) return "last_manager_required" as const;
-    }
-
-    await transaction
-      .update(schema.tripMemberships)
-      .set({ role })
-      .where(
-        and(
-          eq(schema.tripMemberships.tripId, tripId),
-          eq(schema.tripMemberships.userId, userId),
+          eq(schema.tripMemberships.role, "manager"),
         ),
       );
-    return "updated" as const;
-  });
+    if (managers.length <= 1) return "last_manager_required" as const;
+  }
+
+  await transaction
+    .update(schema.tripMemberships)
+    .set({ role })
+    .where(
+      and(
+        eq(schema.tripMemberships.tripId, tripId),
+        eq(schema.tripMemberships.userId, userId),
+      ),
+    );
+  return "updated" as const;
 }
 
 export async function createTravelerParticipant(
@@ -114,7 +127,23 @@ export async function updateParticipantEmail(
   rawEmail: string,
 ) {
   const email = normalizeEmail(rawEmail);
-  const [target] = await database
+  try {
+    return await database.transaction((transaction) =>
+      updateParticipantEmailInTransaction(transaction, tripId, userId, email),
+    );
+  } catch {
+    return { status: "email_in_use" } as const;
+  }
+}
+
+export async function updateParticipantEmailInTransaction(
+  transaction: ParticipantTransaction,
+  tripId: string,
+  userId: string,
+  rawEmail: string,
+) {
+  const email = normalizeEmail(rawEmail);
+  const [target] = await transaction
     .select({ email: schema.users.email })
     .from(schema.tripMemberships)
     .innerJoin(schema.users, eq(schema.tripMemberships.userId, schema.users.id))
@@ -129,7 +158,7 @@ export async function updateParticipantEmail(
 
   const oldEmail = normalizeEmail(target.email);
   if (oldEmail === email) return { status: "unchanged", email } as const;
-  const [collision] = await database
+  const [collision] = await transaction
     .select({ id: schema.users.id })
     .from(schema.users)
     .where(
@@ -141,21 +170,15 @@ export async function updateParticipantEmail(
     .limit(1);
   if (collision) return { status: "email_in_use" } as const;
 
-  try {
-    await database.transaction(async (transaction) => {
-      await transaction
-        .update(schema.users)
-        .set({ email, emailVerified: false, updatedAt: new Date() })
-        .where(eq(schema.users.id, userId));
-      await transaction
-        .delete(schema.sessions)
-        .where(eq(schema.sessions.userId, userId));
-      await transaction
-        .delete(schema.verifications)
-        .where(eq(schema.verifications.identifier, oldEmail));
-    });
-  } catch {
-    return { status: "email_in_use" } as const;
-  }
+  await transaction
+    .update(schema.users)
+    .set({ email, emailVerified: false, updatedAt: new Date() })
+    .where(eq(schema.users.id, userId));
+  await transaction
+    .delete(schema.sessions)
+    .where(eq(schema.sessions.userId, userId));
+  await transaction
+    .delete(schema.verifications)
+    .where(eq(schema.verifications.identifier, oldEmail));
   return { status: "updated", email } as const;
 }

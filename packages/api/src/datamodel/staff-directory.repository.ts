@@ -41,6 +41,10 @@ export function listTripTravelerRows(database: AppDatabase, tripId: string) {
       emergencyContactPhone: schema.travelerProfiles.emergencyContactPhone,
       activityProfile: schema.travelerDetails.activityProfile,
       skiDayThree: schema.travelerDetails.skiDayThree,
+      transportChoice: schema.travelerDetails.transportChoice,
+      groupId: schema.transportGroupAssignments.groupId,
+      carpoolRole: schema.travelerDetails.carpoolRole,
+      carpoolDriverUserId: schema.travelerDetails.carpoolDriverUserId,
       transportMode: schema.travelerDetails.transportMode,
       departureCity: schema.travelerDetails.departureCity,
       outboundDateTime: schema.travelerDetails.outboundDateTime,
@@ -67,6 +71,19 @@ export function listTripTravelerRows(database: AppDatabase, tripId: string) {
       and(
         eq(schema.tripMemberships.tripId, schema.travelerDetails.tripId),
         eq(schema.tripMemberships.userId, schema.travelerDetails.userId),
+      ),
+    )
+    .leftJoin(
+      schema.transportGroupAssignments,
+      and(
+        eq(
+          schema.transportGroupAssignments.tripId,
+          schema.tripMemberships.tripId,
+        ),
+        eq(
+          schema.transportGroupAssignments.userId,
+          schema.tripMemberships.userId,
+        ),
       ),
     )
     .leftJoin(

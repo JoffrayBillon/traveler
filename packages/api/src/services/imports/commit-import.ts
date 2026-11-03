@@ -88,7 +88,13 @@ export async function commitImportSource(
       throw new ImportCommitConflict("import_preview_stale");
 
     if (parsed.sourceType === "validated_roster")
-      return importValidatedRoster(database, tripId, parsed.rows, transaction);
+      return importValidatedRoster(
+        database,
+        tripId,
+        parsed.rows,
+        transaction,
+        actorUserId,
+      );
     if (parsed.sourceType === "detailed_orders")
       return importDetailedOrders(database, tripId, parsed.rows, transaction);
     if (parsed.sourceType === "companions_vips")

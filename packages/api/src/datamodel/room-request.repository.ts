@@ -47,21 +47,30 @@ export async function listRoomRequestsForMember(
   database: AppDatabase,
   tripId: string,
   userId: string,
+  status?:
+    | "pending"
+    | "applied"
+    | "rejected"
+    | "cancelled"
+    | "expired"
+    | "stale",
 ) {
   const actor = await getTripMembershipRole(database, tripId, userId);
   if (!actor) return null;
 
-  const now = new Date();
-  await database
-    .update(schema.roomChangeRequests)
-    .set({ status: "expired", updatedAt: now })
-    .where(
-      and(
-        eq(schema.roomChangeRequests.tripId, tripId),
-        eq(schema.roomChangeRequests.status, "pending"),
-        sql`${schema.roomChangeRequests.expiresAt} <= ${now.getTime()}`,
-      ),
-    );
+  if (!status || status === "pending") {
+    const now = new Date();
+    await database
+      .update(schema.roomChangeRequests)
+      .set({ status: "expired", updatedAt: now })
+      .where(
+        and(
+          eq(schema.roomChangeRequests.tripId, tripId),
+          eq(schema.roomChangeRequests.status, "pending"),
+          sql`${schema.roomChangeRequests.expiresAt} <= ${now.getTime()}`,
+        ),
+      );
+  }
 
   const records = await database
     .select()
@@ -69,6 +78,7 @@ export async function listRoomRequestsForMember(
     .where(
       and(
         eq(schema.roomChangeRequests.tripId, tripId),
+        ...(status ? [eq(schema.roomChangeRequests.status, status)] : []),
         ...(actor.role === "traveler"
           ? [
               sql`(${schema.roomChangeRequests.requesterUserId} = ${userId} OR EXISTS (
@@ -157,6 +167,7 @@ export async function listRoomRequestsForMember(
           targetRoom: roomById.get(move.targetRoomId),
         })),
         createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
       };
     }),
   };

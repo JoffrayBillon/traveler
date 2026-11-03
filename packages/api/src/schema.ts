@@ -513,6 +513,42 @@ export const roomChangeRequests = sqliteTable(
   ],
 );
 
+export const roomAssignmentHistory = sqliteTable(
+  "room_assignment_history",
+  {
+    id: text("id").primaryKey().notNull(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    actorUserId: text("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorName: text("actor_name").notNull(),
+    actionType: text("action_type", {
+      enum: [
+        "organizer_move",
+        "plan_generation",
+        "plan_reset",
+        "roster_import",
+      ],
+    }).notNull(),
+    changesJson: text("changes_json").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("room_assignment_history_trip_created_index").on(
+      table.tripId,
+      table.createdAt,
+    ),
+    check(
+      "room_assignment_history_action_type_valid",
+      sql`${table.actionType} IN ('organizer_move', 'plan_generation', 'plan_reset', 'roster_import')`,
+    ),
+  ],
+);
+
 export const transportGroups = sqliteTable(
   "transport_groups",
   {

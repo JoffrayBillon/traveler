@@ -1,6 +1,8 @@
+import { LoadingIndicator } from "@traveler/components/ui";
 import type { ThemePreference } from "@traveler/hooks/useThemePreference";
 import type { TravelerProfile } from "@traveler/types/profile";
 import { lazy, type ReactNode, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router";
 import { NotFoundRoute } from "./NotFoundRoute";
 import { TravelerLayout } from "./TravelerLayout";
@@ -24,6 +26,7 @@ const TripsHome = lazy(() =>
 
 export function AppRoutes({
   profile,
+  profileStatus,
   signInPage,
   preference,
   profileError,
@@ -32,6 +35,7 @@ export function AppRoutes({
   mainRef,
 }: {
   profile: TravelerProfile | null;
+  profileStatus: "checking" | "ready" | "unavailable";
   signInPage: ReactNode;
   preference: ThemePreference;
   profileError: string;
@@ -39,6 +43,17 @@ export function AppRoutes({
   onSignOut: () => void;
   mainRef: RefObject<HTMLElement | null>;
 }) {
+  const { t } = useTranslation();
+  const loadingProfile = <LoadingIndicator label={t("loadingYourSpace")} />;
+
+  function renderProtectedRoute(
+    render: (profile: TravelerProfile) => ReactNode,
+  ) {
+    if (profileStatus === "checking") return loadingProfile;
+    if (!profile) return <Navigate to="/" replace />;
+    return render(profile);
+  }
+
   return (
     <Routes>
       <Route
@@ -59,41 +74,35 @@ export function AppRoutes({
         />
         <Route
           path="trips"
-          element={
-            profile ? (
-              <TripsHome profile={profile} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
+          element={renderProtectedRoute((currentProfile) => (
+            <TripsHome profile={currentProfile} />
+          ))}
         />
         <Route
           path="trips/:tripId"
-          element={
-            profile ? (
-              <TripRoute profile={profile} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
+          element={renderProtectedRoute((currentProfile) => (
+            <TripRoute profile={currentProfile} />
+          ))}
         />
         <Route
           path="trips/:tripId/organize"
+          element={renderProtectedRoute((currentProfile) => (
+            <OrganizerRoute profile={currentProfile} />
+          ))}
+        />
+        <Route
+          path="account"
           element={
-            profile ? (
-              <OrganizerRoute profile={profile} />
+            profileStatus === "checking" ? (
+              loadingProfile
             ) : (
-              <Navigate to="/" replace />
+              <Navigate to={profile ? "/trips" : "/"} replace />
             )
           }
         />
         <Route
-          path="account"
-          element={<Navigate to={profile ? "/trips" : "/"} replace />}
-        />
-        <Route
           path="*"
-          element={profile ? <NotFoundRoute /> : <Navigate to="/" replace />}
+          element={renderProtectedRoute(() => <NotFoundRoute />)}
         />
       </Route>
     </Routes>

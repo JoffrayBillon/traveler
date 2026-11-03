@@ -39,6 +39,24 @@ export type RoomRequestSummary = {
   }[];
 };
 
+export type RoomHistoryEntry = {
+  id: string;
+  actionType:
+    | "traveler_request"
+    | "organizer_move"
+    | "plan_generation"
+    | "plan_reset"
+    | "roster_import";
+  actorName: string;
+  createdAt: string;
+  changes: {
+    userId: string;
+    personName: string;
+    fromRoom: string | null;
+    toRoom: string | null;
+  }[];
+};
+
 export type RoomAssignmentPlan = {
   snapshot: string;
   roomsToCreate: { id: string; name: string; capacity: number }[];

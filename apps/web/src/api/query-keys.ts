@@ -7,6 +7,8 @@ export const queryKeys = {
       : (["trips", tripId, "rooming", includeTravelers] as const),
   roomInventory: (tripId: string) =>
     ["trips", tripId, "room-inventory"] as const,
+  roomingHistory: (tripId: string) =>
+    ["trips", tripId, "rooming-history"] as const,
   transport: (tripId: string) => ["trips", tripId, "transport"] as const,
   participantDirectory: (tripId: string) =>
     ["trips", tripId, "participants"] as const,

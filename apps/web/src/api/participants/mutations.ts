@@ -12,6 +12,7 @@ async function invalidateParticipants(
       queryKey: queryKeys.participantDirectory(tripId),
     }),
     queryClient.invalidateQueries({ queryKey: queryKeys.rooming(tripId) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.transport(tripId) }),
   ]);
 }
 
@@ -43,30 +44,16 @@ export function useSaveParticipantMutation(tripId: string) {
       isManager,
     }: SaveParticipantInput) => {
       const participantPath = `/api/trips/${encodeURIComponent(tripId)}/participants/${encodeURIComponent(participant.userId)}`;
-      await apiRequest(`${participantPath}/profile`, {
+      await apiRequest(`${participantPath}/admin-profile`, {
         method: "PUT",
-        body: JSON.stringify(profile),
+        body: JSON.stringify({
+          profile,
+          details,
+          ...(isManager ? { email, role } : {}),
+        }),
       });
-
-      await apiRequest(`${participantPath}/activity`, {
-        method: "PATCH",
-        body: JSON.stringify(details),
-      });
-      if (isManager && role !== participant.role) {
-        await apiRequest(`${participantPath}/role`, {
-          method: "PUT",
-          body: JSON.stringify({ role }),
-        });
-      }
-      if (isManager && email.trim().toLowerCase() !== participant.email) {
-        await apiRequest(`${participantPath}/email`, {
-          method: "PUT",
-          body: JSON.stringify({ email }),
-        });
-      }
     },
-    // The save spans several HTTP endpoints and can partially complete before
-    // one of them fails, so refresh the directory even after a rejected save.
+    // Refresh related views after a save attempt, including transactional errors.
     onSettled: () => invalidateParticipants(queryClient, tripId),
   });
 }

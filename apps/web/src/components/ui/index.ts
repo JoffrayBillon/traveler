@@ -10,6 +10,7 @@ export { checkboxStyles } from "./checkbox.styles";
 export { FileDropZone } from "./FileDropZone";
 export { textFieldStyles } from "./field.styles";
 export { Inline } from "./Inline";
+export { LoadingIndicator } from "./LoadingIndicator";
 export { listBoxStyles } from "./list-box.styles";
 export { ModalForm } from "./ModalForm";
 export { messageStyles } from "./message.styles";

@@ -6,10 +6,17 @@ import {
   messageStyles,
   textFieldStyles,
 } from "@traveler/components/ui";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, lazy, Suspense, useEffect, useState } from "react";
 import { Form, Input, Label, TextField } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { ProfileDate } from "./ProfileDate";
+import { TripRoomInventorySettings } from "./TripRoomInventorySettings";
+
+const TransportGroupSettingsPanel = lazy(() =>
+  import("./TransportGroupSettingsPanel").then((module) => ({
+    default: module.TransportGroupSettingsPanel,
+  })),
+);
 
 export function TripSettingsPanel({ tripId }: { tripId: string }) {
   const { t } = useTranslation();
@@ -87,6 +94,10 @@ export function TripSettingsPanel({ tripId }: { tripId: string }) {
           </p>
         )}
       </Card>
+      <TripRoomInventorySettings tripId={tripId} />
+      <Suspense fallback={<p role="status">{t("loadingTransportGroups")}</p>}>
+        <TransportGroupSettingsPanel tripId={tripId} />
+      </Suspense>
     </section>
   );
 }

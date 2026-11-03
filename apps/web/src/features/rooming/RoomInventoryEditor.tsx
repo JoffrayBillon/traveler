@@ -14,12 +14,10 @@ type RoomInventoryDraft = RoomInventoryItem & { id: string };
 
 export function RoomInventoryEditor({
   inventory = defaultInventory,
-  isLocked,
   isSaving,
   onSave,
 }: {
   inventory?: RoomInventoryItem[] | undefined;
-  isLocked: boolean;
   isSaving: boolean;
   onSave: (inventory: RoomInventoryItem[]) => void;
 }) {
@@ -55,12 +53,6 @@ export function RoomInventoryEditor({
 
   return (
     <section className="grid gap-3 rounded-card border border-border p-4">
-      <div className="grid gap-1">
-        <h5 className="font-semibold">{t("roomInventory")}</h5>
-        <p className="text-sm text-content-muted">
-          {isLocked ? t("roomInventoryLocked") : t("roomInventoryDescription")}
-        </p>
-      </div>
       <Form className="grid gap-3" onSubmit={submit}>
         {draft.map((item, index) => (
           <div
@@ -72,7 +64,6 @@ export function RoomInventoryEditor({
               value={String(item.capacity)}
               onChange={(value) => update(index, "capacity", value)}
               isRequired
-              isDisabled={isLocked}
             >
               <Label className={textFieldStyles().label()}>
                 {t("roomCapacity")}
@@ -89,7 +80,6 @@ export function RoomInventoryEditor({
               value={String(item.quantity)}
               onChange={(value) => update(index, "quantity", value)}
               isRequired
-              isDisabled={isLocked}
             >
               <Label className={textFieldStyles().label()}>
                 {t("roomQuantity")}
@@ -104,7 +94,7 @@ export function RoomInventoryEditor({
             <Button
               appearance="quiet"
               aria-label={t("removeRoomCapacity")}
-              isDisabled={isLocked || draft.length <= 1}
+              isDisabled={draft.length <= 1}
               onPress={() =>
                 setDraft((current) => current.filter((_, i) => i !== index))
               }
@@ -113,25 +103,24 @@ export function RoomInventoryEditor({
             </Button>
           </div>
         ))}
-        {!isLocked && (
-          <div className="flex flex-wrap justify-between gap-2">
-            <Button
-              appearance="quiet"
-              onPress={() =>
-                setDraft((current) => [
-                  ...current,
-                  { id: crypto.randomUUID(), capacity: 2, quantity: 0 },
-                ])
-              }
-            >
-              <Plus aria-hidden="true" size={18} />
-              {t("addRoomCapacity")}
-            </Button>
-            <Button appearance="secondary" type="submit" isDisabled={isSaving}>
-              {isSaving ? t("saving") : t("saveRoomInventory")}
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap justify-between gap-2">
+          <Button
+            appearance="quiet"
+            type="button"
+            onPress={() =>
+              setDraft((current) => [
+                ...current,
+                { id: crypto.randomUUID(), capacity: 2, quantity: 0 },
+              ])
+            }
+          >
+            <Plus aria-hidden="true" size={18} />
+            {t("addRoomCapacity")}
+          </Button>
+          <Button appearance="secondary" type="submit" isDisabled={isSaving}>
+            {isSaving ? t("saving") : t("saveRoomInventory")}
+          </Button>
+        </div>
       </Form>
     </section>
   );

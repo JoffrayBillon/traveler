@@ -3,6 +3,7 @@ import { apiGet } from "@traveler/api/client";
 import type { StaffTraveler } from "@traveler/api/participants/participant.types";
 import { queryKeys } from "@traveler/api/query-keys";
 import type {
+  RoomHistoryEntry,
   RoomInventoryItem,
   RoomRequestSummary,
   RoomSummary,
@@ -36,6 +37,18 @@ export function useRoomInventoryQuery(tripId: string, enabled: boolean) {
     queryFn: ({ signal }) =>
       apiGet<{ inventory: RoomInventoryItem[] }>(
         `/api/trips/${encodeURIComponent(tripId)}/rooms/inventory`,
+        signal,
+      ),
+  });
+}
+
+export function useRoomingHistoryQuery(tripId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.roomingHistory(tripId),
+    enabled,
+    queryFn: ({ signal }) =>
+      apiGet<{ history: RoomHistoryEntry[] }>(
+        `/api/trips/${encodeURIComponent(tripId)}/rooming-history`,
         signal,
       ),
   });

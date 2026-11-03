@@ -13,6 +13,7 @@ export async function importValidatedRoster(
   tripId: string,
   rows: ValidatedRosterRow[],
   existingTransaction?: DatabaseTransaction,
+  actorUserId?: string,
 ) {
   const now = new Date();
   const run = async (transaction: DatabaseTransaction) => {
@@ -328,6 +329,7 @@ export async function importValidatedRoster(
       incomingReferences,
       activeUserIds,
       now,
+      actorUserId,
     );
     return {
       created: registriesToInsert.length,

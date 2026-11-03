@@ -3,6 +3,10 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
 
+type TransportTransaction = Parameters<
+  Parameters<AppDatabase["transaction"]>[0]
+>[0];
+
 export async function getTripTransportView(
   database: AppDatabase,
   tripId: string,
@@ -99,15 +103,7 @@ export async function getTripTransportView(
         ),
       ),
     )
-    .where(
-      and(
-        eq(schema.tripMemberships.tripId, tripId),
-        eq(schema.tripMemberships.role, "traveler"),
-      ),
-    );
-  const visibleMembers = isStaff
-    ? members
-    : members.filter((member) => member.userId === userId);
+    .where(eq(schema.tripMemberships.tripId, tripId));
   const drivers = members.filter(
     (member) =>
       member.transportChoice === "none" && member.carpoolRole === "driver",
@@ -124,7 +120,7 @@ export async function getTripTransportView(
     current.push(segment);
     segmentsByGroup.set(segment.groupId, current);
   }
-  const member = visibleMembers[0];
+  const member = members.find((person) => person.userId === userId);
   const carpoolCounts = new Map<string, number>();
   for (const traveler of members) {
     if (traveler.carpoolRole === "passenger" && traveler.carpoolDriverUserId)
@@ -342,69 +338,117 @@ export async function setParticipantTransport(
   groupId: string | null,
   assignedBy: string,
 ) {
-  return database.transaction(async (transaction) => {
-    const [membership] = await transaction
-      .select({ role: schema.tripMemberships.role })
-      .from(schema.tripMemberships)
+  return database.transaction((transaction) =>
+    setParticipantTransportInTransaction(
+      transaction,
+      tripId,
+      userId,
+      choice,
+      groupId,
+      assignedBy,
+    ),
+  );
+}
+
+export async function setParticipantTransportInTransaction(
+  transaction: TransportTransaction,
+  tripId: string,
+  userId: string,
+  choice: "group" | "none" | "unconfirmed",
+  groupId: string | null,
+  assignedBy: string,
+) {
+  const [membership] = await transaction
+    .select({ userId: schema.tripMemberships.userId })
+    .from(schema.tripMemberships)
+    .where(
+      and(
+        eq(schema.tripMemberships.tripId, tripId),
+        eq(schema.tripMemberships.userId, userId),
+      ),
+    )
+    .limit(1);
+  if (!membership) return { error: "traveler_not_found" as const };
+  if ((choice === "group") !== Boolean(groupId))
+    return { error: "invalid_transport_assignment" as const };
+  if (groupId) {
+    const [group] = await transaction
+      .select({ id: schema.transportGroups.id })
+      .from(schema.transportGroups)
       .where(
         and(
-          eq(schema.tripMemberships.tripId, tripId),
-          eq(schema.tripMemberships.userId, userId),
+          eq(schema.transportGroups.tripId, tripId),
+          eq(schema.transportGroups.id, groupId),
         ),
       )
       .limit(1);
-    if (membership?.role !== "traveler")
-      return { error: "traveler_not_found" as const };
-    if ((choice === "group") !== Boolean(groupId))
-      return { error: "invalid_transport_assignment" as const };
-    if (groupId) {
-      const [group] = await transaction
-        .select({ id: schema.transportGroups.id })
-        .from(schema.transportGroups)
-        .where(
-          and(
-            eq(schema.transportGroups.tripId, tripId),
-            eq(schema.transportGroups.id, groupId),
-          ),
-        )
-        .limit(1);
-      if (!group) return { error: "transport_group_not_found" as const };
-    }
-    const [current] = await transaction
-      .select({ carpoolRole: schema.travelerDetails.carpoolRole })
-      .from(schema.travelerDetails)
-      .where(
-        and(
-          eq(schema.travelerDetails.tripId, tripId),
-          eq(schema.travelerDetails.userId, userId),
-        ),
-      )
-      .limit(1);
-    await transaction
-      .delete(schema.transportGroupAssignments)
-      .where(
-        and(
-          eq(schema.transportGroupAssignments.tripId, tripId),
-          eq(schema.transportGroupAssignments.userId, userId),
-        ),
-      );
-    if (groupId)
-      await transaction.insert(schema.transportGroupAssignments).values({
-        tripId,
-        groupId,
-        userId,
-        assignedBy,
-      });
-    const role = choice === "none" ? (current?.carpoolRole ?? "none") : "none";
-    await transaction
-      .insert(schema.travelerDetails)
-      .values({
-        tripId,
-        userId,
-        transportMode: choice === "none" ? "none" : null,
+    if (!group) return { error: "transport_group_not_found" as const };
+  }
+  const [current] = await transaction
+    .select({
+      carpoolRole: schema.travelerDetails.carpoolRole,
+      carpoolDriverUserId: schema.travelerDetails.carpoolDriverUserId,
+    })
+    .from(schema.travelerDetails)
+    .where(
+      and(
+        eq(schema.travelerDetails.tripId, tripId),
+        eq(schema.travelerDetails.userId, userId),
+      ),
+    )
+    .limit(1);
+  await transaction
+    .delete(schema.transportGroupAssignments)
+    .where(
+      and(
+        eq(schema.transportGroupAssignments.tripId, tripId),
+        eq(schema.transportGroupAssignments.userId, userId),
+      ),
+    );
+  if (groupId)
+    await transaction.insert(schema.transportGroupAssignments).values({
+      tripId,
+      groupId,
+      userId,
+      assignedBy,
+    });
+  const role = choice === "none" ? (current?.carpoolRole ?? "none") : "none";
+  const carpoolDriverUserId =
+    choice === "none" && role === "passenger"
+      ? (current?.carpoolDriverUserId ?? null)
+      : null;
+  await transaction
+    .insert(schema.travelerDetails)
+    .values({
+      tripId,
+      userId,
+      transportMode: choice === "none" ? "none" : null,
+      transportChoice: choice,
+      carpoolRole: role,
+      carpoolDriverUserId,
+      departureCity: null,
+      outboundDateTime: null,
+      outboundMeetingTime: null,
+      outboundDepartureTime: null,
+      outboundLocation: null,
+      outboundReference: null,
+      outboundSeat: null,
+      returnDateTime: null,
+      returnMeetingTime: null,
+      returnDepartureTime: null,
+      returnLocation: null,
+      returnReference: null,
+      returnSeat: null,
+      carpoolPreference: null,
+      parkingPreference: null,
+    })
+    .onConflictDoUpdate({
+      target: [schema.travelerDetails.tripId, schema.travelerDetails.userId],
+      set: {
         transportChoice: choice,
+        transportMode: choice === "none" ? "none" : null,
         carpoolRole: role,
-        carpoolDriverUserId: null,
+        carpoolDriverUserId,
         departureCity: null,
         outboundDateTime: null,
         outboundMeetingTime: null,
@@ -420,49 +464,25 @@ export async function setParticipantTransport(
         returnSeat: null,
         carpoolPreference: null,
         parkingPreference: null,
+        updatedAt: new Date(),
+      },
+    });
+  if (current?.carpoolRole === "driver" && role !== "driver")
+    await transaction
+      .update(schema.travelerDetails)
+      .set({
+        carpoolRole: "undecided",
+        carpoolDriverUserId: null,
+        updatedAt: new Date(),
       })
-      .onConflictDoUpdate({
-        target: [schema.travelerDetails.tripId, schema.travelerDetails.userId],
-        set: {
-          transportChoice: choice,
-          transportMode: choice === "none" ? "none" : null,
-          carpoolRole: role,
-          carpoolDriverUserId: null,
-          departureCity: null,
-          outboundDateTime: null,
-          outboundMeetingTime: null,
-          outboundDepartureTime: null,
-          outboundLocation: null,
-          outboundReference: null,
-          outboundSeat: null,
-          returnDateTime: null,
-          returnMeetingTime: null,
-          returnDepartureTime: null,
-          returnLocation: null,
-          returnReference: null,
-          returnSeat: null,
-          carpoolPreference: null,
-          parkingPreference: null,
-          updatedAt: new Date(),
-        },
-      });
-    if (current?.carpoolRole === "driver" && role !== "driver")
-      await transaction
-        .update(schema.travelerDetails)
-        .set({
-          carpoolRole: "undecided",
-          carpoolDriverUserId: null,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(schema.travelerDetails.tripId, tripId),
-            eq(schema.travelerDetails.carpoolDriverUserId, userId),
-            eq(schema.travelerDetails.carpoolRole, "passenger"),
-          ),
-        );
-    return { status: "saved" as const };
-  });
+      .where(
+        and(
+          eq(schema.travelerDetails.tripId, tripId),
+          eq(schema.travelerDetails.carpoolDriverUserId, userId),
+          eq(schema.travelerDetails.carpoolRole, "passenger"),
+        ),
+      );
+  return { status: "saved" as const };
 }
 
 export async function saveCarpoolRole(
@@ -472,98 +492,112 @@ export async function saveCarpoolRole(
   role: "none" | "driver" | "passenger",
   driverUserId: string | null,
 ) {
-  return database.transaction(async (transaction) => {
-    const [membership] = await transaction
-      .select({ role: schema.tripMemberships.role })
-      .from(schema.tripMemberships)
-      .where(
+  return database.transaction((transaction) =>
+    saveCarpoolRoleInTransaction(
+      transaction,
+      tripId,
+      userId,
+      role,
+      driverUserId,
+    ),
+  );
+}
+
+export async function saveCarpoolRoleInTransaction(
+  transaction: TransportTransaction,
+  tripId: string,
+  userId: string,
+  role: "none" | "driver" | "passenger" | "undecided",
+  driverUserId: string | null,
+) {
+  const [membership] = await transaction
+    .select({ userId: schema.tripMemberships.userId })
+    .from(schema.tripMemberships)
+    .where(
+      and(
+        eq(schema.tripMemberships.tripId, tripId),
+        eq(schema.tripMemberships.userId, userId),
+      ),
+    )
+    .limit(1);
+  if (!membership) return { error: "traveler_not_found" as const };
+  const [details] = await transaction
+    .select({
+      transportChoice: schema.travelerDetails.transportChoice,
+      carpoolRole: schema.travelerDetails.carpoolRole,
+    })
+    .from(schema.travelerDetails)
+    .where(
+      and(
+        eq(schema.travelerDetails.tripId, tripId),
+        eq(schema.travelerDetails.userId, userId),
+      ),
+    )
+    .limit(1);
+  if (details?.transportChoice !== "none")
+    return { error: "carpool_requires_no_transport" as const };
+  if (role === "passenger") {
+    if (!driverUserId || driverUserId === userId)
+      return { error: "invalid_carpool_driver" as const };
+    const [driver] = await transaction
+      .select({ userId: schema.tripMemberships.userId })
+      .from(schema.travelerDetails)
+      .innerJoin(
+        schema.tripMemberships,
         and(
-          eq(schema.tripMemberships.tripId, tripId),
-          eq(schema.tripMemberships.userId, userId),
+          eq(schema.tripMemberships.tripId, schema.travelerDetails.tripId),
+          eq(schema.tripMemberships.userId, schema.travelerDetails.userId),
         ),
       )
-      .limit(1);
-    if (membership?.role !== "traveler")
-      return { error: "traveler_not_found" as const };
-    const [details] = await transaction
-      .select({
-        transportChoice: schema.travelerDetails.transportChoice,
-        carpoolRole: schema.travelerDetails.carpoolRole,
-      })
-      .from(schema.travelerDetails)
       .where(
         and(
           eq(schema.travelerDetails.tripId, tripId),
-          eq(schema.travelerDetails.userId, userId),
+          eq(schema.travelerDetails.userId, driverUserId),
+          eq(schema.travelerDetails.transportChoice, "none"),
+          eq(schema.travelerDetails.carpoolRole, "driver"),
         ),
       )
       .limit(1);
-    if (details?.transportChoice !== "none")
-      return { error: "carpool_requires_no_transport" as const };
-    if (role === "passenger") {
-      if (!driverUserId || driverUserId === userId)
-        return { error: "invalid_carpool_driver" as const };
-      const [driver] = await transaction
-        .select({ userId: schema.tripMemberships.userId })
-        .from(schema.travelerDetails)
-        .innerJoin(
-          schema.tripMemberships,
-          and(
-            eq(schema.tripMemberships.tripId, schema.travelerDetails.tripId),
-            eq(schema.tripMemberships.userId, schema.travelerDetails.userId),
-          ),
-        )
-        .where(
-          and(
-            eq(schema.travelerDetails.tripId, tripId),
-            eq(schema.travelerDetails.userId, driverUserId),
-            eq(schema.travelerDetails.transportChoice, "none"),
-            eq(schema.travelerDetails.carpoolRole, "driver"),
-            eq(schema.tripMemberships.role, "traveler"),
-          ),
-        )
-        .limit(1);
-      if (!driver) return { error: "invalid_carpool_driver" as const };
-    } else if (driverUserId) {
-      return { error: "invalid_carpool_driver" as const };
-    }
-    if (details?.carpoolRole === "driver" && role !== "driver")
-      await transaction
-        .update(schema.travelerDetails)
-        .set({
-          carpoolRole: "undecided",
-          carpoolDriverUserId: null,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(schema.travelerDetails.tripId, tripId),
-            eq(schema.travelerDetails.carpoolDriverUserId, userId),
-            eq(schema.travelerDetails.carpoolRole, "passenger"),
-          ),
-        );
+    if (!driver) return { error: "invalid_carpool_driver" as const };
+  } else if (driverUserId) {
+    return { error: "invalid_carpool_driver" as const };
+  }
+  if (details?.carpoolRole === "driver" && role !== "driver")
     await transaction
-      .insert(schema.travelerDetails)
-      .values({
-        tripId,
-        userId,
+      .update(schema.travelerDetails)
+      .set({
+        carpoolRole: "undecided",
+        carpoolDriverUserId: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.travelerDetails.tripId, tripId),
+          eq(schema.travelerDetails.carpoolDriverUserId, userId),
+          eq(schema.travelerDetails.carpoolRole, "passenger"),
+        ),
+      );
+  await transaction
+    .insert(schema.travelerDetails)
+    .values({
+      tripId,
+      userId,
+      transportMode: "none",
+      transportChoice: "none",
+      carpoolRole: role,
+      carpoolDriverUserId: role === "passenger" ? driverUserId : null,
+    })
+    .onConflictDoUpdate({
+      target: [schema.travelerDetails.tripId, schema.travelerDetails.userId],
+      set: {
         transportMode: "none",
         transportChoice: "none",
         carpoolRole: role,
         carpoolDriverUserId: role === "passenger" ? driverUserId : null,
-      })
-      .onConflictDoUpdate({
-        target: [schema.travelerDetails.tripId, schema.travelerDetails.userId],
-        set: {
-          transportMode: "none",
-          transportChoice: "none",
-          carpoolRole: role,
-          carpoolDriverUserId: role === "passenger" ? driverUserId : null,
-          updatedAt: new Date(),
-        },
-      });
-    return { status: "saved" as const };
-  });
+        updatedAt: new Date(),
+      },
+    });
+  return { status: "saved" as const };
 }
 
 export async function deleteTransportGroup(

@@ -16,6 +16,11 @@ const RoomingPanel = lazy(() =>
     default: module.RoomingPanel,
   })),
 );
+const RoomConsentAlert = lazy(() =>
+  import("@traveler/features/rooming/RoomConsentAlert").then((module) => ({
+    default: module.RoomConsentAlert,
+  })),
+);
 
 export function TripWorkspace({
   tripId,
@@ -57,6 +62,10 @@ export function TripWorkspace({
         </span>
       </header>
 
+      <Suspense fallback={null}>
+        <RoomConsentAlert tripId={tripId} userId={userId} />
+      </Suspense>
+
       <TravelerProfileSection
         tripId={tripId}
         data={data}
@@ -83,11 +92,9 @@ export function TripWorkspace({
       <TripTravelDetails details={data.details} t={t} />
       <TripTransportSection tripId={tripId} />
       <TripTickets tripId={tripId} tickets={data.tickets} t={t} />
-      {role === "traveler" && (
-        <Suspense fallback={<p role="status">{t("loadingRoomAssignments")}</p>}>
-          <RoomingPanel tripId={tripId} userId={userId} role={role} />
-        </Suspense>
-      )}
+      <Suspense fallback={<p role="status">{t("loadingRoomAssignments")}</p>}>
+        <RoomingPanel tripId={tripId} userId={userId} view="personal" />
+      </Suspense>
     </Stack>
   );
 }

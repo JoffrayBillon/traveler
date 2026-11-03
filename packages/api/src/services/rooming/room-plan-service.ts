@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
+import { recordRoomAssignmentHistory } from "../../datamodel/room-assignment-history.repository";
 import { getRoomInventory } from "../../datamodel/room-inventory.repository";
 import { staleRoomRequestsForRooms } from "../../datamodel/room-request.repository";
 import * as schema from "../../schema";
@@ -30,6 +31,7 @@ export async function applyRoomAssignmentPlan(
   database: AppDatabase,
   tripId: string,
   expectedSnapshot: string,
+  actorUserId: string,
 ) {
   return database.transaction(async (transaction) => {
     const plan = await buildAssignmentPlan(transaction, tripId);
@@ -51,6 +53,19 @@ export async function applyRoomAssignmentPlan(
         })),
       );
     }
+
+    if (plan.assignments.length > 0 || plan.roomsToCreate.length > 0)
+      await recordRoomAssignmentHistory(
+        transaction,
+        tripId,
+        actorUserId,
+        "plan_generation",
+        plan.assignments.map((assignment) => ({
+          userId: assignment.userId,
+          fromRoomId: null,
+          toRoomId: assignment.roomId,
+        })),
+      );
 
     const touched = new Map<string, "M" | "F">();
     for (const assignment of plan.assignments)
@@ -137,12 +152,7 @@ async function buildAssignmentPlan(
       genderConfirmed: schema.tripMemberships.genderConfirmed,
     })
     .from(schema.tripMemberships)
-    .where(
-      and(
-        eq(schema.tripMemberships.tripId, tripId),
-        eq(schema.tripMemberships.role, "traveler"),
-      ),
-    )
+    .where(eq(schema.tripMemberships.tripId, tripId))
     .orderBy(schema.tripMemberships.lastName, schema.tripMemberships.firstName);
   const membershipById = new Map(
     travelers.map((traveler) => [traveler.userId, traveler]),

@@ -41,12 +41,6 @@ export async function getRoomingView(
     roomAssignments.push(assignment);
     assignmentsByRoom.set(assignment.roomId, roomAssignments);
   }
-  const visibleRoomIds =
-    actor.role === "traveler"
-      ? assignments
-          .filter((assignment) => assignment.userId === userId)
-          .map((assignment) => assignment.roomId)
-      : undefined;
   const rooms = await database
     .select({
       id: schema.rooms.id,
@@ -71,14 +65,11 @@ export async function getRoomingView(
       return {
         ...room,
         occupiedCount: roomAssignments.length,
-        occupants:
-          actor.role !== "traveler" || visibleRoomIds?.includes(room.id)
-            ? roomAssignments
-                .map((assignment) => memberById.get(assignment.userId))
-                .filter((member): member is NonNullable<typeof member> =>
-                  Boolean(member),
-                )
-            : [],
+        occupants: roomAssignments
+          .map((assignment) => memberById.get(assignment.userId))
+          .filter((member): member is NonNullable<typeof member> =>
+            Boolean(member),
+          ),
       };
     }),
     unassignedCount:

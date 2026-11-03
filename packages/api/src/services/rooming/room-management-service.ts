@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
+import { recordRoomAssignmentHistory } from "../../datamodel/room-assignment-history.repository";
 import { staleRoomRequestsForRooms } from "../../datamodel/room-request.repository";
 import * as schema from "../../schema";
 
@@ -10,6 +11,7 @@ export async function staffMoveTraveler(
   userId: string,
   expectedRoomId: string | null,
   targetRoomId: string,
+  actorUserId: string,
 ) {
   return database.transaction(async (transaction) => {
     const [traveler] = await transaction
@@ -19,7 +21,6 @@ export async function staffMoveTraveler(
         and(
           eq(schema.tripMemberships.tripId, tripId),
           eq(schema.tripMemberships.userId, userId),
-          eq(schema.tripMemberships.role, "traveler"),
         ),
       )
       .limit(1);
@@ -76,6 +77,43 @@ export async function staffMoveTraveler(
       userId,
     });
 
+    if (currentRoomId) {
+      const [sourceRoom] = await transaction
+        .select({
+          capacity: schema.rooms.capacity,
+          isLocked: schema.rooms.isLocked,
+        })
+        .from(schema.rooms)
+        .where(
+          and(
+            eq(schema.rooms.tripId, tripId),
+            eq(schema.rooms.id, currentRoomId),
+          ),
+        )
+        .limit(1);
+      if (sourceRoom?.isLocked) {
+        const remainingOccupants = await transaction
+          .select({ userId: schema.roomAssignments.userId })
+          .from(schema.roomAssignments)
+          .where(
+            and(
+              eq(schema.roomAssignments.tripId, tripId),
+              eq(schema.roomAssignments.roomId, currentRoomId),
+            ),
+          );
+        if (remainingOccupants.length < sourceRoom.capacity)
+          await transaction
+            .update(schema.rooms)
+            .set({ isLocked: false })
+            .where(
+              and(
+                eq(schema.rooms.tripId, tripId),
+                eq(schema.rooms.id, currentRoomId),
+              ),
+            );
+      }
+    }
+
     for (const roomId of new Set(changedRooms)) {
       const genders = await transaction
         .select({ gender: schema.tripMemberships.gender })
@@ -115,7 +153,127 @@ export async function staffMoveTraveler(
         );
     }
     await staleRoomRequestsForRooms(transaction, tripId, changedRooms);
+    await recordRoomAssignmentHistory(
+      transaction,
+      tripId,
+      actorUserId,
+      "organizer_move",
+      [{ userId, fromRoomId: currentRoomId, toRoomId: targetRoomId }],
+    );
     return { status: "moved" as const };
+  });
+}
+
+export async function staffUnassignTraveler(
+  database: AppDatabase,
+  tripId: string,
+  userId: string,
+  expectedRoomId: string,
+  actorUserId: string,
+) {
+  return database.transaction(async (transaction) => {
+    const [traveler] = await transaction
+      .select({ userId: schema.tripMemberships.userId })
+      .from(schema.tripMemberships)
+      .where(
+        and(
+          eq(schema.tripMemberships.tripId, tripId),
+          eq(schema.tripMemberships.userId, userId),
+        ),
+      )
+      .limit(1);
+    const [current] = await transaction
+      .select({ roomId: schema.roomAssignments.roomId })
+      .from(schema.roomAssignments)
+      .where(
+        and(
+          eq(schema.roomAssignments.tripId, tripId),
+          eq(schema.roomAssignments.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (!traveler) return { error: "not_found" as const };
+    if (current?.roomId !== expectedRoomId)
+      return { error: "room_composition_changed" as const };
+    const [room] = await transaction
+      .select({
+        capacity: schema.rooms.capacity,
+        isLocked: schema.rooms.isLocked,
+      })
+      .from(schema.rooms)
+      .where(
+        and(
+          eq(schema.rooms.tripId, tripId),
+          eq(schema.rooms.id, expectedRoomId),
+        ),
+      )
+      .limit(1);
+    if (!room) return { error: "not_found" as const };
+
+    await transaction
+      .delete(schema.roomAssignments)
+      .where(
+        and(
+          eq(schema.roomAssignments.tripId, tripId),
+          eq(schema.roomAssignments.userId, userId),
+          eq(schema.roomAssignments.roomId, expectedRoomId),
+        ),
+      );
+
+    const remainingAssignments = await transaction
+      .select({
+        gender: schema.tripMemberships.gender,
+        genderConfirmed: schema.tripMemberships.genderConfirmed,
+      })
+      .from(schema.roomAssignments)
+      .innerJoin(
+        schema.tripMemberships,
+        and(
+          eq(schema.tripMemberships.tripId, schema.roomAssignments.tripId),
+          eq(schema.tripMemberships.userId, schema.roomAssignments.userId),
+        ),
+      )
+      .where(
+        and(
+          eq(schema.roomAssignments.tripId, tripId),
+          eq(schema.roomAssignments.roomId, expectedRoomId),
+        ),
+      );
+    const genders = new Set(
+      remainingAssignments
+        .filter(({ genderConfirmed }) => genderConfirmed)
+        .map(({ gender }) => gender)
+        .filter((gender): gender is "M" | "F" => gender !== null),
+    );
+    await transaction
+      .update(schema.rooms)
+      .set({
+        compositionVersion: sql`${schema.rooms.compositionVersion} + 1`,
+        genderPolicy:
+          genders.size > 1
+            ? "mixed"
+            : genders.size === 1
+              ? "single_gender"
+              : "unset",
+        ...(room.isLocked && remainingAssignments.length < room.capacity
+          ? { isLocked: false }
+          : {}),
+      })
+      .where(
+        and(
+          eq(schema.rooms.tripId, tripId),
+          eq(schema.rooms.id, expectedRoomId),
+        ),
+      );
+    await staleRoomRequestsForRooms(transaction, tripId, [expectedRoomId]);
+    await recordRoomAssignmentHistory(
+      transaction,
+      tripId,
+      actorUserId,
+      "organizer_move",
+      [{ userId, fromRoomId: expectedRoomId, toRoomId: null }],
+    );
+    return { status: "unassigned" as const };
   });
 }
 
@@ -129,7 +287,10 @@ export async function setRoomLocked(
 ) {
   return database.transaction(async (transaction) => {
     const [room] = await transaction
-      .select({ isLocked: schema.rooms.isLocked })
+      .select({
+        isLocked: schema.rooms.isLocked,
+        capacity: schema.rooms.capacity,
+      })
       .from(schema.rooms)
       .where(and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)))
       .limit(1);
@@ -149,6 +310,19 @@ export async function setRoomLocked(
       if (!occupancy) return { error: "forbidden" as const };
     }
     if (room.isLocked === locked) return { locked };
+    if (locked) {
+      const occupants = await transaction
+        .select({ userId: schema.roomAssignments.userId })
+        .from(schema.roomAssignments)
+        .where(
+          and(
+            eq(schema.roomAssignments.tripId, tripId),
+            eq(schema.roomAssignments.roomId, roomId),
+          ),
+        );
+      if (occupants.length < room.capacity)
+        return { error: "room_must_be_full_to_lock" as const };
+    }
     await transaction
       .update(schema.rooms)
       .set({ isLocked: locked })

@@ -2,23 +2,23 @@ import { useRoomingQuery } from "@traveler/api/rooming/queries";
 import { messageStyles } from "@traveler/components/ui";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { RoomChangeRequestForm } from "./RoomChangeRequestForm";
 import { RoomConsentList } from "./RoomConsentList";
 import { RoomManagementPanel } from "./RoomManagementPanel";
 import { RoomOverview } from "./RoomOverview";
+import { TravelerRooming } from "./TravelerRooming";
 
 export function RoomingPanel({
   tripId,
   userId,
-  role,
+  view,
 }: {
   tripId: string;
   userId: string;
-  role: "traveler" | "companion" | "manager";
+  view: "personal" | "organizer";
 }) {
   const { t } = useTranslation();
   const [message, setMessage] = useState("");
-  const isStaff = role !== "traveler";
+  const isStaff = view === "organizer";
   const roomingQuery = useRoomingQuery(tripId, isStaff);
 
   if (roomingQuery.isPending) {
@@ -51,37 +51,53 @@ export function RoomingPanel({
           {t("rooms")}
         </h3>
         <p className="text-sm leading-relaxed text-content-muted">
-          {t("yourRoomAndPendingRequests")}
+          {isStaff
+            ? t("organizerRoomingOverviewDescription")
+            : t("yourRoomAndPendingRequests")}
         </p>
       </header>
-      <RoomOverview
-        tripId={tripId}
-        rooms={rooms}
-        ownRoom={ownRoom}
-        userId={userId}
-        isStaff={isStaff}
-        onMessage={setMessage}
-      />
-      <RoomChangeRequestForm
-        tripId={tripId}
-        userId={userId}
-        rooms={rooms}
-        ownRoom={ownRoom}
-        onMessage={setMessage}
-      />
-      <RoomConsentList
-        tripId={tripId}
-        userId={userId}
-        requests={requests}
-        onMessage={setMessage}
-      />
-      {isStaff && (
-        <RoomManagementPanel
-          tripId={tripId}
-          rooms={rooms}
-          travelers={travelers}
-          onMessage={setMessage}
-        />
+      {isStaff ? (
+        <>
+          <RoomManagementPanel
+            tripId={tripId}
+            rooms={rooms}
+            travelers={travelers}
+            onMessage={setMessage}
+          />
+          <RoomConsentList
+            tripId={tripId}
+            userId={userId}
+            requests={requests}
+            onMessage={setMessage}
+          />
+          <RoomOverview
+            tripId={tripId}
+            rooms={rooms}
+            travelers={travelers}
+            ownRoom={ownRoom}
+            userId={userId}
+            isStaff
+            onMessage={setMessage}
+          />
+        </>
+      ) : (
+        <>
+          <TravelerRooming
+            tripId={tripId}
+            rooms={rooms}
+            ownRoom={ownRoom}
+            userId={userId}
+            onMessage={setMessage}
+          />
+          <RoomConsentList
+            tripId={tripId}
+            userId={userId}
+            requests={requests}
+            onMessage={setMessage}
+            showHistoryButton
+            mode="status"
+          />
+        </>
       )}
       {message && (
         <p className={messageStyles()} role="status" aria-live="polite">

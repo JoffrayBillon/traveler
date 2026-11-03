@@ -21,7 +21,15 @@ export type ProfileDraft = Pick<
   | "emergencyContactPhone"
 >;
 
-export type DetailsDraft = Pick<
-  StaffTraveler,
-  "activityProfile" | "skiDayThree"
->;
+export type DetailsDraft = Omit<
+  Pick<
+    StaffTraveler,
+    | "activityProfile"
+    | "skiDayThree"
+    | "transportChoice"
+    | "groupId"
+    | "carpoolRole"
+    | "carpoolDriverUserId"
+  >,
+  "skiDayThree"
+> & { skiDayThree: boolean };

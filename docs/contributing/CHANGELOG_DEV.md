@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-03 — Route transitions — Preserve pages during navigation
+
+- Details/impact: keep the matched React Router outlet stable while `AnimatePresence` waits for the outgoing page, preventing the trips list from being replaced inside a hidden exiting route. Hold protected routes until session lookup completes and use a centered, reduced-motion-aware loading indicator.
+- Test status: browser navigation and refresh verified for trips, trip details and organizer routes; Biome passed. Typecheck could not start because this shell uses Node 24 while the project requires Node 26. Automated tests were not run.
+
 ## 2026-11-02 — Organizer workspace — Keep tab content anchored to the top
 
 - Details/impact: align the animated organizer route container to the top of the shared main region so changing tabs with different content heights no longer shifts the workspace vertically. Other routes retain their existing alignment.

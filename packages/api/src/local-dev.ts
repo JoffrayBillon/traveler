@@ -78,8 +78,15 @@ export async function seedLocalDemoData(
       let [user] = await transaction
         .select({ id: schema.users.id })
         .from(schema.users)
-        .where(eq(schema.users.email, account.email))
+        .where(eq(schema.users.id, account.id))
         .limit(1);
+      if (!user) {
+        [user] = await transaction
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(eq(schema.users.email, account.email))
+          .limit(1);
+      }
       if (!user) {
         await transaction.insert(schema.users).values({
           id: account.id,

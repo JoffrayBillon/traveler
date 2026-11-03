@@ -116,36 +116,56 @@ export const fr = {
   text2DaySkiPass: "Forfait ski 2 jours",
   transport: "Transport",
   yourRoomAndPendingRequests: "Votre chambre et les demandes en attente.",
+  viewRoomPlan: "Voir le plan des chambres",
+  selectRoommateToRequestExchange:
+    "Sélectionnez une personne pour proposer un échange de chambre.",
+  yourRoomIsLockedNoExchangeRequests:
+    "Votre chambre est verrouillée. Déverrouillez-la pour proposer un échange.",
+  youNeedARoomToRequestAnExchange:
+    "Vous devez avoir une chambre attribuée pour demander un échange.",
+  requestRoomExchangeWith: "Demander un échange de chambre avec {{name}}",
+  organizerRoomingOverviewDescription:
+    "Consultez et organisez les chambres. Déplacez les participants par glisser-déposer ou utilisez les commandes d’affectation manuelle.",
   rooms: "Chambres",
   loadingRoomAssignments: "Chargement du rooming…",
   yourRoom: "Votre chambre",
   occupiedCapacityBeds: "{{occupied}}/{{capacity}} places",
   youHaveNotBeenAssignedARoomYet:
     "Aucune chambre ne vous a encore été attribuée.",
-  currentRoomAssignments: "Répartition actuelle",
+  currentRoomAssignments: "Répartition",
+  unassignedParticipants: "Participants sans chambre",
+  dropTravelerHereToUnassign:
+    "Glissez ici une personne d’une chambre pour la remettre sans chambre.",
+  noUnassignedParticipants: "Aucun participant sans chambre.",
   approvedMixedRoom: "mixte validée",
   emptyRoom: "Chambre vide",
-  requestABedInAnotherRoom: "Demander une place dans une autre chambre",
   roomCountBedSAvailable: "{{room}} · {{count}} place(s) libre(s)",
-  emailOfThePersonToExchangeWith: "E-mail de la personne avec qui échanger",
-  required: " (obligatoire)",
-  optional: " (facultatif)",
   operationFailed: "L’opération a échoué.",
-  proposeAnExchange: "Proposer l’échange",
-  sendMyRequest: "Envoyer ma demande",
   roomChangeRequests: "Demandes de changement de chambre",
+  roomChangeNeedsYourApproval:
+    "Une demande de changement de chambre attend votre réponse",
+  reviewRoomChangeAndChoose:
+    "Consultez les personnes et les chambres concernées, puis acceptez ou refusez.",
+  roomHistory: "Historique",
+  roomHistoryTitle: "Historique des changements de chambre",
+  noRoomHistory: "Aucun changement de chambre enregistré.",
+  loadingRoomHistory: "Chargement de l’historique…",
+  roomHistoryCouldNotLoad: "L’historique des chambres n’a pas pu être chargé.",
+  roomChangeRequestedBy: "Demande initiée par {{name}}",
+  roomChangeMadeByOrganizer: "Changement effectué par {{name}}",
+  roomPlanGeneratedBy: "Plan des chambres généré par {{name}}",
+  roomPlanResetBy: "Plan des chambres réinitialisé par {{name}}",
+  roomRosterImportBy: "Répartition mise à jour après un import par {{name}}",
   requestsARoomChange: "demande un changement de chambre.",
-  roomRequestPending: "En attente des accords requis",
-  roomRequestApplied: "Changement appliqué",
-  roomRequestRejected: "Demande refusée",
   roomRequestWithdrawn: "Demande retirée",
   roomRequestExpired: "Demande expirée",
-  roomRequestOutdated: "Demande devenue obsolète",
   withdrawRoomRequest: "Retirer ma demande",
   roomRequestCouldNotBeWithdrawn: "La demande n’a pas pu être retirée.",
   roomRequestExpiresOn: "Accords attendus jusqu’au {{date}}.",
   lockRoom: "Verrouiller la chambre",
   unlockRoom: "Déverrouiller la chambre",
+  aRoomMustBeFullToLockIt:
+    "Une chambre doit être complète pour être verrouillée.",
   roomLocked: "La chambre est verrouillée.",
   roomUnlocked: "La chambre est déverrouillée.",
   roomLockCouldNotBeChanged:
@@ -157,19 +177,28 @@ export const fr = {
   decline: "Je refuse",
   yourApprovalIsRecorded: "Votre accord est enregistré",
   roomPlan: "Plan des chambres",
-  roomPlanInventoryDescription:
-    "Les affectations existantes et les chambres verrouillées sont conservées.",
+  manualRoomAssignmentAction: "Affectation manuelle",
+  manualRoomAssignmentTitle: "Modifier l’affectation d’une personne",
+  manualRoomAssignmentDescription:
+    "Choisissez une personne et une chambre, ou remettez-la sans chambre.",
+  roomPlanGenerationDescription:
+    "Générez les affectations des personnes sans chambre. Les chambres et affectations existantes sont conservées.",
   roomInventory: "Inventaire des chambres",
   roomInventoryDescription:
-    "Configurez le nombre de chambres par capacité avant de créer les premières chambres.",
-  roomInventoryLocked:
-    "L’inventaire ne peut plus être modifié après la création des chambres.",
+    "Définissez les capacités et le nombre de chambres du séjour. Vous pouvez en ajouter ou en supprimer lorsqu’elles sont vides, même après la génération du plan.",
+  loadingRoomInventory: "Chargement de l’inventaire des chambres…",
+  roomInventoryCouldNotBeLoaded:
+    "Impossible de charger l’inventaire des chambres.",
   roomCapacity: "Capacité de la chambre",
   roomQuantity: "Nombre de chambres",
   addRoomCapacity: "Ajouter une capacité",
   removeRoomCapacity: "Supprimer cette capacité",
   saveRoomInventory: "Enregistrer l’inventaire",
   roomInventorySaved: "L’inventaire des chambres a été enregistré.",
+  roomInventorySavedWithChanges:
+    "Inventaire enregistré : {{added}} chambre(s) ajoutée(s) et {{removed}} chambre(s) vide(s) supprimée(s).",
+  roomInventoryReductionBlockedByOccupants:
+    "Impossible de réduire ce nombre : une ou plusieurs chambres à supprimer sont occupées. Déplacez d’abord leurs occupants.",
   roomInventoryCouldNotBeSaved:
     "Impossible d’enregistrer l’inventaire des chambres.",
   generateRoomPlan: "Générer le plan",
@@ -190,11 +219,12 @@ export const fr = {
   roomAssignmentsGeneratedWithUnconfirmed:
     "{{assigned}} voyageurs affectés. {{unconfirmed}} doivent confirmer leur sexe avant d’être placés.",
   mixedRoomCode: "Chambre mixte",
+  mixedRoom: "Mixte",
   maleRoomCode: "Chambre d’hommes",
   femaleRoomCode: "Chambre de femmes",
   roomCompositionNotSet: "Composition non définie",
   availableRoomTargets: "Chambres disponibles",
-  travelerToMove: "Voyageur à déplacer",
+  travelerToMove: "Personne à déplacer",
   destinationRoom: "Chambre de destination",
   alreadyAssigned: "déjà placé",
   traveler: "Voyageur",
@@ -275,8 +305,6 @@ export const fr = {
   importCompleteInformationAddedByTheOrganizersHasBeenPreserved:
     "Import terminé. Les données ajoutées par l’équipe sont conservées.",
   tripImports: "Imports du voyage",
-  enterTheEmailAddressOfThePersonYouWantToSwapWith:
-    "Indiquez l’e-mail de la personne avec qui échanger.",
   informationToCome: "Informations à venir",
   tripInformation: "Informations du voyage",
   addUserManually: "Ajouter un utilisateur",
@@ -306,6 +334,8 @@ export const fr = {
     "La déconnexion est momentanément indisponible.",
   theRequestWasDeclined: "La demande a été refusée.",
   roomAssignmentsHaveBeenUpdated: "La répartition a été mise à jour.",
+  travelerRemovedFromRoom: "La personne a été remise sans chambre.",
+  removeRoomAssignment: "Remettre sans chambre",
   roomAssignmentsCouldNotBeUpdated:
     "Impossible de mettre à jour la répartition.",
   roomAssignmentsAreTemporarilyUnavailable:
@@ -443,13 +473,11 @@ export const fr = {
   addReturnSegment: "Ajouter un segment retour",
   arrival: "Arrivée",
   arrivalDateAndTime: "Date et heure d’arrivée",
-  assignTransportGroupDescription:
-    "Affectez chaque voyageur à un départ groupé ou indiquez qu’il n’a pas de transport de groupe.",
-  carpoolPassengers: "Passagers en covoiturage",
+  profileTransportAssignmentDescription:
+    "Choisissez un transport groupé ou indiquez que la personne voyage de façon autonome.",
   carpoolRole: "Votre rôle en covoiturage",
-  carpoolRoleNeedsSelection:
-    "Participants sans rôle de covoiturage renseigné : {{count}}",
-  carsDeclared: "Conducteurs déclarés",
+  carpoolSettings: "Covoiturage",
+  carsWithPassengers: "Covoiturage",
   chooseWhetherYouDriveOrNeedAPassengerSeat:
     "Indiquez si vous conduisez, si vous cherchez une place ou si vous ne covoiturez pas.",
   chooseYourDriver: "Choisissez votre conducteur",
@@ -462,7 +490,10 @@ export const fr = {
   editTransportGroup: "Modifier le groupe de transport",
   groupTransport: "Transports groupés",
   groupTransportManagementDescription:
-    "Configurez les départs collectifs, leurs étapes et les affectations. Les voyageurs sans transport groupé peuvent déclarer leur covoiturage.",
+    "Créez et gérez les départs groupés. L’affectation des voyageurs se fait depuis leur fiche.",
+  groupTransportOverviewDescription:
+    "Un aperçu des départs groupés et du covoiturage déclaré.",
+  groupTransportTravelers: "Voyageurs en transport groupé",
   iNeedAPassengerSeat: "Je cherche une place comme passager",
   iWillDrive: "Je conduis",
   loadingTransportDetails: "Chargement des informations de transport…",
@@ -478,13 +509,11 @@ export const fr = {
   passengersCount: "{{count}} passagers",
   passengersCount_one: "{{count}} passager",
   passengersCount_other: "{{count}} passagers",
+  participantCarpoolRole: "Rôle en covoiturage",
   removeSegment: "Supprimer ce segment",
   returnMeeting: "Rendez-vous au retour",
   serviceReference: "Référence du trajet",
   transportAssignment: "Affectation du transport",
-  transportAssignmentCouldNotBeSaved:
-    "Impossible d’enregistrer l’affectation du transport.",
-  transportAssignmentSaved: "Affectation du transport enregistrée.",
   transportDetailsCouldNotBeLoaded:
     "Impossible de charger les informations de transport.",
   transportDetailsToCome: "Les détails du trajet seront ajoutés par l’équipe.",
@@ -506,9 +535,8 @@ export const fr = {
   transportSegmentsCount: "{{count}} segments",
   transportSegmentsCount_one: "{{count}} segment",
   transportSegmentsCount_other: "{{count}} segments",
-  transportSegmentsToCome: "Les étapes du trajet seront ajoutées par l’équipe.",
   travelersCount: "{{count}} voyageurs",
   travelersCount_one: "{{count}} voyageur",
   travelersCount_other: "{{count}} voyageurs",
-  travelerTransportAssignments: "Affectations des voyageurs",
+  transportSegmentsToCome: "Les étapes du trajet seront ajoutées par l’équipe.",
 } as const;

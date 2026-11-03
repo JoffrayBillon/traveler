@@ -46,7 +46,6 @@ export function OrganizerWorkspace({
       <Stack gap="lg">
         <StaffTools
           tripId={tripId}
-          role={role}
           userId={userId}
           isManager={role === "manager"}
         />

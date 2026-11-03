@@ -2,6 +2,7 @@ import { useRoomingMutations } from "@traveler/api/rooming/mutations";
 import type { RoomRequestSummary } from "@traveler/api/rooming/rooming.types";
 import { Button, Card } from "@traveler/components/ui";
 import { useTranslation } from "react-i18next";
+import { RoomHistoryButton } from "./RoomHistoryButton";
 import { roomErrorLabel } from "./rooming-errors";
 
 export function RoomConsentList({
@@ -9,23 +10,39 @@ export function RoomConsentList({
   userId,
   requests,
   onMessage,
+  showHistoryButton = false,
+  mode = "all",
 }: {
   tripId: string;
   userId: string;
   requests: RoomRequestSummary[];
   onMessage: (message: string) => void;
+  showHistoryButton?: boolean;
+  mode?: "all" | "actionable" | "status";
 }) {
   const { t } = useTranslation();
   const mutations = useRoomingMutations(tripId);
-  const requestStatusLabel = {
-    pending: "roomRequestPending",
-    applied: "roomRequestApplied",
-    rejected: "roomRequestRejected",
-    cancelled: "roomRequestWithdrawn",
-    expired: "roomRequestExpired",
-    stale: "roomRequestOutdated",
-  } as const;
+  const actionableRequests = requests.filter((request) => {
+    if (request.status !== "pending" || request.requesterUserId === userId)
+      return false;
+    const ownConsent = request.requiredConsents.find(
+      (consent) => consent.userId === userId,
+    );
+    return ownConsent !== undefined && !ownConsent.approved;
+  });
+  const pendingRequests = requests.filter(
+    (request) => request.status === "pending",
+  );
+  const visibleRequests =
+    mode === "actionable"
+      ? actionableRequests
+      : mode === "status"
+        ? pendingRequests.filter(
+            (request) => !actionableRequests.includes(request),
+          )
+        : pendingRequests;
 
+  if (visibleRequests.length === 0 && !showHistoryButton) return null;
   async function respond(requestId: string, approve: boolean) {
     try {
       const result = await mutations.respondToRequest.mutateAsync({
@@ -62,11 +79,45 @@ export function RoomConsentList({
     }
   }
 
-  if (requests.length === 0) return null;
   return (
-    <section className="grid gap-3">
-      <h4 className="text-base font-bold">{t("roomChangeRequests")}</h4>
-      {requests.map((request) => {
+    <section
+      className={
+        mode === "actionable"
+          ? "grid gap-3 rounded-feature border-2 border-accent bg-surface-raised p-4 sm:p-5"
+          : "grid gap-3"
+      }
+      aria-live={mode === "actionable" ? "polite" : undefined}
+      aria-labelledby={
+        mode === "actionable" ? "room-consent-alert-title" : undefined
+      }
+    >
+      {(visibleRequests.length > 0 || showHistoryButton) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {visibleRequests.length > 0 && (
+            <div className="grid gap-1">
+              <h4
+                className="text-base font-bold"
+                {...(mode === "actionable"
+                  ? { id: "room-consent-alert-title" }
+                  : {})}
+              >
+                {t(
+                  mode === "actionable"
+                    ? "roomChangeNeedsYourApproval"
+                    : "roomChangeRequests",
+                )}
+              </h4>
+              {mode === "actionable" && (
+                <p className="text-sm text-content-muted">
+                  {t("reviewRoomChangeAndChoose")}
+                </p>
+              )}
+            </div>
+          )}
+          {showHistoryButton && <RoomHistoryButton tripId={tripId} />}
+        </div>
+      )}
+      {visibleRequests.map((request) => {
         const ownConsent = request.requiredConsents.find(
           (consent) => consent.userId === userId,
         );
@@ -76,13 +127,13 @@ export function RoomConsentList({
             spacing="compact"
             arrangement="stack"
             key={request.id}
+            {...(mode === "actionable"
+              ? { className: "border-accent bg-surface" }
+              : {})}
           >
             <p className="leading-relaxed text-content-muted">
               {request.requester?.firstName} {request.requester?.lastName}{" "}
               {t("requestsARoomChange")}
-            </p>
-            <p className="text-sm font-semibold text-content">
-              {t(requestStatusLabel[request.status])}
             </p>
             {request.status === "pending" && (
               <p className="text-sm text-content-muted">

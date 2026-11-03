@@ -9,6 +9,7 @@ import type {
   ProfileDraft,
 } from "@traveler/api/participants/participant-form.types";
 import { useParticipantDirectoryQuery } from "@traveler/api/participants/queries";
+import { useTripTransportQuery } from "@traveler/api/transport/queries";
 import { textFieldStyles } from "@traveler/components/ui";
 import { getLocale } from "@traveler/i18n";
 import { Search } from "lucide-react";
@@ -30,7 +31,10 @@ export function ParticipantDirectory({
   const saveParticipantMutation = useSaveParticipantMutation(tripId);
   const copyParticipantLinkMutation = useCopyParticipantLinkMutation(tripId);
   const participantsQuery = useParticipantDirectoryQuery(tripId);
+  const transportQuery = useTripTransportQuery(tripId);
+  const transportGroups = transportQuery.data?.groups ?? [];
   const participants = participantsQuery.data ?? [];
+  const transportDrivers = transportQuery.data?.drivers ?? [];
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<StaffTraveler | null>(null);
   const [profile, setProfile] = useState<ProfileDraft | null>(null);
@@ -72,7 +76,12 @@ export function ParticipantDirectory({
     });
     setDetails({
       activityProfile: person.activityProfile,
-      skiDayThree: person.skiDayThree,
+      skiDayThree: person.skiDayThree ?? false,
+      transportChoice:
+        person.transportChoice ?? (person.groupId ? "group" : "unconfirmed"),
+      groupId: person.groupId,
+      carpoolRole: person.carpoolRole ?? "undecided",
+      carpoolDriverUserId: person.carpoolDriverUserId,
     });
     setEmail(person.email);
     setRole(person.role);
@@ -94,14 +103,16 @@ export function ParticipantDirectory({
       setSelected(null);
       setMessage(t("participantChangesSaved"));
     } catch (error) {
-      const code = error instanceof Error ? error.message : "save_failed";
+      const code = error instanceof ApiError ? error.code : undefined;
       setMessage(
         code === "email_in_use"
           ? t("thisEmailAddressIsAlreadyLinkedToAnotherAccount")
           : code === "last_manager_required" ||
               code === "cannot_change_own_role"
             ? t("roleChangeNotAllowed")
-            : t("participantChangesCouldNotBeSaved"),
+            : code === "invalid_emergency_contact_phone"
+              ? t("enterAValidPhoneNumber")
+              : t("participantChangesCouldNotBeSaved"),
       );
     }
   }
@@ -185,6 +196,9 @@ export function ParticipantDirectory({
         selected={selected}
         profile={profile}
         details={details}
+        transportGroups={transportGroups}
+        transportDrivers={transportDrivers}
+        isTransportLoading={transportQuery.isPending}
         email={email}
         onEmailChange={setEmail}
         role={role}

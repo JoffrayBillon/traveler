@@ -21,6 +21,7 @@
   --color-accent-warm: var(--theme-color-accent-warm);
   --color-danger: var(--theme-color-danger);
   --color-success: var(--theme-color-success);
+  --color-warning: var(--theme-color-warning);
   --color-focus: var(--theme-color-focus);
 
   --shadow-panel: var(--theme-shadow-panel);
@@ -45,6 +46,7 @@
   --theme-color-accent-warm: light-dark(#d9ac54, #ebc979);
   --theme-color-danger: light-dark(#a33d35, #ffaaa0);
   --theme-color-success: light-dark(#32614b, #b3dabc);
+  --theme-color-warning: light-dark(#87500a, #f0bd55);
   --theme-color-focus: var(--theme-color-accent);
   --theme-color-page-glow: light-dark(
     rgb(219 224 209 / 44%),

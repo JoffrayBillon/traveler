@@ -9,6 +9,7 @@ import {
 import {
   setRoomLocked,
   staffMoveTraveler,
+  staffUnassignTraveler,
 } from "../services/rooming/room-management-service";
 import {
   applyRoomAssignmentPlan,
@@ -135,6 +136,7 @@ export function registerRoomManagementEndpoints(
       services.database,
       tripId,
       snapshot,
+      session.user.id,
     );
     if ("error" in result) return context.json({ error: result.error }, 409);
     return context.json(result);
@@ -177,6 +179,8 @@ export function registerRoomManagementEndpoints(
       return context.json({ error: result.error }, 404);
     if (result.error === "forbidden")
       return context.json({ error: result.error }, 403);
+    if (result.error === "room_must_be_full_to_lock")
+      return context.json({ error: result.error }, 409);
     return context.json(result);
   });
 
@@ -218,6 +222,7 @@ export function registerRoomManagementEndpoints(
         context.req.param("userId"),
         expectedRoomId,
         context.req.param("roomId"),
+        session.user.id,
       );
       if (result.error === "not_found")
         return context.json({ error: result.error }, 404);
@@ -225,6 +230,39 @@ export function registerRoomManagementEndpoints(
         result.error === "room_capacity_exceeded" ||
         result.error === "room_composition_changed"
       )
+        return context.json({ error: result.error }, 409);
+      return context.json(result);
+    },
+  );
+
+  app.delete(
+    "/api/trips/:tripId/rooms/:roomId/participants/:userId",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      const services = getAuthServices();
+      if (!services) return context.json({ error: "service_unavailable" }, 503);
+      const session = await getSession(services, context.req.raw.headers);
+      if (!session) return context.json({ error: "unauthorized" }, 401);
+      const tripId = context.req.param("tripId");
+      const actor = await getTripMembershipRole(
+        services.database,
+        tripId,
+        session.user.id,
+      );
+      if (!actor) return context.json({ error: "not_found" }, 404);
+      if (actor.role === "traveler")
+        return context.json({ error: "forbidden" }, 403);
+
+      const result = await staffUnassignTraveler(
+        services.database,
+        tripId,
+        context.req.param("userId"),
+        context.req.param("roomId"),
+        session.user.id,
+      );
+      if (result.error === "not_found")
+        return context.json({ error: result.error }, 404);
+      if (result.error === "room_composition_changed")
         return context.json({ error: result.error }, 409);
       return context.json(result);
     },

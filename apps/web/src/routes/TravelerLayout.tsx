@@ -1,10 +1,11 @@
 import { AppFrame } from "@traveler/components/AppFrame";
+import { LoadingIndicator } from "@traveler/components/ui";
 import type { ThemePreference } from "@traveler/hooks/useThemePreference";
 import type { TravelerProfile } from "@traveler/types/profile";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type RefObject, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Outlet, useLocation } from "react-router";
+import { useLocation, useOutlet } from "react-router";
 
 export function TravelerLayout({
   profile,
@@ -23,6 +24,7 @@ export function TravelerLayout({
 }) {
   const { t } = useTranslation();
   const location = useLocation();
+  const outlet = useOutlet();
   const shouldReduceMotion = useReducedMotion();
   const isOrganizerRoute = location.pathname.endsWith("/organize");
 
@@ -55,30 +57,38 @@ export function TravelerLayout({
       onSignOut={onSignOut}
       mainRef={mainRef}
     >
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          className={`min-h-px w-full${isOrganizerRoute ? " self-start" : ""}`}
-          data-route-path={location.pathname}
-          key={location.pathname}
-          initial={
-            shouldReduceMotion
-              ? false
-              : { opacity: 0, y: 14, filter: "blur(5px)" }
-          }
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          {...(shouldReduceMotion
-            ? {}
-            : { exit: { opacity: 0, y: -10, filter: "blur(4px)" } })}
-          transition={{
-            duration: shouldReduceMotion ? 0 : 0.28,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-        >
-          <Suspense fallback={<p role="status">{t("loadingYourSpace")}</p>}>
-            <Outlet />
-          </Suspense>
-        </motion.div>
-      </AnimatePresence>
+      <div
+        className={`relative w-full${isOrganizerRoute ? " self-start" : ""}`}
+      >
+        <AnimatePresence initial={false} mode="wait">
+          <motion.div
+            className="min-h-px w-full"
+            data-route-path={location.pathname}
+            key={location.pathname}
+            initial={
+              shouldReduceMotion
+                ? false
+                : { opacity: 0, y: 14, filter: "blur(5px)" }
+            }
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={
+              shouldReduceMotion
+                ? { opacity: 0 }
+                : { opacity: 0, y: -10, filter: "blur(4px)" }
+            }
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.28,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            <Suspense
+              fallback={<LoadingIndicator label={t("loadingYourSpace")} />}
+            >
+              {outlet}
+            </Suspense>
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </AppFrame>
   );
 }

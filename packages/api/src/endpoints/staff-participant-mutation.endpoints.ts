@@ -5,12 +5,56 @@ import type { AuthServices } from "../auth";
 import { refreshRoomComposition } from "../datamodel/traveler.repository";
 import * as schema from "../schema";
 import { getSession } from "../services/auth/get-session";
+import { saveParticipantFromOrganizer } from "../services/participant-editor-service";
 import { updateParticipantRole } from "../services/participant-management";
 
 export function registerStaffParticipantMutationEndpoints(
   app: Hono,
   getAuthServices: () => AuthServices | undefined,
 ) {
+  app.put(
+    "/api/trips/:tripId/participants/:userId/admin-profile",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      const services = getAuthServices();
+      if (!services) return context.json({ error: "service_unavailable" }, 503);
+      const session = await getSession(services, context.req.raw.headers);
+      if (!session) return context.json({ error: "unauthorized" }, 401);
+
+      let payload: unknown;
+      try {
+        payload = await context.req.json();
+      } catch {
+        return context.json({ error: "invalid_participant_editor_input" }, 400);
+      }
+
+      const result = await saveParticipantFromOrganizer(
+        services.database,
+        context.req.param("tripId"),
+        context.req.param("userId"),
+        session.user.id,
+        payload,
+      );
+      if ("error" in result) {
+        const status =
+          result.error === "not_found"
+            ? 404
+            : result.error === "forbidden"
+              ? 403
+              : result.error === "email_in_use" ||
+                  result.error === "last_manager_required" ||
+                  result.error === "cannot_change_own_role" ||
+                  result.error === "transport_group_not_found"
+                ? 409
+                : result.error === "participant_update_failed"
+                  ? 500
+                  : 400;
+        return context.json({ error: result.error }, status);
+      }
+      return context.json(result);
+    },
+  );
+
   app.patch(
     "/api/trips/:tripId/participants/:userId/activity",
     async (context) => {
