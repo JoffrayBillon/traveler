@@ -43,6 +43,41 @@
       "when": 1793420270901,
       "tag": "0005_blue_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793491865176,
+      "tag": "0006_import_source_registry",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793582377058,
+      "tag": "0007_certain_flatman",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793582403522,
+      "tag": "0008_lucky_unus",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793583717196,
+      "tag": "0009_slippery_dakota_north",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793665807086,
+      "tag": "0010_yellow_leopardon",
+      "breakpoints": true
     }
   ]
 }

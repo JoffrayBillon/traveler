@@ -24,6 +24,10 @@ Send passwordless login messages through Brevo's official Node.js SDK over HTTPS
 
 Public code does not imply an open-source license grant; no license has been chosen. Reassess hosting plans if the owner changes from personal use to professional/commercial use.
 
+## 2026-11-02 — Configurable room inventory and retention
+
+Room inventory is configurable per trip until the first room is created. The initial room plan is previewed against a stable database snapshot and applied only if that snapshot is unchanged. Pending requests expire after seven days; the room-request screen updates them without sending email. Transport tickets and their metadata are removed by a production-only Vercel Cron job 90 days after the trip end date. The endpoint requires `CRON_SECRET`, and the API retains a ticket row when Blob deletion fails so a later run can retry.
+
 ## 2026-10-31 — Routed traveler interface — Change
 
 Use React Router for direct, bookmarkable trip/account/organizer pages and Motion for route transitions and subtle dashboard movement. Respect reduced-motion preferences. Split page and domain UI into `features/`, shared components, and formatting/type helpers; use React Aria Components for interactive controls and Lucide React for icons. Self-host the Inter variable font through Fontsource. Keep Unsplash imagery remote with photographer attribution. Better Auth resolves each Vercel deployment host dynamically against the configured host allowlist so sign-in links return to the requesting preview. Manager participant access is enforced by trip-scoped API authorization; first-login timestamps are persisted on trip memberships, and fresh sign-in links are sent to the participant's registered email rather than returned to the browser.

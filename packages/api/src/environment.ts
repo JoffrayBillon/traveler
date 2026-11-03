@@ -56,6 +56,7 @@ const authSchema = {
 const optionalServiceSchema = {
   BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
   VERCEL: z.string().optional(),
+  CRON_SECRET: z.string().min(32).optional(),
 };
 
 const profiles = {
@@ -84,6 +85,7 @@ const groupByVariable: Record<string, string> = {
   BREVO_API_KEY: "Email delivery",
   BREVO_SENDER_EMAIL: "Email delivery",
   BLOB_READ_WRITE_TOKEN: "Ticket storage",
+  CRON_SECRET: "Scheduled jobs",
 };
 
 export class EnvironmentValidationError extends Error {
@@ -111,6 +113,7 @@ export type ApiEnvironment = DatabaseEnvironment & {
   BREVO_API_KEY: string;
   BREVO_SENDER_EMAIL: string;
   BLOB_READ_WRITE_TOKEN?: string;
+  CRON_SECRET?: string;
   VERCEL?: string;
 };
 

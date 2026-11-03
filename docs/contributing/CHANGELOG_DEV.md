@@ -1,6 +1,196 @@
 # Technical changelog
 
+## 2026-11-03 — CI tests — Align test setup with runtime contracts
+
+- Details/impact: share source aliases with Vitest, supply React Query and ResizeObserver test setup, align web integration mocks/assertions with the current grouped-transport and session flows, inject the Brevo adapter in auth tests, and confirm rooming fixture genders before asserting mixed-room consent.
+- Test status: all 18 web tests and 48 API source tests pass; Biome and translation checks pass. Local Node is 24, so API distribution/build and the repository's Node 26 checks remain for GitHub CI.
+
+## 2026-11-03 — Drizzle metadata — Apply Biome formatting
+
+- Details/impact: format the generated snapshot and migration journal to satisfy the repository-wide Biome check.
+- Test status: targeted Biome formatting and check passed under the available Node 24 runtime; CI rerun pending. No tests run.
+
+## 2026-11-03 — Route transitions — Preserve pages during navigation
+
+- Details/impact: keep the matched React Router outlet stable while `AnimatePresence` waits for the outgoing page, preventing the trips list from being replaced inside a hidden exiting route. Hold protected routes until session lookup completes and use a centered, reduced-motion-aware loading indicator.
+- Test status: browser navigation and refresh verified for trips, trip details and organizer routes; Biome passed. Typecheck could not start because this shell uses Node 24 while the project requires Node 26. Automated tests were not run.
+
+## 2026-11-02 — Organizer workspace — Keep tab content anchored to the top
+
+- Details/impact: align the animated organizer route container to the top of the shared main region so changing tabs with different content heights no longer shifts the workspace vertically. Other routes retain their existing alignment.
+- Test status: targeted Biome and web typecheck passed under the available Node 24 shell; no tests run.
+
+## 2026-11-02 — UI tokens and translations — Normalize quiet actions and remove unused keys
+
+- Details/impact: make the shared `quiet` button appearance neutral, reserve `quietDanger` for destructive actions, and replace all `quietNeutral` usages. Remove 138 unreferenced translation entries from both catalogs; add catalog parity and typed i18next keys so invalid/missing keys are caught during typecheck. Fix the missing trip-options label and map payment/import/room error values to valid translation keys.
+- Test status: full Biome check, web/API typechecks and translation key scan passed; no test suite run.
+
+## 2026-11-02 — Room plan — Move staff controls into organizer workspace
+
+- Details/impact: move the complete staff rooming view into an animated “Room plan” tab in the organizer workspace and keep the participant trip page limited to traveler-facing room details and requests. Remove manual room creation and its API operations; room instances are generated from the configured inventory and use their generated numeric identifiers.
+- Test status: targeted Biome and web/API TypeScript checks passed under Node 24. No tests run.
+
+## 2026-11-02 — Room inventory — Complete translations and neutral action styles
+
+- Details/impact: add the missing French and English room-capacity label and use neutral quiet button styling for inventory add/remove controls and room-plan cancellation. Room inventory access remains limited to accompanying staff and managers; traveler requests are rejected by the API.
+- Test status: targeted Biome and web/API TypeScript checks passed under Node 24. No tests run.
+
+## 2026-11-02 — Group transport — Complete French and English translations
+
+- Details/impact: add the missing French and English labels and messages for transport groups, itinerary segments, traveler assignment, and carpool preferences; add localized singular/plural labels for travelers, passengers and segments.
+- Test status: Biome on the repository, web TypeScript checks and `git diff --check` passed under Node 26. All 72 transport translation keys are present in both languages; automated tests were not run.
+
+## 2026-11-02 — Group transport and rooming lifecycle — Implement
+
+- Details/impact: add trip-scoped shared transport groups with ordered outbound/return segments, staff assignment, traveler itineraries and driver/passenger carpool choices. Replace the fixed room inventory with configurable per-trip capacity counts; add review-before-apply room generation, direct organizer moves, traveler room requests with withdrawal, rejection, seven-day expiry and composition-based approvals; preserve locked and assigned rooms. Add production ticket cleanup 90 days after trip end, guarded by `CRON_SECRET` and scheduled daily. Request states remain in-app only.
+- Test status: Biome, API/web TypeScript, API/web production builds and `git diff --check` passed under Node 26. Biome excludes externally sourced agent skills/configuration and the long-form product spec. No tests were run.
+
+## 2026-11-02 — Product specification — Close rooming request and ticket lifecycle decisions
+
+- Details/impact: pending room requests can be withdrawn or rejected, expire after seven days, and keep their history; in-app status is the only notification. The generator fills only unassigned travelers, while assigned/locked rooms remain untouched. Ticket files and metadata expire 90 days after the trip end date.
+- Test status: documentation update only.
+
+## 2026-11-02 — Profile — Lock confirmed gender for travelers
+
+- Details/impact: travelers can confirm an imported or entered `H`/`F` value once, then cannot change it through their profile. API updates enforce the lock transactionally; organizers can correct the value, which refreshes the assigned room's composition policy and version. Room generation still leaves unconfirmed travelers unassigned.
+- Test status: Biome and API/web typechecks pass. Tests not run.
+
+## 2026-11-02 — Product specification — Specify grouped transport and room planner
+
+- Details/impact: specify organizer-managed group itineraries with city-based import assignment and draft groups, driver/passenger declarations, anonymous app-numbered rooms, gender-aware room generation, H/F/M badges, organizer overrides, full-room locks and mixed-room approval by every occupant. Keep in-app explanations neutral and mark gender-confirmation timing, request withdrawal/expiry and notifications open.
+- Test status: documentation review only; implementation is intentionally pending the open product decisions.
+
+## 2026-11-02 — Source imports — Batch database writes
+
+- Details/impact: replace per-row writes with bounded SQLite upsert batches for the validated roster, detailed-order, staff and agency rooming imports; group registration cancellations and room cleanup queries. Forty rows per statement keeps the widest insert below SQLite's conservative bind-variable limit while preserving existing manual fields, traveler confirmations and role rules.
+- Test status: targeted Biome, API typecheck and `git diff --check` passed under Node 24.22.1 with pnpm's engine-strict check disabled; the repository requires Node 26. Tests were not run.
+
+## 2026-11-02 — Product specification — Align manager access actions
+
+- Details/impact: document the agreed manager workflow: assign roles from participant profiles and generate/copy a one-time login link for support without sending an email.
+- Test status: documentation consistency review only.
+
+## 2026-11-02 — Imports — Make preview commits atomic
+
+- Details/impact: claim the preview, verify its baseline and apply imported rows in a single database transaction. Concurrent commits now observe either the state before the import or its complete result; failed/stale commits roll back the preview claim.
+- Test status: targeted Biome and API typecheck passed. Typecheck ran under Node 24.22.1 with pnpm's engine-strict check disabled because Node 26 is not installed in this shell; the repository requires Node 26. Tests were not run.
+
+## 2026-11-01 — Frontend data and routing boundaries — Centralize TanStack Query by domain
+
+- Details/impact: move every browser request, TanStack Query hook, query key and cache effect into `apps/web/src/api` domain modules. Add `@traveler/*` aliases for source folders, move route declarations and components under `src/routes`, and render nested routes through a persistent React Router layout and animated `<Outlet>`. Replace the broad organizer workflow hook with panel-owned import and trip-settings state so `StaffTools` no longer forwards import callbacks or values it does not use. Rename type modules to the `.types.ts` convention.
+- Test status: Biome, web/API TypeScript checks, web/API production builds and `git diff --check` passed. Automated tests were not run. Builds ran under Node 24.22.1 with pnpm's engine-strict check disabled because Node 26 is not installed in this environment; the repository requires Node 26.
+
+## 2026-11-01 — Application refactor — Complete feature and service boundaries
+
+- Details/impact: split oversized web components into focused feature components and shared UI variants; keep feature server state in TanStack Query hooks with dedicated keys, direct cache updates for known profile/preference/trip-name results, and narrowly scoped invalidations for participant edits/imports and rooming changes. Move workbook import preview/commit, agency rooming export, rooming reads/exports/assignments, traveler profile/details updates and initial room assignment workflows behind services and datamodel repositories; keep endpoint handlers focused on authorization, payload validation and HTTP responses.
+- Test status: Biome, web/API TypeScript checks, API and web production builds, and `git diff --check` passed. Automated tests were not run. Builds ran under Node 24.22.1 with pnpm's engine-strict check disabled because Node 26 is not installed in this environment; the repository requires Node 26.
+
+## 2026-11-01 — Unsplash photo credits — Overlay attribution
+
+- Details/impact: place photographer credits in small, legible overlays on the sign-in and trip hero photos so attribution no longer adds vertical space to the page.
+- Test status: Biome, web/API TypeScript checks and `git diff --check` passed. Automated tests were not run.
+
+## 2026-11-01 — Organizer roles — Translate French labels
+
+- Details/impact: translate traveler, companion and manager role labels in the French catalog so directory entries, role selectors and import assignment lists display French labels.
+- Test status: Biome and `git diff --check` passed.
+
+## 2026-11-01 — Keyboard focus — Match outlines to the green theme
+
+- Details/impact: use the theme accent green for keyboard focus outlines in light and dark mode, reduce the outline from 3px to 2px, and keep forced-colors mode on the system highlight color.
+- Test status: Biome and `git diff --check` passed.
+
+## 2026-11-01 — Organizer journey fields — Add date and time pickers
+
+- Details/impact: add an accessible React Aria calendar popover with month navigation to date-time fields, and a keyboard-accessible time list in 15-minute increments with the currently selected custom minute retained. Keep the segmented date/time inputs available for direct keyboard entry, and localize picker controls in French and English.
+- Test status: Biome, web/API TypeScript checks, Vite production build and `git diff --check` passed. Automated tests were not run. Vite reports the existing large-chunk advisory.
+
+## 2026-11-01 — Organizer access — Generate sign-in links without email
+
+- Details/impact: show the manager action in every environment; generate a Better Auth magic link and return it directly for clipboard use without invoking Brevo, while retaining the 10-minute single-use token, manager authorization and request cooldown. Normal sign-in requests still use email delivery; local copy requests no longer print their link to the API terminal. Declare `@internationalized/date` as a direct web dependency so React Aria date/time fields resolve after install.
+- Test status: Biome, web/API TypeScript checks, Vite production build, API bundling and `git diff --check` passed. Automated tests were not run. Vite still reports the existing large-chunk advisory.
+
+## 2026-11-01 — Organizer traveler details — Use accessible date and time fields
+
+- Details/impact: replace native date/time inputs with React Aria DatePicker and TimeField controls; remove per-journey timezone editing and clear legacy timezone values on save while retaining the current individual journey fields ahead of the planned group-departure redesign. The local copy-link action continues to use the simulator mailer, which prints the generated link to the API terminal instead of sending email.
+- Test status: Biome, web/API TypeScript checks, Vite production build and `git diff --check` passed. Automated tests were not run. Vite still reports the existing large-chunk advisory.
+
+## 2026-11-01 — Organizer workspace — Add manual users and trip settings
+
+- Details/impact: organize manager tools into animated users, imports/exports, and trip/options tabs; remove the separate companion-nomination form and create users as travelers before assigning roles from their profile; make detailed order imports explicit alongside recurring confirmed-roster updates; use accessible drop zones for participant workbooks and agency rooming templates; hide journey fields for users without booked transport.
+- Test status: Biome, web/API TypeScript checks, Vite production build and `git diff --check` passed. Automated tests were not run. Vite still reports the existing large-chunk advisory.
+
+## 2026-11-01 — Organizer workspace — Reorganize user management
+
+- Details/impact: separate the organizer workspace into participant management and import/export tabs; replace the separate emergency-contact and access lists with one searchable user directory whose dialog edits profile, contact, role, email, transport and trip options. Expose registration payment details only to managers, keep role/email changes manager-only, allow organizers to copy a local debug sign-in link, and retain the existing emailed-link endpoint for configured deployments.
+- Test status: Biome and API/web TypeScript checks passed. Automated tests were not run.
+
+## 2026-11-01 — Traveler profile — Refine dialog and phone input
+
+- Details/impact: animate profile dialog entry and exit; keep its header and action bar fixed while the inset form content scrolls; apply the themed scrollbar across the site, remove browser scrollbar arrow buttons, and inset the track from rounded corners; scope standard scrollbar styling to browsers without WebKit scrollbar pseudo-elements so Chromium can apply the arrow-removal rules; constrain language options within the viewport; render Select lists with one shared surface, separated options, and distinct selected/focused states; style the dialog close action with a neutral token; replace the duplicate gender tooltip with a concise helper description; add an accessible country picker with React flag components from `country-flag-icons`, country calling codes and French `+33 (0)` display without truncation; align the country selector and number input to avoid a hover seam; format and validate international phone numbers in the browser and normalize valid numbers to E.164 on the server.
+- Test status: Biome, web/API TypeScript checks, Vite production build and `git diff --check` passed. Automated tests were not run. Vite still reports the existing large-chunk advisory.
+
+## 2026-11-01 — Web theme — Refactor
+
+- Details/impact: centralize semantic light/dark color, typography, radius and elevation tokens in `apps/web/src/theme/tokens.css`, expose them as Tailwind utilities, and migrate shared UI and feature styles to those names. Normalize page rhythm and form/card spacing around layout gaps, use Grid and Flex by layout purpose, and document the styling convention. CSS `light-dark()` keeps system colors and explicit theme preferences on the same token definitions.
+- Test status: Biome passed for the web source and contributor docs, and `git diff --check` passed. The production build was blocked because this shell resolves Node 24.22.1 while the repository requires Node 26; automated tests were not run.
+
 Use one entry per coherent technical change: date, module, action, details/impact, and actual test status. Exclude documentation-only, context-only and comment-only updates.
+
+## 2026-11-01 — Traveler profile — Expand layout and allow blank dietary fields
+
+- Details/impact: use more of the viewport for the profile modal while insetting its scroll region, make dietary requirements and allergens optional in both the form and API validation, and clarify that these fields can be left blank. The profile update endpoint is present in the current API source; the local listener on port 3001 returned 404 for that route, indicating it is serving an older or different API build.
+- Test status: Biome, web/API typechecks and Vite production build passed under Node 24 with pnpm's engine guard disabled. Automated tests were not run. Node 26 is required; rerun the pipeline there before merge. Vite reports the existing large-chunk advisory.
+
+## 2026-11-01 — Profile modal — Inset the scrollbar
+
+- Details/impact: keep the rounded dialog as the outer frame and move the scrolling content into an inset region so the scrollbar clears the modal corners.
+- Test status: Biome, web typecheck and Vite production build passed under Node 24 with pnpm's engine guard disabled. Automated tests were not run. Node 26 is required; rerun the pipeline there before merge. Vite reports the existing large-chunk advisory.
+
+## 2026-11-01 — React Aria controls — Correct selector sizing and legend spacing
+
+- Details/impact: keep the dietary section's original divider and add only right padding to its legend; use the actual expanded state of Select trigger buttons for shared chevron rotation; align the gender option popover to its trigger and explicitly fill the profile form column.
+- Test status: Biome, web typecheck and Vite production build passed under Node 24 with pnpm's engine guard disabled. Automated tests were not run. Node 26 is required; rerun the pipeline there before merge. Vite reports the existing large-chunk advisory.
+
+## 2026-11-01 — Profile controls — Refine selection, menus and exit behavior
+
+- Details/impact: keep the selected appearance indicator visible whenever the account menu opens, align the language option popover with its trigger, rotate shared React Aria Select chevrons while open, allow users to leave an incomplete profile and return through browser history, style the profile dialog scrollbar, and use React Aria `Text` for associated dialog and select descriptions.
+- Test status: Biome, web typecheck and Vite production build passed under Node 24 with pnpm's engine guard disabled. Automated tests were not run. Node 26 is required; rerun the pipeline there before merge. Vite reports the existing large-chunk advisory.
+
+## 2026-11-01 — Web interface — Refine profile, language and appearance controls
+
+- Details/impact: use English `lowerCamelCase` translation keys with matching French/English catalogs, move the language React Aria Select into the account menu, animate the theme ToggleButtonGroup selection indicator, and show traveler information behind a required first-visit profile modal with structured dietary/emergency-contact sections and room-planning guidance.
+- Test status: Biome, web typecheck and Vite production build passed under Node 24 with pnpm's engine guard disabled. Automated tests were not run. Node 26 is required; rerun the pipeline there before merge. Vite reports the existing large-chunk advisory.
+
+## 2026-11-01 — Web interface — Add French and English localization
+
+- Details/impact: add a centralized i18next/react-i18next catalog for all traveler, sign-in, profile, rooming and organizer interface copy. Default to French, allow switching to English, persist the selection locally, update the document language, and format dates and amounts with the selected locale.
+- Test status: Web TypeScript check, Biome and Vite production build passed under Node 24 with pnpm's engine guard disabled. Automated tests were not run; the build reports its existing large-chunk advisory.
+
+## 2026-11-01 — Participant imports — Refactor
+
+- Details/impact: add reference-keyed validated-roster snapshots with payment derivation from amounts due/paid, detailed-order enrichment, reviewed companion/VIP account linking and explicit manager assignment, profile completion, manager-only payment visibility, and agency-template rooming export plus seat-only return import. Show per-reference import changes, retain registration history and staff-entered data, and cancel missing validated registrations without deleting accounts.
+- Test status: Biome, API/web TypeScript checks and API/web production builds passed under Node 24 with pnpm's engine guard disabled. Drizzle generated migration 0006 and snapshot; a follow-up schema generation reported no schema changes. Automated tests were not run. Re-run the full pipeline under the required Node 26 runtime before merge.
+
+## 2026-11-01 — Local demo — Add sample participants
+
+- Details/impact: seed one manager, two companions and ten fictional travelers idempotently on every local simulator startup, including existing local databases; print all demo sign-in emails in the API terminal.
+- Test status: API TypeScript check and Biome passed under Node 24 with the pnpm engine guard disabled. Automated tests were not run.
+
+## 2026-11-01 — Traveler profile — Handle missing profile response
+
+- Details/impact: render profile onboarding with empty defaults when an API response has no profile object, avoiding a crash for accounts without a stored profile or when the API payload predates the profile fields.
+- Test status: Web TypeScript check and Biome passed under Node 24 with the pnpm engine guard disabled. Automated tests were not run.
+
+## 2026-10-31 — Local development — Simulate application services
+
+- Details/impact: make `pnpm dev` use a local SQLite-compatible libSQL database, checked-in migrations, fictional manager/trip and local ticket files; print magic links in the API terminal and keep the simulator isolated from Turso, Brevo and Vercel Blob. Add path-safe local ticket storage and update the setup guide.
+- Test status: Biome, TypeScript API build/typecheck, web typecheck, and Vite production build passed under Node 24. Local database readiness returned `ready`, and the API accepted a demo sign-in request with HTTP 200. Automated tests were not run; Node 26 is required by the project but unavailable in this host.
+
+## 2026-10-31 — Web shell — Refine profile, theme and wide layouts
+
+- Details/impact: replace the separate account page and prominent dark-mode switch with an accessible React Aria profile popover containing account details, system/light/dark preference controls and sign-out. Default to the system theme, keep long email addresses on one truncated line, center the main content and widen page/navigation containers for large screens.
+- Test status: Biome, TypeScript web check, and Vite production build passed under Node 24. Automated tests were not run; manual keyboard/screen-reader and mobile checks remain to be done by the owner.
 
 ## 2026-10-31 — Import and environment review — Fix
 

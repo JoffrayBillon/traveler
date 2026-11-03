@@ -1,63 +1,55 @@
+import { eyebrowStyles, PageContainer, Stack } from "@traveler/components/ui";
 import { ArrowLeft, Settings2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { eyebrowStyles } from "../../components/ui";
 import { StaffTools } from "./StaffTools";
 
 export function OrganizerWorkspace({
   tripId,
   tripName: initialTripName,
   role,
-  onTripNameChange,
+  userId,
 }: {
   tripId: string;
   tripName: string;
   role: "companion" | "manager";
-  onTripNameChange: (name: string) => void;
+  userId: string;
 }) {
-  const [tripName, setTripName] = useState(initialTripName);
-  useEffect(() => {
-    setTripName(initialTripName);
-  }, [initialTripName]);
+  const { t } = useTranslation();
   return (
-    <section
-      className="mx-auto my-12 mb-20 w-[min(100%-3rem,1120px)] max-[760px]:my-6 max-[760px]:mb-12 max-[760px]:w-[min(100%-2rem,1120px)]"
-      aria-labelledby="organizer-title"
-    >
+    <PageContainer spacing="regular" aria-labelledby="organizer-title">
       <Link
-        className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] no-underline hover:text-[var(--forest-bright)]"
+        className="inline-flex items-center gap-2 text-sm font-semibold text-content-muted no-underline hover:text-accent"
         to={`/trips/${encodeURIComponent(tripId)}`}
       >
-        <ArrowLeft aria-hidden="true" size={17} /> Retour au voyage
+        <ArrowLeft aria-hidden="true" size={17} /> {t("backToTrip")}
       </Link>
-      <div className="my-6 flex items-center justify-start gap-6">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--surface-soft)] text-[var(--forest-bright)]">
+      <div className="flex items-center justify-start gap-6">
+        <span className="grid size-12 shrink-0 place-items-center rounded-card bg-surface-muted text-accent">
           <Settings2 aria-hidden="true" size={22} />
         </span>
-        <div>
-          <p className={eyebrowStyles()}>{tripName}</p>
+        <div className="grid gap-1">
+          <p className={eyebrowStyles()}>{initialTripName}</p>
           <h1
-            className="my-1 text-[clamp(2rem,4vw,3.4rem)] tracking-[-0.06em]"
+            className="text-[clamp(2rem,4vw,3.4rem)] tracking-[-0.06em]"
             id="organizer-title"
             data-route-heading
             tabIndex={-1}
           >
-            Espace organisation
+            {t("organizerSpace")}
           </h1>
-          <p className="mb-0 text-[var(--muted)]">
-            Les outils partagés par l’équipe du séjour.
+          <p className="text-content-muted">
+            {t("toolsSharedByTheTripOrganizers")}
           </p>
         </div>
       </div>
-      <StaffTools
-        tripId={tripId}
-        tripName={tripName}
-        isManager={role === "manager"}
-        onTripNameChange={(name) => {
-          setTripName(name);
-          onTripNameChange(name);
-        }}
-      />
-    </section>
+      <Stack gap="lg">
+        <StaffTools
+          tripId={tripId}
+          userId={userId}
+          isManager={role === "manager"}
+        />
+      </Stack>
+    </PageContainer>
   );
 }

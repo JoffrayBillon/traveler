@@ -73,6 +73,7 @@ async function createFixture() {
       firstName: person.firstName,
       lastName: person.lastName,
       gender: person.gender,
+      genderConfirmed: true,
     });
   }
   await database.insert(schema.rooms).values([

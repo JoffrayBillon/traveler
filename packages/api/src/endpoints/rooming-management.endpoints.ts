@@ -1,0 +1,287 @@
+import type { Hono } from "hono";
+import type { AuthServices } from "../auth";
+import { getTripMembershipRole } from "../datamodel/trip-membership.repository";
+import { getSession } from "../services/auth/get-session";
+import {
+  getRoomInventory,
+  saveRoomInventory,
+} from "../services/rooming/room-inventory-service";
+import {
+  setRoomLocked,
+  staffMoveTraveler,
+  staffUnassignTraveler,
+} from "../services/rooming/room-management-service";
+import {
+  applyRoomAssignmentPlan,
+  previewRoomAssignments,
+} from "../services/rooming/room-plan-service";
+
+export function registerRoomManagementEndpoints(
+  app: Hono,
+  getAuthServices: () => AuthServices | undefined,
+) {
+  app.get("/api/trips/:tripId/rooms/inventory", async (context) => {
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const actor = await getTripMembershipRole(
+      services.database,
+      tripId,
+      session.user.id,
+    );
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role === "traveler")
+      return context.json({ error: "forbidden" }, 403);
+    const inventory = await getRoomInventory(services.database, tripId);
+    return context.json({ inventory });
+  });
+
+  app.put("/api/trips/:tripId/rooms/inventory", async (context) => {
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const actor = await getTripMembershipRole(
+      services.database,
+      tripId,
+      session.user.id,
+    );
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role === "traveler")
+      return context.json({ error: "forbidden" }, 403);
+
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: "invalid_room_inventory" }, 400);
+    }
+    const inventory =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>).inventory
+        : undefined;
+    if (
+      !Array.isArray(inventory) ||
+      inventory.length === 0 ||
+      inventory.length > 12
+    )
+      return context.json({ error: "invalid_room_inventory" }, 400);
+    if (
+      !inventory.every(isRoomInventoryItem) ||
+      new Set(inventory.map((item) => item.capacity)).size !==
+        inventory.length ||
+      inventory.reduce((sum, item) => sum + item.quantity, 0) === 0
+    )
+      return context.json({ error: "invalid_room_inventory" }, 400);
+
+    const result = await saveRoomInventory(
+      services.database,
+      tripId,
+      inventory as { capacity: number; quantity: number }[],
+    );
+    if ("error" in result) return context.json({ error: result.error }, 409);
+    return context.json(result);
+  });
+
+  app.post("/api/trips/:tripId/rooms/plan-preview", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const actor = await getTripMembershipRole(
+      services.database,
+      tripId,
+      session.user.id,
+    );
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role === "traveler")
+      return context.json({ error: "forbidden" }, 403);
+    const result = await previewRoomAssignments(services.database, tripId);
+    return context.json(result);
+  });
+
+  app.post("/api/trips/:tripId/rooms/generate", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const actor = await getTripMembershipRole(
+      services.database,
+      tripId,
+      session.user.id,
+    );
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    if (actor.role === "traveler")
+      return context.json({ error: "forbidden" }, 403);
+    let payload: unknown;
+    try {
+      payload = await context.req.json();
+    } catch {
+      return context.json({ error: "invalid_room_plan" }, 400);
+    }
+    const snapshot =
+      payload && typeof payload === "object" && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>).snapshot
+        : undefined;
+    if (typeof snapshot !== "string" || !/^[a-f0-9]{64}$/.test(snapshot))
+      return context.json({ error: "invalid_room_plan" }, 400);
+    const result = await applyRoomAssignmentPlan(
+      services.database,
+      tripId,
+      snapshot,
+      session.user.id,
+    );
+    if ("error" in result) return context.json({ error: result.error }, 409);
+    return context.json(result);
+  });
+
+  app.patch("/api/trips/:tripId/rooms/:roomId/lock", async (context) => {
+    context.header("Cache-Control", "no-store");
+    const services = getAuthServices();
+    if (!services) return context.json({ error: "service_unavailable" }, 503);
+    const session = await getSession(services, context.req.raw.headers);
+    if (!session) return context.json({ error: "unauthorized" }, 401);
+    const tripId = context.req.param("tripId");
+    const actor = await getTripMembershipRole(
+      services.database,
+      tripId,
+      session.user.id,
+    );
+    if (!actor) return context.json({ error: "not_found" }, 404);
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: "invalid_room_lock" }, 400);
+    }
+    const locked =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>).locked
+        : undefined;
+    if (typeof locked !== "boolean")
+      return context.json({ error: "invalid_room_lock" }, 400);
+    const result = await setRoomLocked(
+      services.database,
+      tripId,
+      context.req.param("roomId"),
+      session.user.id,
+      locked,
+      actor.role !== "traveler",
+    );
+    if (result.error === "not_found")
+      return context.json({ error: result.error }, 404);
+    if (result.error === "forbidden")
+      return context.json({ error: result.error }, 403);
+    if (result.error === "room_must_be_full_to_lock")
+      return context.json({ error: result.error }, 409);
+    return context.json(result);
+  });
+
+  app.put(
+    "/api/trips/:tripId/rooms/:roomId/participants/:userId",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      const services = getAuthServices();
+      if (!services) return context.json({ error: "service_unavailable" }, 503);
+      const session = await getSession(services, context.req.raw.headers);
+      if (!session) return context.json({ error: "unauthorized" }, 401);
+      const tripId = context.req.param("tripId");
+      const actor = await getTripMembershipRole(
+        services.database,
+        tripId,
+        session.user.id,
+      );
+      if (!actor) return context.json({ error: "not_found" }, 404);
+      if (actor.role === "traveler")
+        return context.json({ error: "forbidden" }, 403);
+      let body: unknown;
+      try {
+        body = await context.req.json();
+      } catch {
+        return context.json({ error: "invalid_room_move" }, 400);
+      }
+      const expectedRoomId =
+        body && typeof body === "object" && !Array.isArray(body)
+          ? (body as Record<string, unknown>).expectedRoomId
+          : undefined;
+      if (
+        expectedRoomId !== null &&
+        (typeof expectedRoomId !== "string" || !expectedRoomId)
+      )
+        return context.json({ error: "invalid_room_move" }, 400);
+      const result = await staffMoveTraveler(
+        services.database,
+        tripId,
+        context.req.param("userId"),
+        expectedRoomId,
+        context.req.param("roomId"),
+        session.user.id,
+      );
+      if (result.error === "not_found")
+        return context.json({ error: result.error }, 404);
+      if (
+        result.error === "room_capacity_exceeded" ||
+        result.error === "room_composition_changed"
+      )
+        return context.json({ error: result.error }, 409);
+      return context.json(result);
+    },
+  );
+
+  app.delete(
+    "/api/trips/:tripId/rooms/:roomId/participants/:userId",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      const services = getAuthServices();
+      if (!services) return context.json({ error: "service_unavailable" }, 503);
+      const session = await getSession(services, context.req.raw.headers);
+      if (!session) return context.json({ error: "unauthorized" }, 401);
+      const tripId = context.req.param("tripId");
+      const actor = await getTripMembershipRole(
+        services.database,
+        tripId,
+        session.user.id,
+      );
+      if (!actor) return context.json({ error: "not_found" }, 404);
+      if (actor.role === "traveler")
+        return context.json({ error: "forbidden" }, 403);
+
+      const result = await staffUnassignTraveler(
+        services.database,
+        tripId,
+        context.req.param("userId"),
+        context.req.param("roomId"),
+        session.user.id,
+      );
+      if (result.error === "not_found")
+        return context.json({ error: result.error }, 404);
+      if (result.error === "room_composition_changed")
+        return context.json({ error: result.error }, 409);
+      return context.json(result);
+    },
+  );
+}
+
+function isRoomInventoryItem(
+  value: unknown,
+): value is { capacity: number; quantity: number } {
+  if (!value || typeof value !== "object") return false;
+  const { capacity, quantity } = value as Record<string, unknown>;
+  return (
+    typeof capacity === "number" &&
+    Number.isInteger(capacity) &&
+    capacity >= 1 &&
+    capacity <= 12 &&
+    typeof quantity === "number" &&
+    Number.isInteger(quantity) &&
+    quantity >= 0 &&
+    quantity <= 200
+  );
+}
