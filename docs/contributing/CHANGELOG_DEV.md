@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-03 — Web test aliases — Share Vite resolution with Vitest
+
+- Details/impact: use the frontend's canonical source aliases in Vitest so tests resolve internal `@traveler/*` modules to source files instead of the published API package exports.
+- Test status: CI identified the missing aliases; configuration updated and pushed for CI verification. No local tests run.
+
 ## 2026-11-03 — Drizzle metadata — Apply Biome formatting
 
 - Details/impact: format the generated snapshot and migration journal to satisfy the repository-wide Biome check.
