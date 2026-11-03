@@ -1,9 +1,9 @@
 # Technical changelog
 
-## 2026-11-03 — Web test aliases — Share Vite resolution with Vitest
+## 2026-11-03 — CI tests — Align test setup with runtime contracts
 
-- Details/impact: use the frontend's canonical source aliases in Vitest so tests resolve internal `@traveler/*` modules to source files instead of the published API package exports.
-- Test status: CI identified the missing aliases; configuration updated and pushed for CI verification. No local tests run.
+- Details/impact: share the frontend's source aliases with Vitest, provide a QueryClient to the participant-directory test, inject the same Brevo adapter used by production in its email test, and mark rooming fixture genders as confirmed before asserting mixed-room consent.
+- Test status: 18 targeted API auth/rooming tests and the participant-directory test pass; Biome passes. Full workspace test and GitHub CI are pending. Local checks currently run under Node 24 because the installed Node 26 NVM path is inaccessible in this session.
 
 ## 2026-11-03 — Drizzle metadata — Apply Biome formatting
 

@@ -5,6 +5,7 @@ import { createClient } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createBrevoMagicLinkSender } from "./adapters/email/brevo-magic-link.adapter";
 import { createApp } from "./app";
 import { createAuth, createMagicLinkCapture } from "./auth";
 import { createAuthServicesProvider } from "./composition";
@@ -200,12 +201,17 @@ describe("invite-only magic-link authentication", () => {
 
   it("sends the default login email through Brevo with the expected content", async () => {
     brevoMock.sendTransacEmail.mockClear();
+    const apiKey = "test-api-key";
+    const senderEmail = "no-reply@example.com";
     const env = {
       ...authEnv,
-      BREVO_API_KEY: "test-api-key",
-      BREVO_SENDER_EMAIL: "no-reply@example.com",
+      BREVO_API_KEY: apiKey,
+      BREVO_SENDER_EMAIL: senderEmail,
     } as NodeJS.ProcessEnv;
-    const services = await createTestServices(undefined, env, true);
+    const services = await createTestServices(
+      createBrevoMagicLinkSender(apiKey, senderEmail),
+      env,
+    );
     const trip = await createTripsStore(services.database).create("Ski 2027");
     const manager = await createManagersStore(services.database).create({
       tripId: trip.id,

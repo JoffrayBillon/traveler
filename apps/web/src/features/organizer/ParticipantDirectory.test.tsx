@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -29,6 +30,10 @@ describe("ParticipantDirectory", () => {
       emergencyContactPhone: "+33612345678",
       activityProfile: "ski",
       skiDayThree: true,
+      transportChoice: "group",
+      groupId: "group-1",
+      carpoolRole: "none",
+      carpoolDriverUserId: null,
       transportMode: "train",
       departureCity: "Paris",
       outboundDateTime: null,
@@ -48,24 +53,55 @@ describe("ParticipantDirectory", () => {
       carpoolPreference: null,
       parkingPreference: null,
     };
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ travelers: [participant] }),
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      return {
+        ok: true,
+        json: async () =>
+          url.includes("/travelers")
+            ? { travelers: [participant] }
+            : {
+                groups: [
+                  {
+                    id: "group-1",
+                    tripId: "trip-1",
+                    name: "Paris Ski",
+                    sourceCity: "Paris",
+                    normalizedCity: "paris",
+                    isDraft: false,
+                    outboundMeetingAt: null,
+                    outboundMeetingPlace: null,
+                    returnMeetingAt: null,
+                    returnMeetingPlace: null,
+                    segments: [],
+                    travelers: [],
+                  },
+                ],
+                participants: [],
+                drivers: [],
+                self: null,
+              },
+      };
     });
     vi.stubGlobal("fetch", fetchMock);
-    render(<ParticipantDirectory tripId="trip-1" isManager />);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ParticipantDirectory tripId="trip-1" isManager />
+      </QueryClientProvider>,
+    );
 
     await user.click(
       await screen.findByRole("button", { name: /Alex Voyageur/ }),
     );
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("Végétarien")).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue("Végétarien")).toBeInTheDocument();
     expect(
       within(dialog).getByDisplayValue("alex@example.com"),
     ).toBeInTheDocument();
-    expect(
-      within(dialog).getByDisplayValue("Gare de Lyon"),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByText("Paris Ski · Paris")).toBeInTheDocument();
   });
 });
