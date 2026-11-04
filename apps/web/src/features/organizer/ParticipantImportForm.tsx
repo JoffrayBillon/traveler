@@ -15,6 +15,7 @@ import { type FormEvent, useState } from "react";
 import { Form } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { ImportPreviewCard } from "./ImportPreviewCard";
+import { ImportPreviewDialog } from "./ImportPreviewDialog";
 
 export function ParticipantImportForm({ tripId }: { tripId: string }) {
   const { t } = useTranslation();
@@ -24,8 +25,13 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
   const [sourceType, setSourceType] =
     useState<ImportSourceType>("validated_roster");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [excludedRows, setExcludedRows] = useState<number[]>([]);
   const [managerEmails, setManagerEmails] = useState<string[]>([]);
   const [accountMappings, setAccountMappings] = useState<
+    Record<string, string>
+  >({});
+  const [transportMappings, setTransportMappings] = useState<
     Record<string, string>
   >({});
   const [message, setMessage] = useState("");
@@ -58,11 +64,34 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
         ...(result.availableMembers
           ? { availableMembers: result.availableMembers }
           : {}),
+        ...(result.staffTransportRows
+          ? { staffTransportRows: result.staffTransportRows }
+          : {}),
         ...(result.agencyRows ? { agencyRows: result.agencyRows } : {}),
         ...(result.changes ? { changes: result.changes } : {}),
       });
-      setManagerEmails([]);
-      setAccountMappings({});
+      setIsPreviewOpen(true);
+      setManagerEmails(
+        (result.staffRows ?? [])
+          .filter((row) => row.existingRole === "manager")
+          .map((row) => row.email.trim().toLowerCase()),
+      );
+      setExcludedRows([]);
+      const userIdByEmail = new Map(
+        (result.availableMembers ?? []).map((member) => [
+          member.email.trim().toLowerCase(),
+          member.userId,
+        ]),
+      );
+      setAccountMappings(
+        Object.fromEntries(
+          (result.staffRows ?? []).flatMap((row) => {
+            const userId = userIdByEmail.get(row.email.trim().toLowerCase());
+            return userId ? [[row.email.trim().toLowerCase(), userId]] : [];
+          }),
+        ),
+      );
+      setTransportMappings({});
       setMessage(t("reviewTheSummaryBeforeConfirmingTheImport"));
     } catch (error) {
       const result = getImportErrorPayload(error);
@@ -82,6 +111,8 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     if (preview.sourceType === "companions_vips") {
       form.set("managerEmails", JSON.stringify(managerEmails));
       form.set("accountMappings", JSON.stringify(accountMappings));
+      form.set("transportMappings", JSON.stringify(transportMappings));
+      form.set("excludedRows", JSON.stringify(excludedRows));
     }
 
     try {
@@ -89,6 +120,7 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     } catch (error) {
       const result = getImportErrorPayload(error);
       setPreview(null);
+      setIsPreviewOpen(false);
       setMessage(
         result.errors?.map((item) => formatImportError(item, t)).join("\n") ??
           t("theImportFailedReviewTheSpreadsheetAgain"),
@@ -101,15 +133,19 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     );
     setFile(null);
     setPreview(null);
+    setIsPreviewOpen(false);
     setManagerEmails([]);
+    setExcludedRows([]);
     setAccountMappings({});
+    setTransportMappings({});
   }
 
   function toggleManagerEmail(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
     setManagerEmails((current) =>
-      current.includes(email)
-        ? current.filter((item) => item !== email)
-        : [...current, email],
+      current.includes(normalizedEmail)
+        ? current.filter((item) => item !== normalizedEmail)
+        : [...current, normalizedEmail],
     );
   }
 
@@ -134,6 +170,7 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
         onChange={(value) => {
           setSourceType(value);
           setPreview(null);
+          setIsPreviewOpen(false);
         }}
       />
       <div className="col-span-full">
@@ -148,6 +185,7 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
           onFileChange={(nextFile) => {
             setFile(nextFile);
             setPreview(null);
+            setIsPreviewOpen(false);
           }}
         />
       </div>
@@ -158,15 +196,33 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
       >
         {t("reviewSpreadsheet")}
       </Button>
-      <ImportPreviewCard
-        importPreview={preview}
-        managerEmails={managerEmails}
-        toggleManagerEmail={toggleManagerEmail}
-        accountMappings={accountMappings}
-        setAccountMappings={setAccountMappings}
-        onCommit={() => void commitImport()}
-        isCommitting={commitMutation.isPending}
-      />
+      {preview && (
+        <Button
+          appearance="secondary"
+          type="button"
+          onPress={() => setIsPreviewOpen(true)}
+        >
+          {t("openImportPreview")}
+        </Button>
+      )}
+      <ImportPreviewDialog
+        isOpen={isPreviewOpen && preview !== null}
+        onOpenChange={setIsPreviewOpen}
+      >
+        <ImportPreviewCard
+          importPreview={preview}
+          excludedRows={excludedRows}
+          setExcludedRows={setExcludedRows}
+          managerEmails={managerEmails}
+          toggleManagerEmail={toggleManagerEmail}
+          accountMappings={accountMappings}
+          setAccountMappings={setAccountMappings}
+          transportMappings={transportMappings}
+          setTransportMappings={setTransportMappings}
+          onCommit={() => void commitImport()}
+          isCommitting={commitMutation.isPending}
+        />
+      </ImportPreviewDialog>
       {message && (
         <p
           className="col-span-full text-sm text-content-muted"

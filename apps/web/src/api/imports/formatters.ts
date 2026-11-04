@@ -19,6 +19,11 @@ export function importSummaryLabel(key: string, t: TFunction) {
     ambiguous: "ambiguousNames",
     outboundPlacements: "outboundPlacements",
     returnPlacements: "returnPlacements",
+    groupedParticipants: "participantsWithGroupTransport",
+    noTransportParticipants: "participantsWithoutGroupTransport",
+    matchedGroups: "existingTransportGroupsMatched",
+    draftGroups: "draftTransportGroupsToCreate",
+    ambiguousCities: "transportCitiesNeedingSelection",
   };
   const translationKey = labels[key] ?? getTranslationKey(key);
   return translationKey ? t(translationKey) : key;

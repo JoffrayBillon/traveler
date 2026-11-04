@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { and, eq, gt, sql } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
+import { normalizeTransportCity } from "../../datamodel/transport.repository";
+import { normalizeEmail } from "../../email";
 import * as schema from "../../schema";
 import {
   DuplicateNormalizedEmailError,
@@ -25,6 +27,13 @@ export class ImportCommitConflict extends Error {
   }
 }
 
+export class InvalidStaffImportRowSelectionError extends Error {
+  constructor() {
+    super("invalid_staff_import_row_selection");
+    this.name = "InvalidStaffImportRowSelectionError";
+  }
+}
+
 export async function commitImportSource(
   database: AppDatabase,
   tripId: string,
@@ -35,6 +44,8 @@ export async function commitImportSource(
   staffOptions: {
     managerEmails: string[];
     accountMappings: Record<string, string>;
+    transportMappings: Record<string, string>;
+    excludedRows: number[];
   },
 ) {
   const [preview] = await database
@@ -60,6 +71,43 @@ export async function commitImportSource(
 
   const parsed = await parseImportSource(sourceType, data);
   if (parsed.errors.length) return { errors: parsed.errors } as const;
+
+  if (parsed.sourceType === "companions_vips") {
+    const parsedRows = new Set(parsed.rows.map((row) => row.row));
+    if (staffOptions.excludedRows.some((row) => !parsedRows.has(row)))
+      throw new InvalidStaffImportRowSelectionError();
+    const rows = parsed.rows.filter(
+      (row) => !staffOptions.excludedRows.includes(row.row),
+    );
+    if (!rows.length) throw new InvalidStaffImportRowSelectionError();
+    const includedEmails = new Set(
+      rows.map((row) => normalizeEmail(row.email)),
+    );
+    const includedCities = new Set(
+      rows.flatMap((row) =>
+        row.transportMode === "none" || !row.departureCity
+          ? []
+          : [normalizeTransportCity(row.departureCity)],
+      ),
+    );
+    staffOptions = {
+      ...staffOptions,
+      managerEmails: staffOptions.managerEmails.filter((email) =>
+        includedEmails.has(normalizeEmail(email)),
+      ),
+      accountMappings: Object.fromEntries(
+        Object.entries(staffOptions.accountMappings).filter(([email]) =>
+          includedEmails.has(normalizeEmail(email)),
+        ),
+      ),
+      transportMappings: Object.fromEntries(
+        Object.entries(staffOptions.transportMappings).filter(([city]) =>
+          includedCities.has(city),
+        ),
+      ),
+    };
+    parsed.rows = rows;
+  }
 
   // Claim the preview, validate the baseline and apply imported rows together.
   // A concurrent commit then observes either the old state or the complete new one.
@@ -104,6 +152,8 @@ export async function commitImportSource(
         parsed.rows,
         staffOptions.managerEmails,
         staffOptions.accountMappings,
+        staffOptions.transportMappings,
+        actorUserId,
         transaction,
       );
     return importAgencyRooming(database, tripId, parsed.rows, transaction);

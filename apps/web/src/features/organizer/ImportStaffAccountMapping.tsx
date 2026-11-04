@@ -24,6 +24,8 @@ type Member = NonNullable<ImportPreview["availableMembers"]>[number];
 export function ImportStaffAccountMapping({
   staffRows,
   members,
+  excludedRows,
+  setExcludedRows,
   managerEmails,
   toggleManagerEmail,
   accountMappings,
@@ -31,6 +33,8 @@ export function ImportStaffAccountMapping({
 }: {
   staffRows: StaffRow[];
   members: Member[];
+  excludedRows: number[];
+  setExcludedRows: (update: (current: number[]) => number[]) => void;
   managerEmails: string[];
   toggleManagerEmail: (email: string) => void;
   accountMappings: Record<string, string>;
@@ -39,6 +43,11 @@ export function ImportStaffAccountMapping({
   ) => void;
 }) {
   const { t } = useTranslation();
+  const includedEmails = new Set(
+    staffRows
+      .filter((person) => !excludedRows.includes(person.row))
+      .map((person) => person.email.trim().toLowerCase()),
+  );
   function translatedRole(role: string) {
     const translationKey = getTranslationKey(role);
     return translationKey ? t(translationKey) : role;
@@ -47,16 +56,39 @@ export function ImportStaffAccountMapping({
   return (
     <fieldset className="grid gap-2">
       <legend className="text-sm font-semibold">
-        {t("selectJoffrayAndStephaneAsManagers")}
+        {t("staffImportAccountSettings")}
       </legend>
+      <p className="text-sm text-content-muted">
+        {t("staffImportAccountEmailMatchingDescription")}
+      </p>
       {staffRows.map((person) => (
         <div
-          className="grid gap-2 rounded-lg border border-border bg-surface p-3"
+          className={`grid gap-2 rounded-lg border border-border bg-surface p-3 ${excludedRows.includes(person.row) ? "opacity-60" : ""}`}
           key={person.email}
         >
           <Checkbox
             className={checkboxStyles()}
-            isSelected={managerEmails.includes(person.email)}
+            isSelected={!excludedRows.includes(person.row)}
+            onChange={() =>
+              setExcludedRows((current) =>
+                current.includes(person.row)
+                  ? current.filter((row) => row !== person.row)
+                  : [...current, person.row],
+              )
+            }
+          >
+            <span>
+              {t("includeParticipantInImport", {
+                name: `${person.firstName} ${person.lastName}`,
+              })}
+            </span>
+          </Checkbox>
+          <Checkbox
+            className={checkboxStyles()}
+            isSelected={managerEmails.includes(
+              person.email.trim().toLowerCase(),
+            )}
+            isDisabled={excludedRows.includes(person.row)}
             onChange={() => toggleManagerEmail(person.email)}
           >
             <span>
@@ -77,12 +109,16 @@ export function ImportStaffAccountMapping({
           {members.length > 0 && (
             <Select
               className="grid min-w-0 gap-2"
-              selectedKey={accountMappings[person.email] ?? "new"}
+              isDisabled={excludedRows.includes(person.row)}
+              selectedKey={
+                accountMappings[person.email.trim().toLowerCase()] ?? "new"
+              }
               onSelectionChange={(key) =>
                 setAccountMappings((current) => {
                   const next = { ...current };
-                  if (key === "new" || key === null) delete next[person.email];
-                  else next[person.email] = String(key);
+                  const email = person.email.trim().toLowerCase();
+                  if (key === "new" || key === null) delete next[email];
+                  else next[email] = String(key);
                   return next;
                 })
               }
@@ -105,7 +141,8 @@ export function ImportStaffAccountMapping({
                       key={member.userId}
                       isDisabled={Object.entries(accountMappings).some(
                         ([sourceEmail, userId]) =>
-                          sourceEmail !== person.email &&
+                          includedEmails.has(sourceEmail) &&
+                          sourceEmail !== person.email.trim().toLowerCase() &&
                           userId === member.userId,
                       )}
                     >

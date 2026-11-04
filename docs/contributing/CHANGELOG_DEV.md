@@ -1,5 +1,25 @@
 # Technical changelog
 
+## 2026-11-05 — Organizer directory — Ignore accents in search
+
+- Details/impact: normalize search text and participant fields for case- and accent-insensitive matching, so `lea` finds `Léa`.
+- Test status: web typecheck and targeted Biome check passed under Node 26; no test suite run.
+
+## 2026-11-05 — Organizer interface — Show and edit VIP status
+
+- Details/impact: show a VIP badge in the shared participant directory and let organizers change the VIP flag in the participant profile dialog. Move import analysis into a dismissible modal that opens after preview and can be reopened.
+- Test status: API/web typechecks, Biome and translation parity passed under Node 26; no test suite run.
+
+## 2026-11-05 — Staff/VIP import — Skip individual rows
+
+- Details/impact: let organizers exclude selected workbook rows before commit; update participant and transport preview counts, and apply exclusions in the API while ignoring mappings for excluded rows.
+- Test status: API/web typechecks, Biome and translation parity passed under Node 26; no test suite run.
+
+## 2026-11-05 — Staff/VIP import — Assign grouped transport
+
+- Details/impact: preview source cities against configured groups, create reusable draft groups for unknown cities, require a choice for ambiguous matches, and persist group assignments and no-transport choices atomically with staff/VIP updates. Preserve the traveler’s login account when mapping a changed source email.
+- Test status: focused API import tests, API/web typechecks, translation parity and Biome passed under Node 26; HTTP preview and idempotent commit returned 200 with 9 grouped assignments and 1 no-transport participant.
+
 ## 2026-11-03 — CI tests — Align test setup with runtime contracts
 
 - Details/impact: share source aliases with Vitest, supply React Query and ResizeObserver test setup, align web integration mocks/assertions with the current grouped-transport and session flows, inject the Brevo adapter in auth tests, and confirm rooming fixture genders before asserting mixed-room consent.

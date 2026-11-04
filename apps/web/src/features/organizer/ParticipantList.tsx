@@ -71,14 +71,23 @@ export function ParticipantList({
                   </span>
                 </span>
               </span>
-              {isManager && person.paymentStatus && (
-                <span className="shrink-0 rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold text-content-muted">
-                  {t(
-                    person.paymentStatus === "partially_paid"
-                      ? "partiallyPaid"
-                      : person.paymentStatus,
+              {(person.isVip || (isManager && person.paymentStatus)) && (
+                <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {person.isVip && (
+                    <span className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-content">
+                      {t("vipBadge")}
+                    </span>
                   )}
-                  {person.paymentNeedsReview ? " · !" : ""}
+                  {isManager && person.paymentStatus && (
+                    <span className="rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold text-content-muted">
+                      {t(
+                        person.paymentStatus === "partially_paid"
+                          ? "partiallyPaid"
+                          : person.paymentStatus,
+                      )}
+                      {person.paymentNeedsReview ? " · !" : ""}
+                    </span>
+                  )}
                 </span>
               )}
             </Button>

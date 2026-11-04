@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
+import { normalizeTransportCity } from "../datamodel/transport.repository";
 import { normalizeEmail } from "../email";
 import * as schema from "../schema";
 import type { StaffImportRow } from "../source-import/types";
@@ -9,7 +10,14 @@ import type { DatabaseExecutor, DatabaseTransaction } from "./database.types";
 import {
   DuplicateNormalizedEmailError,
   InvalidStaffAccountMappingError,
+  InvalidStaffTransportMappingError,
 } from "./errors";
+import {
+  previewStaffTransportImport,
+  replaceStaffTransportAssignments,
+  resolveStaffTransportGroups,
+  type StaffGroupAssignment,
+} from "./staff-transport";
 export async function previewStaffImport(
   database: DatabaseExecutor,
   tripId: string,
@@ -50,6 +58,7 @@ export async function previewStaffImport(
     .innerJoin(schema.users, eq(schema.tripMemberships.userId, schema.users.id))
     .where(eq(schema.tripMemberships.tripId, tripId))
     .orderBy(schema.tripMemberships.lastName, schema.tripMemberships.firstName);
+  const transport = await previewStaffTransportImport(database, tripId, rows);
   return {
     rows: rows.map((row) => ({
       row: row.row,
@@ -60,22 +69,50 @@ export async function previewStaffImport(
       isVip: row.isVip,
       existingRole: byEmail.get(normalizeEmail(row.email))?.role ?? null,
       action: byEmail.has(normalizeEmail(row.email)) ? "update" : "create",
+      normalizedTransportCity:
+        row.transportMode === "none" || !row.departureCity
+          ? null
+          : normalizeTransportCity(row.departureCity),
+      transportMode: row.transportMode,
     })),
     availableMembers,
+    transportRows: transport.rows,
+    transportSummary: {
+      groupedParticipants: rows.filter((row) => row.transportMode !== "none")
+        .length,
+      noTransportParticipants: rows.filter(
+        (row) => row.transportMode === "none",
+      ).length,
+      matchedGroups: transport.rows.filter((row) => row.action === "matched")
+        .length,
+      draftGroups: transport.rows.filter((row) => row.action === "create_draft")
+        .length,
+      ambiguousCities: transport.rows.filter(
+        (row) => row.action === "choose_group",
+      ).length,
+    },
   };
 }
-
 export async function importStaffRows(
   database: AppDatabase,
   tripId: string,
   rows: StaffImportRow[],
   managerEmails: string[],
   accountMappings: Record<string, string>,
+  transportMappings: Record<string, string>,
+  actorUserId: string,
   existingTransaction?: DatabaseTransaction,
 ) {
   const normalizedManagerEmails = new Set(managerEmails.map(normalizeEmail));
   const now = new Date();
   const run = async (transaction: DatabaseTransaction) => {
+    const groupIdByCity = await resolveStaffTransportGroups(
+      transaction,
+      tripId,
+      rows,
+      transportMappings,
+      now,
+    );
     const emails = [...new Set(rows.map((row) => normalizeEmail(row.email)))];
     const mappedTargetValues = Object.values(accountMappings);
     if (new Set(mappedTargetValues).size !== mappedTargetValues.length)
@@ -162,6 +199,8 @@ export async function importStaffRows(
       current: typeof schema.travelerDetails.$inferSelect;
       row: StaffImportRow;
     }[] = [];
+    const affectedUserIds: string[] = [];
+    const groupAssignments: StaffGroupAssignment[] = [];
     let updated = 0;
     let created = 0;
     for (const row of rows) {
@@ -182,6 +221,20 @@ export async function importStaffRows(
           emailVerified: false,
           createdAt: now,
           updatedAt: now,
+        });
+      }
+      affectedUserIds.push(user.id);
+      if (row.transportMode !== "none") {
+        if (!row.departureCity) throw new InvalidStaffTransportMappingError();
+        const normalizedCity = normalizeTransportCity(row.departureCity);
+        const groupId = groupIdByCity.get(normalizedCity);
+        if (!groupId) throw new InvalidStaffTransportMappingError();
+        groupAssignments.push({
+          tripId,
+          groupId,
+          userId: user.id,
+          assignedBy: actorUserId,
+          assignedAt: now,
         });
       }
       const membership = membershipByUser.get(user.id);
@@ -220,8 +273,13 @@ export async function importStaffRows(
           userId: user.id,
           activityProfile: row.activityProfile,
           skiDayThree: row.skiDayThree,
-          transportMode: row.transportMode,
-          departureCity: row.departureCity,
+          transportChoice:
+            row.transportMode === "none"
+              ? ("none" as const)
+              : ("group" as const),
+          transportMode:
+            row.transportMode === "none" ? ("none" as const) : null,
+          departureCity: null,
           updatedAt: now,
         });
       }
@@ -268,8 +326,13 @@ export async function importStaffRows(
         ...current,
         activityProfile: row.activityProfile,
         skiDayThree: row.skiDayThree,
-        transportMode: row.transportMode,
-        departureCity: row.departureCity,
+        transportChoice:
+          row.transportMode === "none" ? ("none" as const) : ("group" as const),
+        transportMode: row.transportMode === "none" ? ("none" as const) : null,
+        departureCity: null,
+        ...(row.transportMode === "none"
+          ? {}
+          : { carpoolRole: "none" as const, carpoolDriverUserId: null }),
         ...(row.transportMode === "none"
           ? {}
           : { carpoolPreference: null, parkingPreference: null }),
@@ -288,13 +351,30 @@ export async function importStaffRows(
           set: {
             activityProfile: sql`excluded.activity_profile`,
             skiDayThree: sql`excluded.ski_day_three`,
+            transportChoice: sql`excluded.transport_choice`,
             transportMode: sql`excluded.transport_mode`,
             departureCity: sql`excluded.departure_city`,
+            carpoolRole: sql`excluded.carpool_role`,
+            carpoolDriverUserId: sql`excluded.carpool_driver_user_id`,
             carpoolPreference: sql`excluded.carpool_preference`,
             parkingPreference: sql`excluded.parking_preference`,
             updatedAt: sql`excluded.updated_at`,
           },
         });
+
+    const groupedUserIds = rows
+      .flatMap((row, index) =>
+        row.transportMode === "none" ? [] : [affectedUserIds[index] ?? ""],
+      )
+      .filter(Boolean);
+    await replaceStaffTransportAssignments(
+      transaction,
+      tripId,
+      affectedUserIds,
+      groupedUserIds,
+      groupAssignments,
+      now,
+    );
     return { created, updated };
   };
   return existingTransaction

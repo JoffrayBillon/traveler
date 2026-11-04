@@ -17,6 +17,8 @@ export type ImportPreview = {
     isVip: boolean;
     existingRole: string | null;
     action: "create" | "update";
+    normalizedTransportCity: string | null;
+    transportMode: "train" | "none";
   }[];
   availableMembers?: {
     userId: string;
@@ -24,6 +26,15 @@ export type ImportPreview = {
     lastName: string;
     email: string;
     role: string;
+  }[];
+  staffTransportRows?: {
+    normalizedCity: string;
+    sourceCity: string;
+    participantCount: number;
+    action: "matched" | "create_draft" | "choose_group";
+    groupId: string | null;
+    groupName: string | null;
+    candidates: { id: string; name: string }[];
   }[];
   agencyRows?: {
     row: number;

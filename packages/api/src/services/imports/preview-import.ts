@@ -24,6 +24,7 @@ export async function previewImportSource(
 
   let summary: unknown;
   let staffRows: unknown;
+  let staffTransportRows: unknown;
   let availableMembers: unknown;
   let agencyRows: unknown;
   let changes: unknown;
@@ -41,7 +42,8 @@ export async function previewImportSource(
     const preview = await previewStaffImport(database, tripId, parsed.rows);
     staffRows = preview.rows;
     availableMembers = preview.availableMembers;
-    summary = { rows: preview.rows.length };
+    staffTransportRows = preview.transportRows;
+    summary = { rows: preview.rows.length, ...preview.transportSummary };
   } else {
     const preview = await previewAgencyRooming(database, tripId, parsed.rows);
     const { rows: matchedRows, ...counts } = preview;
@@ -72,6 +74,7 @@ export async function previewImportSource(
     sourceType,
     summary,
     staffRows,
+    staffTransportRows,
     availableMembers,
     agencyRows,
     changes,

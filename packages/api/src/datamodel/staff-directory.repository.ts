@@ -30,6 +30,7 @@ export function listTripTravelerRows(database: AppDatabase, tripId: string) {
       genderConfirmed: schema.tripMemberships.genderConfirmed,
       email: schema.users.email,
       role: schema.tripMemberships.role,
+      isVip: schema.tripMemberships.isVip,
       lastLoginAt: schema.tripMemberships.lastLoginAt,
       dietaryRequirements: schema.travelerProfiles.dietaryRequirements,
       allergens: schema.travelerProfiles.allergens,

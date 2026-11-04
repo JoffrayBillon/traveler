@@ -43,6 +43,7 @@ type ParticipantEditorInput = {
   };
   email?: string;
   role?: ParticipantRole;
+  isVip?: boolean;
 };
 
 class ParticipantEditorError extends Error {
@@ -232,6 +233,7 @@ async function applyParticipantEditorUpdate(
       lastName: input.profile.lastName,
       gender: input.profile.gender,
       genderConfirmed: input.profile.gender !== null,
+      ...(input.isVip === undefined ? {} : { isVip: input.isVip }),
     })
     .where(
       and(
@@ -436,6 +438,7 @@ function parseParticipantEditorInput(
         ? normalizeEmail(body.email)
         : null;
   const role = body.role;
+  const isVip = body.isVip;
   if (
     email === null ||
     (email !== undefined &&
@@ -443,7 +446,8 @@ function parseParticipantEditorInput(
     (role !== undefined &&
       role !== "traveler" &&
       role !== "companion" &&
-      role !== "manager")
+      role !== "manager") ||
+    (isVip !== undefined && typeof isVip !== "boolean")
   )
     return null;
 
@@ -492,6 +496,7 @@ function parseParticipantEditorInput(
     },
     ...(email !== undefined ? { email } : {}),
     ...(role !== undefined ? { role: role as ParticipantRole } : {}),
+    ...(isVip !== undefined ? { isVip } : {}),
   };
 }
 

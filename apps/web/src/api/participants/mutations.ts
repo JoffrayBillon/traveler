@@ -41,6 +41,7 @@ export function useSaveParticipantMutation(tripId: string) {
       details,
       email,
       role,
+      isVip,
       isManager,
     }: SaveParticipantInput) => {
       const participantPath = `/api/trips/${encodeURIComponent(tripId)}/participants/${encodeURIComponent(participant.userId)}`;
@@ -49,6 +50,7 @@ export function useSaveParticipantMutation(tripId: string) {
         body: JSON.stringify({
           profile,
           details,
+          isVip,
           ...(isManager ? { email, role } : {}),
         }),
       });

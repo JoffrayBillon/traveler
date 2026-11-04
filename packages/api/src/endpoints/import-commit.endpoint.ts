@@ -6,11 +6,13 @@ import {
   commitImportSource,
   DuplicateNormalizedEmailError,
   ImportCommitConflict,
+  InvalidStaffImportRowSelectionError,
 } from "../services/imports/commit-import";
 import { isImportSourceType } from "../services/imports/import-source";
 import {
   InvalidAgencyRoomingMatchError,
   InvalidStaffAccountMappingError,
+  InvalidStaffTransportMappingError,
 } from "../source-imports";
 
 export function registerImportCommitEndpoint(
@@ -69,8 +71,12 @@ export function registerImportCommitEndpoint(
     } catch (error) {
       if (error instanceof ImportCommitConflict)
         return context.json({ error: error.code }, 409);
+      if (error instanceof InvalidStaffImportRowSelectionError)
+        return context.json({ error: error.message }, 400);
       if (error instanceof InvalidStaffAccountMappingError)
         return context.json({ error: "invalid_account_mappings" }, 422);
+      if (error instanceof InvalidStaffTransportMappingError)
+        return context.json({ error: "invalid_transport_mappings" }, 422);
       if (error instanceof InvalidAgencyRoomingMatchError)
         return context.json({ error: "agency_rooming_name_match_failed" }, 422);
       if (error instanceof DuplicateNormalizedEmailError)
@@ -83,6 +89,8 @@ export function registerImportCommitEndpoint(
 function parseStaffOptions(form: FormData) {
   let managerEmails: string[] = [];
   let accountMappings: Record<string, string> = {};
+  let transportMappings: Record<string, string> = {};
+  let excludedRows: number[] = [];
   const managerEmailsValue = form.get("managerEmails");
   const accountMappingsValue = form.get("accountMappings");
 
@@ -116,5 +124,41 @@ function parseStaffOptions(form: FormData) {
     }
   }
 
-  return { ok: true as const, value: { managerEmails, accountMappings } };
+  const transportMappingsValue = form.get("transportMappings");
+  if (typeof transportMappingsValue === "string") {
+    try {
+      const parsed: unknown = JSON.parse(transportMappingsValue);
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed) ||
+        Object.values(parsed).some((groupId) => typeof groupId !== "string")
+      )
+        return { ok: false as const, error: "invalid_transport_mappings" };
+      transportMappings = parsed as Record<string, string>;
+    } catch {
+      return { ok: false as const, error: "invalid_transport_mappings" };
+    }
+  }
+
+  const excludedRowsValue = form.get("excludedRows");
+  if (typeof excludedRowsValue === "string") {
+    try {
+      const parsed: unknown = JSON.parse(excludedRowsValue);
+      if (
+        !Array.isArray(parsed) ||
+        parsed.some((row) => !Number.isSafeInteger(row) || row < 1) ||
+        new Set(parsed).size !== parsed.length
+      )
+        return { ok: false as const, error: "invalid_import_row_selection" };
+      excludedRows = parsed as number[];
+    } catch {
+      return { ok: false as const, error: "invalid_import_row_selection" };
+    }
+  }
+
+  return {
+    ok: true as const,
+    value: { managerEmails, accountMappings, transportMappings, excludedRows },
+  };
 }

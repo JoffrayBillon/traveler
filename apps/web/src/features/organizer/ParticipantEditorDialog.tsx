@@ -28,6 +28,8 @@ export function ParticipantEditorDialog({
   onEmailChange,
   role,
   onRoleChange,
+  isVip,
+  onIsVipChange,
   isManager,
   isSaving,
   isCopying,
@@ -47,6 +49,8 @@ export function ParticipantEditorDialog({
   onEmailChange: (email: string) => void;
   role: StaffTraveler["role"];
   onRoleChange: (role: StaffTraveler["role"]) => void;
+  isVip: boolean;
+  onIsVipChange: (isVip: boolean) => void;
   isManager: boolean;
   isSaving: boolean;
   isCopying: boolean;
@@ -111,6 +115,8 @@ export function ParticipantEditorDialog({
                 onEmailChange={onEmailChange}
                 role={role}
                 onRoleChange={onRoleChange}
+                isVip={isVip}
+                onIsVipChange={onIsVipChange}
                 isManager={isManager}
                 onProfileChange={changeProfile}
               />

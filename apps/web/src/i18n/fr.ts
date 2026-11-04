@@ -280,6 +280,7 @@ export const fr = {
   reviewTheSpreadsheetAndItsChangesBeforeConfirmingTheImportEachSourceTypeFollowsItsOwnRules:
     "Analysez le classeur et les changements avant de confirmer son import. Chaque type de source suit ses propres règles.",
   importPreview: "Aperçu de l’import",
+  openImportPreview: "Ouvrir l’aperçu de l’import",
   assign2: "Attribuer",
   none: "Aucun",
   noTicketsHaveBeenAddedYet: "Aucun billet n’a encore été ajouté.",
@@ -294,7 +295,23 @@ export const fr = {
     "Choisissez un voyageur et un trajet avant de téléverser.",
   excelSpreadsheetXlsx: "Classeur Excel .xlsx",
   accountToLink: "Compte à rattacher",
+  includeParticipantInImport: "Importer {{name}}",
+  selectAtLeastOneRowToImport:
+    "Sélectionnez au moins une ligne à importer pour continuer.",
   confirmImport: "Confirmer l’import",
+  transportAssignments: "Affectation aux transports groupés",
+  participantsCount: "{{count}} participants",
+  participantsCount_one: "{{count}} participant",
+  participantsCount_other: "{{count}} participants",
+  existingTransportGroupWillBeUsed: "Seront affectés au groupe {{group}}",
+  draftTransportGroupWillBeCreated:
+    "Un groupe de transport brouillon sera créé",
+  chooseTransportGroupForCity: "Choisir le groupe pour {{city}}",
+  participantsWithGroupTransport: "Transport groupé",
+  participantsWithoutGroupTransport: "Sans transport groupé",
+  existingTransportGroupsMatched: "Groupes existants trouvés",
+  draftTransportGroupsToCreate: "Groupes brouillon à créer",
+  transportCitiesNeedingSelection: "Villes à affecter manuellement",
   createAnAccountWithThisEmail: "Créer un compte avec cet e-mail",
   changesByReference: "Détail par référence",
   save: "Enregistrer",
@@ -380,8 +397,9 @@ export const fr = {
   currentRoleRole: "rôle actuel : {{role}}",
   roomingListReturnedByTheAgency: "Rooming retournée par l’agence",
   noTransportBooked: "Sans transport réservé",
-  selectJoffrayAndStephaneAsManagers:
-    "Sélectionnez Joffray et Stéphane comme gestionnaires",
+  staffImportAccountSettings: "Gestionnaires et comptes à rattacher",
+  staffImportAccountEmailMatchingDescription:
+    "Sélectionnez les gestionnaires. Le compte à rattacher est prérempli lorsqu’une adresse e-mail correspond à un compte existant.",
   ifThisAddressIsAuthorizedItsSignInLinkIsShownInTheLocalApiTerminal:
     "Si cette adresse est autorisée, son lien de connexion est affiché dans le terminal de l’API locale.",
   ifThisAddressIsAuthorizedASignInLinkHasBeenSent:
@@ -401,6 +419,7 @@ export const fr = {
     "Vérifiez le récapitulatif avant de confirmer l’import.",
   departureCity: "Ville de départ",
   vipTraveler: "VIP voyageur",
+  vipBadge: "VIP",
   yourDocumentsAreAvailableOnlyAfterSigningIn:
     "Vos documents sont disponibles uniquement après connexion.",
   yourPreferencesCouldNotBeSaved:

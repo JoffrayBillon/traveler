@@ -11,7 +11,12 @@ export {
 export {
   DuplicateNormalizedEmailError,
   InvalidStaffAccountMappingError,
+  InvalidStaffTransportMappingError,
 } from "./source-imports/errors";
-export { importStaffRows, previewStaffImport } from "./source-imports/staff";
+export {
+  importStaffRows,
+  previewStaffImport,
+} from "./source-imports/staff";
+export { previewStaffTransportImport } from "./source-imports/staff-transport";
 export { previewValidatedRoster } from "./source-imports/validated-roster";
 export { importValidatedRoster } from "./source-imports/validated-roster-import";

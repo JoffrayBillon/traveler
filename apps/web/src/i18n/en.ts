@@ -269,6 +269,7 @@ export const en = {
   reviewTheSpreadsheetAndItsChangesBeforeConfirmingTheImportEachSourceTypeFollowsItsOwnRules:
     "Review the spreadsheet and its changes before confirming the import. Each source type follows its own rules.",
   importPreview: "Import preview",
+  openImportPreview: "Open import preview",
   assign2: "Assign",
   none: "None",
   noTicketsHaveBeenAddedYet: "No tickets have been added yet.",
@@ -283,7 +284,21 @@ export const en = {
     "Choose a traveler and a journey before uploading.",
   excelSpreadsheetXlsx: "Excel spreadsheet (.xlsx)",
   accountToLink: "Account to link",
+  includeParticipantInImport: "Import {{name}}",
+  selectAtLeastOneRowToImport: "Select at least one row to import to continue.",
   confirmImport: "Confirm import",
+  transportAssignments: "Group transport assignments",
+  participantsCount: "{{count}} participants",
+  participantsCount_one: "{{count}} participant",
+  participantsCount_other: "{{count}} participants",
+  existingTransportGroupWillBeUsed: "Will be assigned to {{group}}",
+  draftTransportGroupWillBeCreated: "A draft transport group will be created",
+  chooseTransportGroupForCity: "Choose the group for {{city}}",
+  participantsWithGroupTransport: "Group transport",
+  participantsWithoutGroupTransport: "No group transport",
+  existingTransportGroupsMatched: "Existing groups matched",
+  draftTransportGroupsToCreate: "Draft groups to create",
+  transportCitiesNeedingSelection: "Cities needing a group choice",
   createAnAccountWithThisEmail: "Create an account with this email",
   changesByReference: "Changes by reference",
   save: "Save",
@@ -367,7 +382,9 @@ export const en = {
   currentRoleRole: "current role: {{role}}",
   roomingListReturnedByTheAgency: "Rooming list returned by the agency",
   noTransportBooked: "No transport booked",
-  selectJoffrayAndStephaneAsManagers: "Select Joffray and Stéphane as managers",
+  staffImportAccountSettings: "Managers and account linking",
+  staffImportAccountEmailMatchingDescription:
+    "Select the managers. The account to link is prefilled when an email address matches an existing account.",
   ifThisAddressIsAuthorizedItsSignInLinkIsShownInTheLocalApiTerminal:
     "If this address is authorized, its sign-in link is shown in the local API terminal.",
   ifThisAddressIsAuthorizedASignInLinkHasBeenSent:
@@ -388,6 +405,7 @@ export const en = {
     "Review the summary before confirming the import.",
   departureCity: "Departure city",
   vipTraveler: "VIP traveler",
+  vipBadge: "VIP",
   yourDocumentsAreAvailableOnlyAfterSigningIn:
     "Your documents are available only after signing in.",
   yourPreferencesCouldNotBeSaved: "Your preferences could not be saved.",
