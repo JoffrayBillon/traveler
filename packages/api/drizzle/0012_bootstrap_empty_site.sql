@@ -1,5 +1,5 @@
 INSERT INTO `trips` (`id`, `name`)
-SELECT 'traveler-initial-trip', 'Voyage initial'
+SELECT 'weekend-ski-2027', 'Weekend Ski 2027'
 WHERE NOT EXISTS (SELECT 1 FROM `trips`);
 --> statement-breakpoint
 INSERT INTO `user` (`id`, `name`, `email`, `emailVerified`, `createdAt`, `updatedAt`)
