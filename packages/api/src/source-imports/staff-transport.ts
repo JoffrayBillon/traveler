@@ -2,10 +2,14 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { normalizeTransportCity } from "../datamodel/transport.repository";
 import * as schema from "../schema";
-import type { StaffImportRow } from "../source-import/types";
 import { batchRows } from "./batch-rows";
 import type { DatabaseExecutor, DatabaseTransaction } from "./database.types";
 import { InvalidStaffTransportMappingError } from "./errors";
+
+type SourceTransport = {
+  transportMode: "train" | "none";
+  departureCity: string | null;
+};
 
 export type StaffTransportPreviewRow = {
   normalizedCity: string;
@@ -23,7 +27,8 @@ export type StaffGroupAssignment =
 export async function previewStaffTransportImport(
   database: DatabaseExecutor,
   tripId: string,
-  rows: StaffImportRow[],
+  rows: SourceTransport[],
+  savedMappings?: ReadonlyMap<string, string>,
 ) {
   const participantsByCity = new Map<
     string,
@@ -54,20 +59,24 @@ export async function previewStaffTransportImport(
     const candidates = groups
       .filter((group) => group.normalizedCity === normalizedCity)
       .map(({ id, name }) => ({ id, name }));
-    const match = candidates.length === 1 ? candidates[0] : null;
+    const savedId = savedMappings?.get(normalizedCity);
+    const match =
+      groups.find((group) => group.id === savedId) ??
+      (candidates.length === 1 ? candidates[0] : null);
     transportRows.push({
       normalizedCity,
       sourceCity: source.sourceCity,
       participantCount: source.count,
-      action:
-        candidates.length === 0
-          ? "create_draft"
-          : candidates.length === 1
-            ? "matched"
-            : "choose_group",
+      action: match
+        ? "matched"
+        : candidates.length
+          ? "choose_group"
+          : "create_draft",
       groupId: match?.id ?? null,
       groupName: match?.name ?? null,
-      candidates,
+      candidates: savedMappings
+        ? groups.map(({ id, name }) => ({ id, name }))
+        : candidates,
     });
   }
   return { rows: transportRows };
@@ -76,50 +85,43 @@ export async function previewStaffTransportImport(
 export async function resolveStaffTransportGroups(
   transaction: DatabaseTransaction,
   tripId: string,
-  rows: StaffImportRow[],
+  rows: SourceTransport[],
   transportMappings: Record<string, string>,
   now: Date,
+  savedMappings?: ReadonlyMap<string, string>,
 ) {
-  const cities = new Map<string, string>();
-  for (const row of rows) {
-    if (row.transportMode === "none") continue;
-    if (!row.departureCity) throw new InvalidStaffTransportMappingError();
-    const normalizedCity = normalizeTransportCity(row.departureCity);
-    if (!cities.has(normalizedCity))
-      cities.set(normalizedCity, row.departureCity.trim());
-  }
-  const existingGroups = cities.size
-    ? await transaction
-        .select({
-          id: schema.transportGroups.id,
-          name: schema.transportGroups.name,
-          normalizedCity: schema.transportGroups.normalizedCity,
-        })
-        .from(schema.transportGroups)
-        .where(eq(schema.transportGroups.tripId, tripId))
-    : [];
-  const validMappingKeys = new Set<string>();
+  const { rows: options } = await previewStaffTransportImport(
+    transaction,
+    tripId,
+    rows,
+    savedMappings,
+  );
+  const remaining = new Set(Object.keys(transportMappings));
   const groupIdByCity = new Map<string, string>();
-  for (const [normalizedCity, sourceCity] of cities) {
-    const matches = existingGroups.filter(
-      (group) => group.normalizedCity === normalizedCity,
-    );
-    if (matches.length === 1) {
-      groupIdByCity.set(normalizedCity, matches[0]?.id ?? "");
-      continue;
-    }
-    if (matches.length > 1) {
-      const selectedGroupId = transportMappings[normalizedCity];
+  for (const {
+    normalizedCity,
+    sourceCity,
+    action,
+    groupId: suggestedId,
+    candidates,
+  } of options) {
+    const selectedId = remaining.delete(normalizedCity)
+      ? transportMappings[normalizedCity]
+      : undefined;
+    if (selectedId !== undefined) {
       if (
-        !selectedGroupId ||
-        !matches.some((group) => group.id === selectedGroupId)
+        (!savedMappings && action !== "choose_group") ||
+        !candidates.some(({ id }) => id === selectedId)
       )
         throw new InvalidStaffTransportMappingError();
-      validMappingKeys.add(normalizedCity);
-      groupIdByCity.set(normalizedCity, selectedGroupId);
+      groupIdByCity.set(normalizedCity, selectedId);
       continue;
     }
-    if (transportMappings[normalizedCity])
+    if (suggestedId) {
+      groupIdByCity.set(normalizedCity, suggestedId);
+      continue;
+    }
+    if (action === "choose_group")
       throw new InvalidStaffTransportMappingError();
     const groupId = randomUUID();
     await transaction.insert(schema.transportGroups).values({
@@ -138,8 +140,7 @@ export async function resolveStaffTransportGroups(
     });
     groupIdByCity.set(normalizedCity, groupId);
   }
-  if (Object.keys(transportMappings).some((key) => !validMappingKeys.has(key)))
-    throw new InvalidStaffTransportMappingError();
+  if (remaining.size) throw new InvalidStaffTransportMappingError();
   return groupIdByCity;
 }
 

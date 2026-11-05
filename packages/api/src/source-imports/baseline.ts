@@ -19,6 +19,8 @@ export async function getImportBaselineHash(
       .select({
         reference: schema.tripRegistrations.reference,
         status: schema.tripRegistrations.status,
+        importedTransportGroupId:
+          schema.tripRegistrations.importedTransportGroupId,
         updatedAt: schema.tripRegistrations.updatedAt,
       })
       .from(schema.tripRegistrations)
@@ -47,6 +49,7 @@ export async function getImportBaselineHash(
         userId: schema.travelerDetails.userId,
         outboundSeat: schema.travelerDetails.outboundSeat,
         returnSeat: schema.travelerDetails.returnSeat,
+        transportChoice: schema.travelerDetails.transportChoice,
       })
       .from(schema.travelerDetails)
       .where(eq(schema.travelerDetails.tripId, tripId))

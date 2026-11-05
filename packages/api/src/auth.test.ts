@@ -50,7 +50,11 @@ async function createTestServices(
   clients.push(client);
   const database = drizzle({ client, schema });
   const migrationFiles = (await readdir(migrationsDirectory))
-    .filter((file) => file.endsWith(".sql"))
+    // This fixture provisions its own accounts and trips.
+    .filter(
+      (file) =>
+        file.endsWith(".sql") && file !== "0012_bootstrap_empty_site.sql",
+    )
     .sort();
   for (const file of migrationFiles) {
     const migration = await readFile(join(migrationsDirectory, file), "utf8");

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnySQLiteColumn,
   check,
   foreignKey,
   index,
@@ -173,6 +174,10 @@ export const tripRegistrations = sqliteTable(
       enum: ["train", "flight", "none"],
     }),
     departureCity: text("departure_city"),
+    importedTransportGroupId: text("imported_transport_group_id").references(
+      (): AnySQLiteColumn => transportGroups.id,
+      { onDelete: "set null" },
+    ),
     paymentStatus: text("payment_status", {
       enum: ["paid", "partially_paid", "unpaid"],
     }),

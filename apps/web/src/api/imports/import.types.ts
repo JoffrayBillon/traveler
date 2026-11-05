@@ -49,7 +49,14 @@ export type ImportPreview = {
   changes?: {
     reference: string;
     action: string;
-    fields: string[];
+    row: number | null;
+    firstName: string;
+    lastName: string;
+    values: {
+      field: string;
+      before: ImportReviewValue;
+      after: ImportReviewValue;
+    }[];
   }[];
 };
 
@@ -60,3 +67,5 @@ export type ImportPreviewResponse = Partial<ImportPreview> & {
 export type ImportCommitResponse = {
   errors?: { row: number; field: string; message: string }[];
 };
+
+export type ImportReviewValue = string | number | boolean | null;

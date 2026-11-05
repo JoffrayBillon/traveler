@@ -76,10 +76,10 @@ export function RoomManagementPanel({
         await mutations.generateRoomAssignments.mutateAsync(snapshot);
       setRoomPlan(null);
       onMessage(
-        result.unconfirmed > 0
-          ? t("roomAssignmentsGeneratedWithUnconfirmed", {
+        result.missingGender > 0
+          ? t("roomAssignmentsGeneratedWithMissingGender", {
               assigned: result.assigned,
-              unconfirmed: result.unconfirmed,
+              missingGender: result.missingGender,
             })
           : t("roomAssignmentsGenerated", { assigned: result.assigned }),
       );

@@ -26,6 +26,7 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     useState<ImportSourceType>("validated_roster");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [excludedRows, setExcludedRows] = useState<number[]>([]);
   const [managerEmails, setManagerEmails] = useState<string[]>([]);
   const [accountMappings, setAccountMappings] = useState<
@@ -48,6 +49,9 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     }
 
     const form = new FormData();
+    setValidationErrors([]);
+    setPreview(null);
+    setMessage("");
     form.set("file", file);
     form.set("sourceType", sourceType);
     try {
@@ -95,10 +99,14 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
       setMessage(t("reviewTheSummaryBeforeConfirmingTheImport"));
     } catch (error) {
       const result = getImportErrorPayload(error);
-      setMessage(
-        result.errors?.map((item) => formatImportError(item, t)).join("\n") ??
-          t("theFileImportFailed"),
-      );
+      if (result.errors?.length) {
+        setValidationErrors([
+          ...new Set(result.errors.map((item) => formatImportError(item, t))),
+        ]);
+        setIsPreviewOpen(true);
+      } else {
+        setMessage(t("theFileImportFailed"));
+      }
     }
   }
 
@@ -108,10 +116,15 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     form.set("file", file);
     form.set("sourceType", preview.sourceType);
     form.set("previewId", preview.previewId);
+    if (
+      preview.sourceType === "detailed_orders" ||
+      preview.sourceType === "companions_vips"
+    ) {
+      form.set("transportMappings", JSON.stringify(transportMappings));
+    }
     if (preview.sourceType === "companions_vips") {
       form.set("managerEmails", JSON.stringify(managerEmails));
       form.set("accountMappings", JSON.stringify(accountMappings));
-      form.set("transportMappings", JSON.stringify(transportMappings));
       form.set("excludedRows", JSON.stringify(excludedRows));
     }
 
@@ -170,6 +183,7 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
         onChange={(value) => {
           setSourceType(value);
           setPreview(null);
+          setValidationErrors([]);
           setIsPreviewOpen(false);
         }}
       />
@@ -185,6 +199,7 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
           onFileChange={(nextFile) => {
             setFile(nextFile);
             setPreview(null);
+            setValidationErrors([]);
             setIsPreviewOpen(false);
           }}
         />
@@ -196,7 +211,7 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
       >
         {t("reviewSpreadsheet")}
       </Button>
-      {preview && (
+      {(preview || validationErrors.length > 0) && (
         <Button
           appearance="secondary"
           type="button"
@@ -206,9 +221,21 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
         </Button>
       )}
       <ImportPreviewDialog
-        isOpen={isPreviewOpen && preview !== null}
+        isOpen={
+          isPreviewOpen && (preview !== null || validationErrors.length > 0)
+        }
         onOpenChange={setIsPreviewOpen}
       >
+        {validationErrors.length > 0 && (
+          <section className="grid gap-3">
+            <h3 className="font-bold">{t("importValidationReport")}</h3>
+            <ul className="list-disc space-y-2 pl-5 text-sm">
+              {validationErrors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          </section>
+        )}
         <ImportPreviewCard
           importPreview={preview}
           excludedRows={excludedRows}

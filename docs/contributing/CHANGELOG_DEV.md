@@ -1,5 +1,35 @@
 # Technical changelog
 
+## 2026-11-05 — Database bootstrap — Provision an empty site
+
+- Details/impact: create a blank trip when no trip exists and provision the configured initial manager only when the user table is empty. The account is unverified and linked to one trip for passwordless login.
+- Test status: checked migration behavior in SQLite memory; no application database migrated.
+
+## 2026-11-05 — Room plan — Use prefilled genders
+
+- Details/impact: organizers can generate assignments using the gender on file before confirmation. The plan reports missing values separately and avoids mixing incompatible room occupants.
+- Test status: focused rooming tests and static checks under Node 26.
+
+## 2026-11-05 — Imports — Apply detailed-order transport mappings
+
+- Details/impact: propose a group per source city, let managers select a different group from the trip, and retain the selection until registration is linked to a traveler. Preserve existing transport choices.
+- Test status: targeted import tests, API/web typechecks, Biome and translation parity under Node 26.
+
+## 2026-11-05 — Organizer directory — Align payment and VIP badges
+
+- Details/impact: use one pill style for VIP and payment badges, with stronger contrast for unpaid balances.
+- Test status: targeted Biome and web typecheck under Node 26.
+
+## 2026-11-05 — Imports — Read detailed product and option rows separately
+
+- Details/impact: resolve the formula from the product row, preserve independent Monday pass data, and remove agency rooming from the organizer's import selector.
+- Test status: both original workbooks passed preview and commit twice through the import endpoints against an isolated in-memory database.
+
+## 2026-11-05 — Imports — Expand workbook reviews
+
+- Details/impact: show booking field changes before and after import, highlight roster cancellations, separate seat changes from name-matching blockers, and show validation errors in the review dialog.
+- Test status: four source import tests, API/web typechecks, Biome and translation parity passed under Node 26. No browser verification.
+
 ## 2026-11-05 — Organizer directory — Ignore accents in search
 
 - Details/impact: normalize search text and participant fields for case- and accent-insensitive matching, so `lea` finds `Léa`.

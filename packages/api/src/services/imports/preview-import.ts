@@ -21,6 +21,7 @@ export async function previewImportSource(
 ) {
   const parsed = await parseImportSource(sourceType, data);
   if (parsed.errors.length) return { errors: parsed.errors } as const;
+  const baseSnapshotHash = await getImportBaselineHash(database, tripId);
 
   let summary: unknown;
   let staffRows: unknown;
@@ -35,7 +36,8 @@ export async function previewImportSource(
     changes = rosterChanges;
   } else if (parsed.sourceType === "detailed_orders") {
     const preview = await previewDetailedOrders(database, tripId, parsed.rows);
-    const { changes: detailChanges, ...counts } = preview;
+    const { changes: detailChanges, transportRows, ...counts } = preview;
+    staffTransportRows = transportRows;
     summary = counts;
     changes = detailChanges;
   } else if (parsed.sourceType === "companions_vips") {
@@ -56,7 +58,6 @@ export async function previewImportSource(
     .delete(schema.tripImportPreviews)
     .where(lte(schema.tripImportPreviews.expiresAt, now));
   const previewId = randomUUID();
-  const baseSnapshotHash = await getImportBaselineHash(database, tripId);
   await database.insert(schema.tripImportPreviews).values({
     id: previewId,
     tripId,

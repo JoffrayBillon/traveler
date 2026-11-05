@@ -45,4 +45,10 @@ This guide documents the workbook formats reviewed for the ski trip and the agre
 
 ## Import implementation
 
+Detailed orders propose a transport group for each departure city. Managers can select any existing group from the trip, even when its name or source city differs. The selected group is retained on the registration and applied when the registration is linked to a validated traveler without configured transport. Reimports preserve existing group assignments and explicit no-transport choices.
+
+The organizer import selector offers validated registrations, detailed orders, and companions/VIPs. In detailed orders, only `Produit` sets the formula. Transport and Monday ski passes are read from `Option` rows. The Monday pass is retained in the source registration even for SPA bookings. The traveler profile applies the day-three flag only to the ski formula.
+
+The review dialog shows the participant and Excel row for each booking change, the before and after values, and a filter for unchanged rows. Missing validated references are highlighted as cancellations. The agency review separates name-matching blockers from changed and unchanged train seats. Workbook validation errors appear in the same dialog without a confirmation action.
+
 The organizer import UI uses format-specific readers with a preview and explicit commit. The validated roster joins and deduplicates by reference, derives payment status, and preserves manually maintained fields. The detail export enriches phone and options. The staff/VIP source allows individual rows to be included or skipped, supports explicit account matching and manager assignment, and maps its transport cities into grouped transport options. The agency return is a separate import source and changes only returned seats. Keep these readers strict to their known source formats.

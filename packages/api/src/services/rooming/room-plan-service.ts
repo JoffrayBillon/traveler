@@ -17,8 +17,8 @@ type AssignmentPlan = {
     roomId: string;
     roomName: string;
   }[];
-  unassignedConfirmed: number;
-  unconfirmed: number;
+  unassignedEligible: number;
+  missingGender: number;
 };
 
 export function previewRoomAssignments(database: AppDatabase, tripId: string) {
@@ -87,8 +87,8 @@ export async function applyRoomAssignmentPlan(
     return {
       status: "applied" as const,
       assigned: plan.assignments.length,
-      unassignedConfirmed: plan.unassignedConfirmed,
-      unconfirmed: plan.unconfirmed,
+      unassignedEligible: plan.unassignedEligible,
+      missingGender: plan.missingGender,
       inventoryCreated: plan.roomsToCreate.length > 0,
     };
   });
@@ -171,7 +171,7 @@ async function buildAssignmentPlan(
   }
   for (const assignment of assignments) {
     const member = membershipById.get(assignment.userId);
-    if (!member?.genderConfirmed || !member.gender) {
+    if (!member?.gender) {
       unknownOccupantRooms.add(assignment.roomId);
       continue;
     }
@@ -184,10 +184,7 @@ async function buildAssignmentPlan(
   }
 
   const eligible = travelers.filter(
-    (traveler) =>
-      !assignedIds.has(traveler.userId) &&
-      traveler.genderConfirmed &&
-      traveler.gender !== null,
+    (traveler) => !assignedIds.has(traveler.userId) && traveler.gender !== null,
   );
   const plannedAssignments: AssignmentPlan["assignments"] = [];
   for (const traveler of eligible) {
@@ -251,11 +248,10 @@ async function buildAssignmentPlan(
     snapshot,
     roomsToCreate,
     assignments: plannedAssignments,
-    unassignedConfirmed: eligible.length - plannedAssignments.length,
-    unconfirmed: travelers.filter(
+    unassignedEligible: eligible.length - plannedAssignments.length,
+    missingGender: travelers.filter(
       (traveler) =>
-        !assignedIds.has(traveler.userId) &&
-        (!traveler.genderConfirmed || traveler.gender === null),
+        !assignedIds.has(traveler.userId) && traveler.gender === null,
     ).length,
   };
 }

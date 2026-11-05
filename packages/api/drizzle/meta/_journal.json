@@ -78,6 +78,20 @@
       "when": 1793665807086,
       "tag": "0010_yellow_leopardon",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793838734770,
+      "tag": "0011_imported_registration_transport",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793839344331,
+      "tag": "0012_bootstrap_empty_site",
+      "breakpoints": true
     }
   ]
 }

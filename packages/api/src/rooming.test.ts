@@ -7,6 +7,10 @@ import { drizzle } from "drizzle-orm/libsql";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRoomingStore, type RoomingError } from "./rooming";
 import * as schema from "./schema";
+import {
+  applyRoomAssignmentPlan,
+  previewRoomAssignments,
+} from "./services/rooming/room-plan-service";
 import { createTripsStore } from "./trips";
 
 const clients: ReturnType<typeof createClient>[] = [];
@@ -111,6 +115,35 @@ async function createFixture() {
 
 afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
+});
+
+it("uses prefilled genders for new placements and leaves missing genders unassigned", async () => {
+  const { database, trip } = await createFixture();
+  await database.update(schema.tripMemberships).set({ genderConfirmed: false });
+  await database
+    .update(schema.tripMemberships)
+    .set({ gender: null })
+    .where(eq(schema.tripMemberships.userId, "ben"));
+  await database
+    .delete(schema.roomAssignments)
+    .where(eq(schema.roomAssignments.userId, "ben"));
+
+  const plan = await previewRoomAssignments(database, trip.id);
+  expect(plan.assignments).toEqual([
+    expect.objectContaining({
+      userId: "alice",
+      roomId: "room-two",
+      gender: "F",
+    }),
+  ]);
+  expect(plan.missingGender).toBe(1);
+  expect(
+    await applyRoomAssignmentPlan(database, trip.id, plan.snapshot, "cara"),
+  ).toMatchObject({
+    status: "applied",
+    assigned: 1,
+    missingGender: 1,
+  });
 });
 
 describe("room change consent", () => {

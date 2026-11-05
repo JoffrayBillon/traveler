@@ -45,9 +45,6 @@ export function ImportSourcePicker({
           <ListBoxItem className={listBoxStyles().item()} id="companions_vips">
             {t("companionsAndVips")}
           </ListBoxItem>
-          <ListBoxItem className={listBoxStyles().item()} id="agency_rooming">
-            {t("roomingListReturnedByTheAgency")}
-          </ListBoxItem>
         </ListBox>
       </Popover>
     </Select>

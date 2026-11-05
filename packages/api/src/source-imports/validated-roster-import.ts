@@ -4,6 +4,7 @@ import type { AppDatabase } from "../auth";
 import { normalizeEmail } from "../email";
 import * as schema from "../schema";
 import type { ValidatedRosterRow } from "../source-import/types";
+import { applyRegistrationTransport } from "./apply-registration-transport";
 import { batchRows } from "./batch-rows";
 import { cancelMissingValidatedRegistrations } from "./cancel-missing-validated-registrations";
 import type { DatabaseTransaction } from "./database.types";
@@ -187,7 +188,9 @@ export async function importValidatedRoster(
           tripId,
           userId,
           activityProfile: row.activityProfile,
-          skiDayThree: existingRegistration?.skiDayThree ?? false,
+          skiDayThree:
+            row.activityProfile === "ski" &&
+            (existingRegistration?.skiDayThree ?? false),
           transportMode: existingRegistration?.transportMode ?? null,
           departureCity: existingRegistration?.departureCity ?? null,
           updatedAt: now,
@@ -301,6 +304,8 @@ export async function importValidatedRoster(
               {
                 ...current,
                 activityProfile: detail.activityProfile,
+                skiDayThree:
+                  detail.activityProfile === "ski" && current.skiDayThree,
                 updatedAt: now,
               },
             ]
@@ -318,6 +323,7 @@ export async function importValidatedRoster(
           ],
           set: {
             activityProfile: sql`excluded.activity_profile`,
+            skiDayThree: sql`CASE WHEN excluded.activity_profile = 'ski' THEN ${schema.travelerDetails.skiDayThree} ELSE 0 END`,
             updatedAt: sql`excluded.updated_at`,
           },
         });
@@ -329,6 +335,12 @@ export async function importValidatedRoster(
       incomingReferences,
       activeUserIds,
       now,
+      actorUserId,
+    );
+    await applyRegistrationTransport(
+      transaction,
+      tripId,
+      [...activeUserIds],
       actorUserId,
     );
     return {

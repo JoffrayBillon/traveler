@@ -1,4 +1,32 @@
 export const fr = {
+  detailedTransportMappingDescription:
+    "Choisissez un groupe existant pour chaque ville du fichier. Le choix s’applique aux inscriptions validées sans transport configuré.",
+  rosterReviewDescription:
+    "Ce fichier est un instantané complet. Les références absentes sont annulées, et la place en chambre est libérée si la personne n’a plus d’inscription active.",
+  orderReviewDescription:
+    "Les valeurs proposées tiennent compte des données déjà renseignées et conservées.",
+  searchImportRows: "Rechercher par nom ou référence",
+  showUnchangedImportRows: "Afficher les lignes inchangées",
+  noImportRowsToShow: "Aucune ligne à afficher.",
+  importExcelRow: "Ligne Excel {{row}}",
+  importBefore: "Avant",
+  importAfter: "Après",
+  importBookingStatus: "Statut de l’inscription",
+  importSourceEmail: "E-mail du fichier",
+  importPaidAmount: "Montant réglé",
+  importDueAmount: "Montant restant dû",
+  importValidated: "Validée",
+  importPending: "En attente de validation",
+  importCancelled: "Annulée",
+  importYes: "Oui",
+  importNo: "Non",
+  agencyReviewDescription:
+    "Une cellule vide conserve la place actuelle. Seules les places de train renseignées sont importées.",
+  agencyReviewBlocked:
+    "Corrigez les noms introuvables ou ambigus dans Excel, puis relancez l’analyse.",
+  agencySeatChanges: "Places à modifier",
+  agencySeatUnchanged: "Places inchangées",
+  importValidationReport: "Erreurs à corriger dans le fichier",
   skipToContent: "Aller au contenu",
   travelerHome: "Traveler, accueil",
   mainNavigation: "Navigation principale",
@@ -205,7 +233,7 @@ export const fr = {
   generatingRoomPlan: "Génération…",
   roomPlanPreview: "Aperçu du plan",
   roomPlanPreviewSummary:
-    "{{assigned}} voyageurs répartis dans {{rooms}} chambres ; {{unassigned}} voyageurs confirmés resteront à placer et {{unconfirmed}} doivent encore confirmer leur sexe.",
+    "{{assigned}} voyageurs répartis dans {{rooms}} chambres selon le sexe renseigné, même s’il reste à confirmer. {{unassigned}} restent à placer et {{missingGender}} n’ont pas de sexe renseigné.",
   roomInventoryWillBeCreated:
     "Les {{rooms}} chambres de l’inventaire seront créées à la validation.",
   roomAssignmentPreviewLine: "Chambre {{room}}",
@@ -216,8 +244,8 @@ export const fr = {
     "Les données du rooming ont changé depuis l’aperçu. Vérifiez un nouveau plan avant de l’appliquer.",
   roomPlanCouldNotBeGenerated: "Impossible de préparer le plan des chambres.",
   roomAssignmentsGenerated: "{{assigned}} voyageurs affectés.",
-  roomAssignmentsGeneratedWithUnconfirmed:
-    "{{assigned}} voyageurs affectés. {{unconfirmed}} doivent confirmer leur sexe avant d’être placés.",
+  roomAssignmentsGeneratedWithMissingGender:
+    "{{assigned}} voyageurs affectés. Pour {{missingGender}}, le sexe reste à renseigner avant le placement automatique.",
   mixedRoomCode: "Chambre mixte",
   mixedRoom: "Mixte",
   maleRoomCode: "Chambre d’hommes",
@@ -385,8 +413,6 @@ export const fr = {
   tripName: "Nom du voyage",
   tripEndDate: "Date de fin du voyage",
   seat: "Place",
-  seatsOutboundpreviousOutboundReturnReturnpreviousReturn:
-    "Places : {{outboundPrevious}} → {{outbound}} · retour : {{returnPrevious}} → {{return}}",
   severalAccountsHaveThisNameCheckTheNamesInTheSpreadsheet:
     "Plusieurs comptes ont ce nom : vérifiez les noms dans le fichier.",
   prepareTheAgencySpreadsheet: "Préparer le fichier de l’agence",
@@ -395,7 +421,6 @@ export const fr = {
   meeting: "Rendez-vous",
   return: "Retour",
   currentRoleRole: "rôle actuel : {{role}}",
-  roomingListReturnedByTheAgency: "Rooming retournée par l’agence",
   noTransportBooked: "Sans transport réservé",
   staffImportAccountSettings: "Gestionnaires et comptes à rattacher",
   staffImportAccountEmailMatchingDescription:

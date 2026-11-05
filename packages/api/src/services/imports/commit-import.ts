@@ -144,7 +144,14 @@ export async function commitImportSource(
         actorUserId,
       );
     if (parsed.sourceType === "detailed_orders")
-      return importDetailedOrders(database, tripId, parsed.rows, transaction);
+      return importDetailedOrders(
+        database,
+        tripId,
+        parsed.rows,
+        staffOptions.transportMappings,
+        actorUserId,
+        transaction,
+      );
     if (parsed.sourceType === "companions_vips")
       return importStaffRows(
         database,

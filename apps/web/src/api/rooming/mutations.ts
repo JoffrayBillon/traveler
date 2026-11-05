@@ -67,8 +67,8 @@ export function useRoomingMutations(tripId: string) {
       apiPost<{
         status: "applied";
         assigned: number;
-        unassignedConfirmed: number;
-        unconfirmed: number;
+        unassignedEligible: number;
+        missingGender: number;
         inventoryCreated: boolean;
       }>(`${base}/rooms/generate`, { snapshot }),
     onSuccess: invalidateRooming,

@@ -20,8 +20,10 @@ export function ImportStaffTransportPreview({
   rows,
   mappings,
   setMappings,
+  allowOverride = false,
 }: {
   rows: TransportRow[];
+  allowOverride?: boolean;
   mappings: Record<string, string>;
   setMappings: (
     update: (current: Record<string, string>) => Record<string, string>,
@@ -32,6 +34,11 @@ export function ImportStaffTransportPreview({
   return (
     <section className="grid gap-3 rounded-card border border-border bg-surface p-4">
       <h6 className="text-sm font-semibold">{t("transportAssignments")}</h6>
+      {allowOverride && (
+        <p className="text-sm text-content-muted">
+          {t("detailedTransportMappingDescription")}
+        </p>
+      )}
       <ul className="grid gap-3 text-sm">
         {rows.map((row) => (
           <li className="grid gap-2" key={row.normalizedCity}>
@@ -41,24 +48,31 @@ export function ImportStaffTransportPreview({
                 {t("participantsCount", { count: row.participantCount })}
               </span>
             </div>
-            {row.action === "matched" ? (
+            {!allowOverride && row.action === "matched" ? (
               <p className="text-content-muted">
                 {t("existingTransportGroupWillBeUsed", {
                   group: row.groupName ?? row.sourceCity,
                 })}
               </p>
-            ) : row.action === "create_draft" ? (
+            ) : row.action === "create_draft" &&
+              (!allowOverride || row.candidates.length === 0) ? (
               <p className="text-content-muted">
                 {t("draftTransportGroupWillBeCreated")}
               </p>
             ) : (
               <Select
                 className="grid min-w-0 gap-2"
-                selectedKey={mappings[row.normalizedCity] ?? null}
+                selectedKey={
+                  mappings[row.normalizedCity] ??
+                  (allowOverride && row.action !== "choose_group"
+                    ? "automatic"
+                    : null)
+                }
                 onSelectionChange={(key) =>
                   setMappings((current) => {
                     const next = { ...current };
-                    if (key === null) delete next[row.normalizedCity];
+                    if (key === null || key === "automatic")
+                      delete next[row.normalizedCity];
                     else next[row.normalizedCity] = String(key);
                     return next;
                   })
@@ -72,6 +86,18 @@ export function ImportStaffTransportPreview({
                 </SelectTrigger>
                 <Popover>
                   <ListBox className={listBoxStyles().list()}>
+                    {allowOverride && row.action !== "choose_group" && (
+                      <ListBoxItem
+                        className={listBoxStyles().item()}
+                        id="automatic"
+                      >
+                        {row.groupName
+                          ? t("existingTransportGroupWillBeUsed", {
+                              group: row.groupName,
+                            })
+                          : t("draftTransportGroupWillBeCreated")}
+                      </ListBoxItem>
+                    )}
                     {row.candidates.map((candidate) => (
                       <ListBoxItem
                         className={listBoxStyles().item()}

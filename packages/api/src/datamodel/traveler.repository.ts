@@ -87,7 +87,7 @@ export async function saveTravelerProfile(
       )
       .returning({ userId: schema.tripMemberships.userId });
     if (!updatedMembership) return false;
-    if (membership.roomId && membership.gender !== profile.gender)
+    if (membership.roomId && !membership.genderConfirmed)
       await refreshRoomComposition(transaction, tripId, membership.roomId);
 
     await transaction

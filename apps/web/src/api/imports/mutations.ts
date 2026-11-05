@@ -29,6 +29,9 @@ export function useCommitParticipantImportMutation(tripId: string) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.rooming(tripId) }),
         queryClient.invalidateQueries({
+          queryKey: queryKeys.transport(tripId),
+        }),
+        queryClient.invalidateQueries({
           queryKey: queryKeys.participantDirectory(tripId),
         }),
       ]);

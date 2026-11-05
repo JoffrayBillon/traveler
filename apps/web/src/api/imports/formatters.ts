@@ -47,6 +47,67 @@ function translateSourceText(value: string, t: TFunction) {
   return key ? t(key) : value;
 }
 
+const reviewFields: Record<string, TranslationKey> = {
+  status: "importBookingStatus",
+  sourceEmail: "importSourceEmail",
+  sourcePhone: "phoneNumber",
+  gender: "sex",
+  activityProfile: "activity",
+  skiDayThree: "skiOnDayThree",
+  paymentStatus: "payment",
+  amountPaidMinor: "importPaidAmount",
+  amountDueMinor: "importDueAmount",
+};
+
+export function importReviewFieldLabel(field: string, t: TFunction) {
+  const key = reviewFields[field] ?? getTranslationKey(field);
+  return key ? t(key) : field;
+}
+
+const reviewValues: Record<string, TranslationKey> = {
+  validated: "importValidated",
+  pending: "importPending",
+  cancelled: "importCancelled",
+  paid: "paid",
+  partially_paid: "partiallyPaid",
+  unpaid: "unpaid",
+  ski: "ski",
+  spa: "spa",
+  train: "train",
+  none: "noTransportBooked",
+  M: "man",
+  F: "woman",
+};
+
+export function formatImportReviewValue(
+  field: string,
+  value: string | number | boolean | null,
+  t: TFunction,
+  locale: string,
+) {
+  if (value === null || value === "") return "—";
+  if (typeof value === "boolean") return t(value ? "importYes" : "importNo");
+  if (typeof value === "number") {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "EUR",
+    }).format(value / 100);
+  }
+  if (
+    [
+      "status",
+      "paymentStatus",
+      "activityProfile",
+      "gender",
+      "transportMode",
+    ].includes(field)
+  ) {
+    const key = reviewValues[value];
+    if (key) return t(key);
+  }
+  return value;
+}
+
 export function formatImportError(
   error: { row: number; field: string; message: string },
   t: TFunction,
