@@ -6,6 +6,7 @@ export type SaveParticipantInput = {
   details: DetailsDraft;
   email: string;
   role: StaffTraveler["role"];
+  isVip: boolean;
   isManager: boolean;
 };
 

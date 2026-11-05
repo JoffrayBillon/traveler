@@ -68,8 +68,8 @@ export type RoomAssignmentPlan = {
     roomId: string;
     roomName: string;
   }[];
-  unassignedConfirmed: number;
-  unconfirmed: number;
+  unassignedEligible: number;
+  missingGender: number;
 };
 
 export type RoomInventoryItem = { capacity: number; quantity: number };

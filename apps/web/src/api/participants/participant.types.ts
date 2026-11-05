@@ -6,6 +6,7 @@ export type StaffTraveler = {
   lastName: string;
   email: string;
   role: TripRole;
+  isVip: boolean;
   gender: "M" | "F" | null;
   genderConfirmed: boolean;
   dietaryRequirements: string | null;

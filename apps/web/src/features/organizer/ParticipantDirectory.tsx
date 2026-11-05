@@ -41,24 +41,25 @@ export function ParticipantDirectory({
   const [details, setDetails] = useState<DetailsDraft | null>(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<StaffTraveler["role"]>("traveler");
+  const [isVip, setIsVip] = useState(false);
   const [message, setMessage] = useState("");
 
   const visibleParticipants = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase(getLocale());
+    const query = normalizeSearchText(search);
     if (!query) return participants;
     return participants.filter((person) =>
-      [
-        person.firstName,
-        person.lastName,
-        person.email,
-        person.role,
-        person.emergencyContactPhone,
-        person.departureCity,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase(getLocale())
-        .includes(query),
+      normalizeSearchText(
+        [
+          person.firstName,
+          person.lastName,
+          person.email,
+          person.role,
+          person.emergencyContactPhone,
+          person.departureCity,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      ).includes(query),
     );
   }, [participants, search]);
 
@@ -85,6 +86,7 @@ export function ParticipantDirectory({
     });
     setEmail(person.email);
     setRole(person.role);
+    setIsVip(person.isVip);
     setMessage("");
   }
 
@@ -98,6 +100,7 @@ export function ParticipantDirectory({
         details,
         email,
         role,
+        isVip,
         isManager,
       });
       setSelected(null);
@@ -203,6 +206,8 @@ export function ParticipantDirectory({
         onEmailChange={setEmail}
         role={role}
         onRoleChange={setRole}
+        isVip={isVip}
+        onIsVipChange={setIsVip}
         isManager={isManager}
         isSaving={saveParticipantMutation.isPending}
         isCopying={copyParticipantLinkMutation.isPending}
@@ -214,4 +219,12 @@ export function ParticipantDirectory({
       />
     </section>
   );
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase(getLocale())
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
 }

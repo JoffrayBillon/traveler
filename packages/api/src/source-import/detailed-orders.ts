@@ -46,7 +46,10 @@ export async function parseDetailedOrders(data: ArrayBuffer) {
     };
   }
   const genderColumn = orderHeaders.index.get("Matricule");
-  const lineOptions = new Map<string, string[]>();
+  const linesByReference = new Map<
+    string,
+    { products: string[]; options: string[] }
+  >();
   const errors: ImportError[] = [];
   for (const rowNumber of dataRows(lineSheet, lineHeaders.index, [
     "Référence",
@@ -86,9 +89,13 @@ export async function parseDetailedOrders(data: ArrayBuffer) {
       );
       continue;
     }
-    const values = lineOptions.get(reference) ?? [];
-    values.push(option);
-    lineOptions.set(reference, values);
+    const lines = linesByReference.get(reference) ?? {
+      products: [],
+      options: [],
+    };
+    if (kind === "Produit") lines.products.push(option);
+    else lines.options.push(option);
+    linesByReference.set(reference, lines);
   }
 
   const rows: DetailedOrderRow[] = [];
@@ -121,19 +128,17 @@ export async function parseDetailedOrders(data: ArrayBuffer) {
     const invoiceStatusText = cellText(
       row.getCell(orderHeaders.index.get("Statut de la facture") ?? 0),
     );
-    const options = lineOptions.get(reference) ?? [];
-    const activity = options.find(
-      (option) => option.includes(" SKI") || option.includes(" SPA"),
-    );
+    const { products, options } = linesByReference.get(reference) ?? {
+      products: [],
+      options: [],
+    };
+    const activity = products[0]?.match(/(?:^|\s)(SKI|SPA)$/)?.[1];
     const cityOption = options.find((option) =>
       ["PARIS", "NANTES", "BORDEAUX"].some((city) => option.endsWith(city)),
     );
     const skiDayThree = options.includes("FORFAIT SKI LUNDI");
-    const activityProfile = activity?.includes("SPA")
-      ? "spa"
-      : activity?.includes("SKI")
-        ? "ski"
-        : null;
+    const activityProfile =
+      activity === "SPA" ? "spa" : activity === "SKI" ? "ski" : null;
     const bookingStatus =
       bookingStatusText === "Validée"
         ? "validated"
@@ -188,23 +193,12 @@ export async function parseDetailedOrders(data: ArrayBuffer) {
         "Produit",
         "Déclinaison SKI ou SPA introuvable pour cette référence.",
       );
-    if (
-      options.filter(
-        (option) => option.includes(" SKI") || option.includes(" SPA"),
-      ).length !== 1
-    )
+    if (products.length > 1)
       addError(
         errors,
         rowNumber,
         "Produit",
         "Une seule déclinaison SKI ou SPA est attendue par référence.",
-      );
-    if (skiDayThree && activityProfile !== "ski")
-      addError(
-        errors,
-        rowNumber,
-        "FORFAIT SKI LUNDI",
-        "L’option du troisième jour nécessite la déclinaison SKI.",
       );
     if (
       options.filter((option) =>
@@ -225,9 +219,7 @@ export async function parseDetailedOrders(data: ArrayBuffer) {
       isValidEmail(email) &&
       bookingStatus &&
       activityProfile &&
-      options.filter(
-        (option) => option.includes(" SKI") || option.includes(" SPA"),
-      ).length === 1
+      products.length === 1
     ) {
       rows.push({
         row: rowNumber,
@@ -246,7 +238,7 @@ export async function parseDetailedOrders(data: ArrayBuffer) {
       });
     }
   }
-  for (const reference of lineOptions.keys()) {
+  for (const reference of linesByReference.keys()) {
     if (!references.has(reference))
       addError(
         errors,

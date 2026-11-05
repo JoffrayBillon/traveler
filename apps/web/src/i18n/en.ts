@@ -1,4 +1,32 @@
 export const en = {
+  detailedTransportMappingDescription:
+    "Choose an existing group for each city in the spreadsheet. The choice applies to validated registrations without configured transport.",
+  rosterReviewDescription:
+    "This is a complete snapshot. Missing references are cancelled, and a room assignment is released when the person has no active registration left.",
+  orderReviewDescription:
+    "The proposed values account for existing data that will be preserved.",
+  searchImportRows: "Search by name or reference",
+  showUnchangedImportRows: "Show unchanged rows",
+  noImportRowsToShow: "No rows to display.",
+  importExcelRow: "Excel row {{row}}",
+  importBefore: "Before",
+  importAfter: "After",
+  importBookingStatus: "Registration status",
+  importSourceEmail: "Email in spreadsheet",
+  importPaidAmount: "Amount paid",
+  importDueAmount: "Amount due",
+  importValidated: "Validated",
+  importPending: "Pending validation",
+  importCancelled: "Cancelled",
+  importYes: "Yes",
+  importNo: "No",
+  agencyReviewDescription:
+    "A blank cell keeps the current seat. Only provided train seats are imported.",
+  agencyReviewBlocked:
+    "Correct unmatched or ambiguous names in Excel, then run the preview again.",
+  agencySeatChanges: "Seat changes",
+  agencySeatUnchanged: "Unchanged seats",
+  importValidationReport: "Spreadsheet errors to correct",
   skipToContent: "Skip to content",
   travelerHome: "Traveler home",
   mainNavigation: "Main navigation",
@@ -196,7 +224,7 @@ export const en = {
   generatingRoomPlan: "Generating…",
   roomPlanPreview: "Plan preview",
   roomPlanPreviewSummary:
-    "{{assigned}} travelers assigned across {{rooms}} rooms; {{unassigned}} confirmed travelers remain to place and {{unconfirmed}} still need to confirm their gender.",
+    "{{assigned}} travelers assigned across {{rooms}} rooms using the gender on file, including unconfirmed values. {{unassigned}} remain to place and {{missingGender}} have no gender on file.",
   roomInventoryWillBeCreated:
     "The {{rooms}} inventory rooms will be created when you apply the plan.",
   roomAssignmentPreviewLine: "Room {{room}}",
@@ -207,8 +235,8 @@ export const en = {
     "Rooming data changed after this preview. Review a new plan before applying it.",
   roomPlanCouldNotBeGenerated: "The room plan could not be prepared.",
   roomAssignmentsGenerated: "{{assigned}} travelers assigned to rooms.",
-  roomAssignmentsGeneratedWithUnconfirmed:
-    "{{assigned}} travelers assigned. {{unconfirmed}} need to confirm their gender before room assignment.",
+  roomAssignmentsGeneratedWithMissingGender:
+    "{{assigned}} travelers assigned. {{missingGender}} still need a gender on file for automatic placement.",
   mixedRoomCode: "Mixed room",
   mixedRoom: "Mixed",
   maleRoomCode: "Men’s room",
@@ -269,6 +297,7 @@ export const en = {
   reviewTheSpreadsheetAndItsChangesBeforeConfirmingTheImportEachSourceTypeFollowsItsOwnRules:
     "Review the spreadsheet and its changes before confirming the import. Each source type follows its own rules.",
   importPreview: "Import preview",
+  openImportPreview: "Open import preview",
   assign2: "Assign",
   none: "None",
   noTicketsHaveBeenAddedYet: "No tickets have been added yet.",
@@ -283,7 +312,21 @@ export const en = {
     "Choose a traveler and a journey before uploading.",
   excelSpreadsheetXlsx: "Excel spreadsheet (.xlsx)",
   accountToLink: "Account to link",
+  includeParticipantInImport: "Import {{name}}",
+  selectAtLeastOneRowToImport: "Select at least one row to import to continue.",
   confirmImport: "Confirm import",
+  transportAssignments: "Group transport assignments",
+  participantsCount: "{{count}} participants",
+  participantsCount_one: "{{count}} participant",
+  participantsCount_other: "{{count}} participants",
+  existingTransportGroupWillBeUsed: "Will be assigned to {{group}}",
+  draftTransportGroupWillBeCreated: "A draft transport group will be created",
+  chooseTransportGroupForCity: "Choose the group for {{city}}",
+  participantsWithGroupTransport: "Group transport",
+  participantsWithoutGroupTransport: "No group transport",
+  existingTransportGroupsMatched: "Existing groups matched",
+  draftTransportGroupsToCreate: "Draft groups to create",
+  transportCitiesNeedingSelection: "Cities needing a group choice",
   createAnAccountWithThisEmail: "Create an account with this email",
   changesByReference: "Changes by reference",
   save: "Save",
@@ -355,8 +398,6 @@ export const en = {
   tripName: "Trip name",
   tripEndDate: "Trip end date",
   seat: "Seat",
-  seatsOutboundpreviousOutboundReturnReturnpreviousReturn:
-    "Seats: {{outboundPrevious}} → {{outbound}} · return: {{returnPrevious}} → {{return}}",
   severalAccountsHaveThisNameCheckTheNamesInTheSpreadsheet:
     "Several accounts have this name. Check the names in the spreadsheet.",
   prepareTheAgencySpreadsheet: "Prepare the agency spreadsheet",
@@ -365,9 +406,10 @@ export const en = {
   meeting: "Meeting",
   return: "Return",
   currentRoleRole: "current role: {{role}}",
-  roomingListReturnedByTheAgency: "Rooming list returned by the agency",
   noTransportBooked: "No transport booked",
-  selectJoffrayAndStephaneAsManagers: "Select Joffray and Stéphane as managers",
+  staffImportAccountSettings: "Managers and account linking",
+  staffImportAccountEmailMatchingDescription:
+    "Select the managers. The account to link is prefilled when an email address matches an existing account.",
   ifThisAddressIsAuthorizedItsSignInLinkIsShownInTheLocalApiTerminal:
     "If this address is authorized, its sign-in link is shown in the local API terminal.",
   ifThisAddressIsAuthorizedASignInLinkHasBeenSent:
@@ -388,6 +430,7 @@ export const en = {
     "Review the summary before confirming the import.",
   departureCity: "Departure city",
   vipTraveler: "VIP traveler",
+  vipBadge: "VIP",
   yourDocumentsAreAvailableOnlyAfterSigningIn:
     "Your documents are available only after signing in.",
   yourPreferencesCouldNotBeSaved: "Your preferences could not be saved.",

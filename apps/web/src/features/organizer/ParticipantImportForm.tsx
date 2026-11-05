@@ -15,6 +15,7 @@ import { type FormEvent, useState } from "react";
 import { Form } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { ImportPreviewCard } from "./ImportPreviewCard";
+import { ImportPreviewDialog } from "./ImportPreviewDialog";
 
 export function ParticipantImportForm({ tripId }: { tripId: string }) {
   const { t } = useTranslation();
@@ -24,8 +25,14 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
   const [sourceType, setSourceType] =
     useState<ImportSourceType>("validated_roster");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [excludedRows, setExcludedRows] = useState<number[]>([]);
   const [managerEmails, setManagerEmails] = useState<string[]>([]);
   const [accountMappings, setAccountMappings] = useState<
+    Record<string, string>
+  >({});
+  const [transportMappings, setTransportMappings] = useState<
     Record<string, string>
   >({});
   const [message, setMessage] = useState("");
@@ -42,6 +49,9 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     }
 
     const form = new FormData();
+    setValidationErrors([]);
+    setPreview(null);
+    setMessage("");
     form.set("file", file);
     form.set("sourceType", sourceType);
     try {
@@ -58,18 +68,45 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
         ...(result.availableMembers
           ? { availableMembers: result.availableMembers }
           : {}),
+        ...(result.staffTransportRows
+          ? { staffTransportRows: result.staffTransportRows }
+          : {}),
         ...(result.agencyRows ? { agencyRows: result.agencyRows } : {}),
         ...(result.changes ? { changes: result.changes } : {}),
       });
-      setManagerEmails([]);
-      setAccountMappings({});
+      setIsPreviewOpen(true);
+      setManagerEmails(
+        (result.staffRows ?? [])
+          .filter((row) => row.existingRole === "manager")
+          .map((row) => row.email.trim().toLowerCase()),
+      );
+      setExcludedRows([]);
+      const userIdByEmail = new Map(
+        (result.availableMembers ?? []).map((member) => [
+          member.email.trim().toLowerCase(),
+          member.userId,
+        ]),
+      );
+      setAccountMappings(
+        Object.fromEntries(
+          (result.staffRows ?? []).flatMap((row) => {
+            const userId = userIdByEmail.get(row.email.trim().toLowerCase());
+            return userId ? [[row.email.trim().toLowerCase(), userId]] : [];
+          }),
+        ),
+      );
+      setTransportMappings({});
       setMessage(t("reviewTheSummaryBeforeConfirmingTheImport"));
     } catch (error) {
       const result = getImportErrorPayload(error);
-      setMessage(
-        result.errors?.map((item) => formatImportError(item, t)).join("\n") ??
-          t("theFileImportFailed"),
-      );
+      if (result.errors?.length) {
+        setValidationErrors([
+          ...new Set(result.errors.map((item) => formatImportError(item, t))),
+        ]);
+        setIsPreviewOpen(true);
+      } else {
+        setMessage(t("theFileImportFailed"));
+      }
     }
   }
 
@@ -79,9 +116,16 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     form.set("file", file);
     form.set("sourceType", preview.sourceType);
     form.set("previewId", preview.previewId);
+    if (
+      preview.sourceType === "detailed_orders" ||
+      preview.sourceType === "companions_vips"
+    ) {
+      form.set("transportMappings", JSON.stringify(transportMappings));
+    }
     if (preview.sourceType === "companions_vips") {
       form.set("managerEmails", JSON.stringify(managerEmails));
       form.set("accountMappings", JSON.stringify(accountMappings));
+      form.set("excludedRows", JSON.stringify(excludedRows));
     }
 
     try {
@@ -89,6 +133,7 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     } catch (error) {
       const result = getImportErrorPayload(error);
       setPreview(null);
+      setIsPreviewOpen(false);
       setMessage(
         result.errors?.map((item) => formatImportError(item, t)).join("\n") ??
           t("theImportFailedReviewTheSpreadsheetAgain"),
@@ -101,15 +146,19 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
     );
     setFile(null);
     setPreview(null);
+    setIsPreviewOpen(false);
     setManagerEmails([]);
+    setExcludedRows([]);
     setAccountMappings({});
+    setTransportMappings({});
   }
 
   function toggleManagerEmail(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
     setManagerEmails((current) =>
-      current.includes(email)
-        ? current.filter((item) => item !== email)
-        : [...current, email],
+      current.includes(normalizedEmail)
+        ? current.filter((item) => item !== normalizedEmail)
+        : [...current, normalizedEmail],
     );
   }
 
@@ -134,6 +183,8 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
         onChange={(value) => {
           setSourceType(value);
           setPreview(null);
+          setValidationErrors([]);
+          setIsPreviewOpen(false);
         }}
       />
       <div className="col-span-full">
@@ -148,6 +199,8 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
           onFileChange={(nextFile) => {
             setFile(nextFile);
             setPreview(null);
+            setValidationErrors([]);
+            setIsPreviewOpen(false);
           }}
         />
       </div>
@@ -158,15 +211,45 @@ export function ParticipantImportForm({ tripId }: { tripId: string }) {
       >
         {t("reviewSpreadsheet")}
       </Button>
-      <ImportPreviewCard
-        importPreview={preview}
-        managerEmails={managerEmails}
-        toggleManagerEmail={toggleManagerEmail}
-        accountMappings={accountMappings}
-        setAccountMappings={setAccountMappings}
-        onCommit={() => void commitImport()}
-        isCommitting={commitMutation.isPending}
-      />
+      {(preview || validationErrors.length > 0) && (
+        <Button
+          appearance="secondary"
+          type="button"
+          onPress={() => setIsPreviewOpen(true)}
+        >
+          {t("openImportPreview")}
+        </Button>
+      )}
+      <ImportPreviewDialog
+        isOpen={
+          isPreviewOpen && (preview !== null || validationErrors.length > 0)
+        }
+        onOpenChange={setIsPreviewOpen}
+      >
+        {validationErrors.length > 0 && (
+          <section className="grid gap-3">
+            <h3 className="font-bold">{t("importValidationReport")}</h3>
+            <ul className="list-disc space-y-2 pl-5 text-sm">
+              {validationErrors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+        <ImportPreviewCard
+          importPreview={preview}
+          excludedRows={excludedRows}
+          setExcludedRows={setExcludedRows}
+          managerEmails={managerEmails}
+          toggleManagerEmail={toggleManagerEmail}
+          accountMappings={accountMappings}
+          setAccountMappings={setAccountMappings}
+          transportMappings={transportMappings}
+          setTransportMappings={setTransportMappings}
+          onCommit={() => void commitImport()}
+          isCommitting={commitMutation.isPending}
+        />
+      </ImportPreviewDialog>
       {message && (
         <p
           className="col-span-full text-sm text-content-muted"

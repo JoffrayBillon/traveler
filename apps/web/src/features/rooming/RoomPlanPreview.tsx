@@ -48,8 +48,8 @@ export function RoomPlanPreview({
           {t("roomPlanPreviewSummary", {
             assigned: plan.assignments.length,
             rooms: assignmentsByRoom.length,
-            unassigned: plan.unassignedConfirmed,
-            unconfirmed: plan.unconfirmed,
+            unassigned: plan.unassignedEligible,
+            missingGender: plan.missingGender,
           })}
         </p>
         {plan.roomsToCreate.length > 0 && (

@@ -1,4 +1,32 @@
 export const fr = {
+  detailedTransportMappingDescription:
+    "Choisissez un groupe existant pour chaque ville du fichier. Le choix s’applique aux inscriptions validées sans transport configuré.",
+  rosterReviewDescription:
+    "Ce fichier est un instantané complet. Les références absentes sont annulées, et la place en chambre est libérée si la personne n’a plus d’inscription active.",
+  orderReviewDescription:
+    "Les valeurs proposées tiennent compte des données déjà renseignées et conservées.",
+  searchImportRows: "Rechercher par nom ou référence",
+  showUnchangedImportRows: "Afficher les lignes inchangées",
+  noImportRowsToShow: "Aucune ligne à afficher.",
+  importExcelRow: "Ligne Excel {{row}}",
+  importBefore: "Avant",
+  importAfter: "Après",
+  importBookingStatus: "Statut de l’inscription",
+  importSourceEmail: "E-mail du fichier",
+  importPaidAmount: "Montant réglé",
+  importDueAmount: "Montant restant dû",
+  importValidated: "Validée",
+  importPending: "En attente de validation",
+  importCancelled: "Annulée",
+  importYes: "Oui",
+  importNo: "Non",
+  agencyReviewDescription:
+    "Une cellule vide conserve la place actuelle. Seules les places de train renseignées sont importées.",
+  agencyReviewBlocked:
+    "Corrigez les noms introuvables ou ambigus dans Excel, puis relancez l’analyse.",
+  agencySeatChanges: "Places à modifier",
+  agencySeatUnchanged: "Places inchangées",
+  importValidationReport: "Erreurs à corriger dans le fichier",
   skipToContent: "Aller au contenu",
   travelerHome: "Traveler, accueil",
   mainNavigation: "Navigation principale",
@@ -205,7 +233,7 @@ export const fr = {
   generatingRoomPlan: "Génération…",
   roomPlanPreview: "Aperçu du plan",
   roomPlanPreviewSummary:
-    "{{assigned}} voyageurs répartis dans {{rooms}} chambres ; {{unassigned}} voyageurs confirmés resteront à placer et {{unconfirmed}} doivent encore confirmer leur sexe.",
+    "{{assigned}} voyageurs répartis dans {{rooms}} chambres selon le sexe renseigné, même s’il reste à confirmer. {{unassigned}} restent à placer et {{missingGender}} n’ont pas de sexe renseigné.",
   roomInventoryWillBeCreated:
     "Les {{rooms}} chambres de l’inventaire seront créées à la validation.",
   roomAssignmentPreviewLine: "Chambre {{room}}",
@@ -216,8 +244,8 @@ export const fr = {
     "Les données du rooming ont changé depuis l’aperçu. Vérifiez un nouveau plan avant de l’appliquer.",
   roomPlanCouldNotBeGenerated: "Impossible de préparer le plan des chambres.",
   roomAssignmentsGenerated: "{{assigned}} voyageurs affectés.",
-  roomAssignmentsGeneratedWithUnconfirmed:
-    "{{assigned}} voyageurs affectés. {{unconfirmed}} doivent confirmer leur sexe avant d’être placés.",
+  roomAssignmentsGeneratedWithMissingGender:
+    "{{assigned}} voyageurs affectés. Pour {{missingGender}}, le sexe reste à renseigner avant le placement automatique.",
   mixedRoomCode: "Chambre mixte",
   mixedRoom: "Mixte",
   maleRoomCode: "Chambre d’hommes",
@@ -280,6 +308,7 @@ export const fr = {
   reviewTheSpreadsheetAndItsChangesBeforeConfirmingTheImportEachSourceTypeFollowsItsOwnRules:
     "Analysez le classeur et les changements avant de confirmer son import. Chaque type de source suit ses propres règles.",
   importPreview: "Aperçu de l’import",
+  openImportPreview: "Ouvrir l’aperçu de l’import",
   assign2: "Attribuer",
   none: "Aucun",
   noTicketsHaveBeenAddedYet: "Aucun billet n’a encore été ajouté.",
@@ -294,7 +323,23 @@ export const fr = {
     "Choisissez un voyageur et un trajet avant de téléverser.",
   excelSpreadsheetXlsx: "Classeur Excel .xlsx",
   accountToLink: "Compte à rattacher",
+  includeParticipantInImport: "Importer {{name}}",
+  selectAtLeastOneRowToImport:
+    "Sélectionnez au moins une ligne à importer pour continuer.",
   confirmImport: "Confirmer l’import",
+  transportAssignments: "Affectation aux transports groupés",
+  participantsCount: "{{count}} participants",
+  participantsCount_one: "{{count}} participant",
+  participantsCount_other: "{{count}} participants",
+  existingTransportGroupWillBeUsed: "Seront affectés au groupe {{group}}",
+  draftTransportGroupWillBeCreated:
+    "Un groupe de transport brouillon sera créé",
+  chooseTransportGroupForCity: "Choisir le groupe pour {{city}}",
+  participantsWithGroupTransport: "Transport groupé",
+  participantsWithoutGroupTransport: "Sans transport groupé",
+  existingTransportGroupsMatched: "Groupes existants trouvés",
+  draftTransportGroupsToCreate: "Groupes brouillon à créer",
+  transportCitiesNeedingSelection: "Villes à affecter manuellement",
   createAnAccountWithThisEmail: "Créer un compte avec cet e-mail",
   changesByReference: "Détail par référence",
   save: "Enregistrer",
@@ -368,8 +413,6 @@ export const fr = {
   tripName: "Nom du voyage",
   tripEndDate: "Date de fin du voyage",
   seat: "Place",
-  seatsOutboundpreviousOutboundReturnReturnpreviousReturn:
-    "Places : {{outboundPrevious}} → {{outbound}} · retour : {{returnPrevious}} → {{return}}",
   severalAccountsHaveThisNameCheckTheNamesInTheSpreadsheet:
     "Plusieurs comptes ont ce nom : vérifiez les noms dans le fichier.",
   prepareTheAgencySpreadsheet: "Préparer le fichier de l’agence",
@@ -378,10 +421,10 @@ export const fr = {
   meeting: "Rendez-vous",
   return: "Retour",
   currentRoleRole: "rôle actuel : {{role}}",
-  roomingListReturnedByTheAgency: "Rooming retournée par l’agence",
   noTransportBooked: "Sans transport réservé",
-  selectJoffrayAndStephaneAsManagers:
-    "Sélectionnez Joffray et Stéphane comme gestionnaires",
+  staffImportAccountSettings: "Gestionnaires et comptes à rattacher",
+  staffImportAccountEmailMatchingDescription:
+    "Sélectionnez les gestionnaires. Le compte à rattacher est prérempli lorsqu’une adresse e-mail correspond à un compte existant.",
   ifThisAddressIsAuthorizedItsSignInLinkIsShownInTheLocalApiTerminal:
     "Si cette adresse est autorisée, son lien de connexion est affiché dans le terminal de l’API locale.",
   ifThisAddressIsAuthorizedASignInLinkHasBeenSent:
@@ -401,6 +444,7 @@ export const fr = {
     "Vérifiez le récapitulatif avant de confirmer l’import.",
   departureCity: "Ville de départ",
   vipTraveler: "VIP voyageur",
+  vipBadge: "VIP",
   yourDocumentsAreAvailableOnlyAfterSigningIn:
     "Vos documents sont disponibles uniquement après connexion.",
   yourPreferencesCouldNotBeSaved:

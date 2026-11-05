@@ -3,7 +3,20 @@ import { Button, messageStyles } from "@traveler/components/ui";
 import { getLocale } from "@traveler/i18n";
 import { UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
 import { roleTranslationKey } from "./participant-formatters";
+
+const participantBadgeStyles = tv({
+  base: "rounded-full border px-3 py-1 text-xs font-semibold",
+  variants: {
+    status: {
+      vip: "border-border bg-surface text-content",
+      paid: "border-success/30 bg-surface text-success",
+      partially_paid: "border-warning/45 bg-warning/10 text-warning",
+      unpaid: "border-danger/70 bg-danger/15 text-danger",
+    },
+  },
+});
 
 export function ParticipantList({
   participants,
@@ -71,14 +84,27 @@ export function ParticipantList({
                   </span>
                 </span>
               </span>
-              {isManager && person.paymentStatus && (
-                <span className="shrink-0 rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold text-content-muted">
-                  {t(
-                    person.paymentStatus === "partially_paid"
-                      ? "partiallyPaid"
-                      : person.paymentStatus,
+              {(person.isVip || (isManager && person.paymentStatus)) && (
+                <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {person.isVip && (
+                    <span className={participantBadgeStyles({ status: "vip" })}>
+                      {t("vipBadge")}
+                    </span>
                   )}
-                  {person.paymentNeedsReview ? " · !" : ""}
+                  {isManager && person.paymentStatus && (
+                    <span
+                      className={participantBadgeStyles({
+                        status: person.paymentStatus,
+                      })}
+                    >
+                      {t(
+                        person.paymentStatus === "partially_paid"
+                          ? "partiallyPaid"
+                          : person.paymentStatus,
+                      )}
+                      {person.paymentNeedsReview ? " · !" : ""}
+                    </span>
+                  )}
                 </span>
               )}
             </Button>

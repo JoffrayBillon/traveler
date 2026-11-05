@@ -7,11 +7,20 @@ export async function getImportBaselineHash(
   database: DatabaseExecutor,
   tripId: string,
 ) {
-  const [registrations, members, assignments, seats] = await Promise.all([
+  const [
+    registrations,
+    members,
+    assignments,
+    seats,
+    transportGroups,
+    transports,
+  ] = await Promise.all([
     database
       .select({
         reference: schema.tripRegistrations.reference,
         status: schema.tripRegistrations.status,
+        importedTransportGroupId:
+          schema.tripRegistrations.importedTransportGroupId,
         updatedAt: schema.tripRegistrations.updatedAt,
       })
       .from(schema.tripRegistrations)
@@ -40,12 +49,40 @@ export async function getImportBaselineHash(
         userId: schema.travelerDetails.userId,
         outboundSeat: schema.travelerDetails.outboundSeat,
         returnSeat: schema.travelerDetails.returnSeat,
+        transportChoice: schema.travelerDetails.transportChoice,
       })
       .from(schema.travelerDetails)
       .where(eq(schema.travelerDetails.tripId, tripId))
       .orderBy(schema.travelerDetails.userId),
+    database
+      .select({
+        id: schema.transportGroups.id,
+        name: schema.transportGroups.name,
+        normalizedCity: schema.transportGroups.normalizedCity,
+        isDraft: schema.transportGroups.isDraft,
+      })
+      .from(schema.transportGroups)
+      .where(eq(schema.transportGroups.tripId, tripId))
+      .orderBy(schema.transportGroups.id),
+    database
+      .select({
+        userId: schema.transportGroupAssignments.userId,
+        groupId: schema.transportGroupAssignments.groupId,
+      })
+      .from(schema.transportGroupAssignments)
+      .where(eq(schema.transportGroupAssignments.tripId, tripId))
+      .orderBy(schema.transportGroupAssignments.userId),
   ]);
   return createHash("sha256")
-    .update(JSON.stringify([registrations, members, assignments, seats]))
+    .update(
+      JSON.stringify([
+        registrations,
+        members,
+        assignments,
+        seats,
+        transportGroups,
+        transports,
+      ]),
+    )
     .digest("hex");
 }

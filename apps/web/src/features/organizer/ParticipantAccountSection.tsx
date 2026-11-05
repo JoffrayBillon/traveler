@@ -1,7 +1,12 @@
 import type { StaffTraveler } from "@traveler/api/participants/participant.types";
 import type { ProfileDraft } from "@traveler/api/participants/participant-form.types";
-import { SelectTrigger, textFieldStyles } from "@traveler/components/ui";
 import {
+  checkboxStyles,
+  SelectTrigger,
+  textFieldStyles,
+} from "@traveler/components/ui";
+import {
+  Checkbox,
   Input,
   Label,
   ListBox,
@@ -21,6 +26,8 @@ type ParticipantAccountSectionProps = {
   onEmailChange: (email: string) => void;
   role: StaffTraveler["role"];
   onRoleChange: (role: StaffTraveler["role"]) => void;
+  isVip: boolean;
+  onIsVipChange: (isVip: boolean) => void;
   isManager: boolean;
   onProfileChange: <K extends keyof ProfileDraft>(
     key: K,
@@ -34,6 +41,8 @@ export function ParticipantAccountSection({
   onEmailChange,
   role,
   onRoleChange,
+  isVip,
+  onIsVipChange,
   isManager,
   onProfileChange,
 }: ParticipantAccountSectionProps) {
@@ -98,6 +107,13 @@ export function ParticipantAccountSection({
             </ListBox>
           </Popover>
         </Select>
+        <Checkbox
+          className={checkboxStyles()}
+          isSelected={isVip}
+          onChange={onIsVipChange}
+        >
+          {t("vipTraveler")}
+        </Checkbox>
         <Select
           className="grid min-w-0 gap-2"
           selectedKey={profile.gender ?? "none"}
