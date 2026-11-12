@@ -42,6 +42,7 @@ const body = {
   project: process.env.VERCEL_PROJECT_ID,
   gitSource: {
     type: "github",
+    // biome-ignore lint/suspicious/noUndeclaredEnvVars: GitHub Actions provides this value to the direct Node script; it is not a Turborepo task input.
     repoId: process.env.GITHUB_REPOSITORY_ID,
     ref: DEPLOY_REF,
     sha: DEPLOY_SHA,

@@ -1,177 +1,181 @@
 @import "tailwindcss";
+@import "./theme/tokens.css";
 
-@theme {
-  --font-sans: system-ui, sans-serif;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-:root {
-  font-family: var(--font-sans);
-  color-scheme: light;
+html {
+  background: var(--theme-color-canvas);
+  scroll-behavior: smooth;
 }
+
 body {
   margin: 0;
+  background: var(--theme-color-canvas);
+  color: var(--theme-color-content);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
 }
-.app-shell {
-  --surface: #f8faf7;
-  --ink: #183e35;
-  --muted: #49655c;
-  --border: #6b8578;
-  min-height: 100dvh;
-  background: var(--surface);
-  color: var(--ink);
-  display: flex;
-  flex-direction: column;
+
+button,
+input {
+  font: inherit;
 }
-.app-shell[data-theme="dark"] {
-  --surface: #102d26;
-  --ink: #f1f8ef;
-  --muted: #bfd3c7;
-  --border: #78988a;
-  color-scheme: dark;
+
+.select-trigger-chevron {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.site-header,
-.site-footer {
-  padding: 1.5rem clamp(1.25rem, 5vw, 5rem);
+
+[data-select-trigger][aria-expanded="true"] .select-trigger-chevron {
+  transform: rotate(180deg);
 }
-.site-header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-color: color-mix(
+        in srgb,
+        var(--theme-color-content-subtle) 65%,
+        transparent
+      )
+      transparent;
+    scrollbar-width: thin;
+  }
 }
-.brand {
-  font-size: 1.5rem;
-  font-weight: 750;
-  letter-spacing: -0.05em;
+
+*::-webkit-scrollbar {
+  width: 0.65rem;
+  height: 0.65rem;
 }
-.theme-toggle {
-  border: 1px solid var(--border);
-  padding: 0.75rem 1rem;
+
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:single-button,
+*::-webkit-scrollbar-button:vertical:decrement,
+*::-webkit-scrollbar-button:vertical:increment,
+*::-webkit-scrollbar-button:horizontal:decrement,
+*::-webkit-scrollbar-button:horizontal:increment {
+  -webkit-appearance: none;
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
   border-radius: 999px;
-  cursor: pointer;
-  min-height: 44px;
+  margin-block: 0.25rem;
 }
-.theme-toggle[data-selected] {
-  background: var(--ink);
-  color: var(--surface);
+
+*::-webkit-scrollbar-thumb {
+  border: 0.2rem solid transparent;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--theme-color-content-subtle) 65%,
+    transparent
+  );
+  background-clip: content-box;
 }
-.theme-toggle[data-focus-visible],
-a:focus-visible {
-  outline: 3px solid var(--ink);
-  outline-offset: 4px;
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-color-content-subtle);
+  background-clip: content-box;
 }
-.welcome {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 5rem clamp(1.25rem, 8vw, 8rem);
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
-.welcome h1 {
-  font-size: clamp(2.5rem, 6vw, 5.5rem);
-  line-height: 1.08;
-  letter-spacing: -0.06em;
-  max-width: 13ch;
-  margin-block: 1.5rem;
-  font-weight: 650;
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
-.eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.75rem;
-  font-weight: 700;
+
+:focus-visible {
+  outline: 2px solid var(--theme-color-focus);
+  outline-offset: 2px;
 }
-.intro,
-.site-footer {
-  color: var(--muted);
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none;
+    transition: none;
+  }
 }
-.intro {
-  max-width: 40ch;
-  line-height: 1.6;
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
 }
-.sign-in-form {
-  display: grid;
-  justify-items: start;
-  gap: 1rem;
-  width: min(100%, 26rem);
-  margin-top: 1.5rem;
+
+@keyframes photo-arrive {
+  from {
+    transform: scale(1.055);
+    opacity: 0.65;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
-.sign-in-form [data-slot="label"],
-.sign-in-form label {
-  display: block;
-  margin-bottom: 0.4rem;
-  font-weight: 650;
+
+@keyframes modal-enter {
+  from {
+    transform: translateY(0.75rem) scale(0.985);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
-.email-input {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 48px;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
+
+@keyframes modal-exit {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(0.5rem) scale(0.99);
+    opacity: 0;
+  }
 }
-.sign-in-button {
-  min-height: 48px;
-  border: 0;
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: var(--ink);
-  color: var(--surface);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
+
+@keyframes mark-breathe {
+  50% {
+    transform: translateY(-4px);
+  }
 }
-.sign-in-button[data-disabled] {
-  cursor: progress;
-  opacity: 0.7;
+
+@keyframes popover-in {
+  from {
+    transform: translateY(-4px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
-.sign-in-form :focus-visible {
-  outline: 3px solid var(--ink);
-  outline-offset: 3px;
-}
-.form-message {
-  min-height: 1.5em;
-  color: var(--muted);
-  line-height: 1.5;
-}
-.trip-list {
-  display: grid;
-  gap: 0.75rem;
-  width: min(100%, 32rem);
-  margin: 1.5rem 0;
-  padding: 0;
-  list-style: none;
-}
-.trip-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  min-height: 3rem;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
-}
-.trip-list span {
-  color: var(--muted);
-}
-.trip-list strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.skip-link {
-  position: absolute;
-  left: 1rem;
-  top: -8rem;
-  background: var(--ink);
-  color: var(--surface);
-  padding: 1rem;
-  border-radius: 0.5rem;
-}
-.skip-link:focus {
-  top: 1rem;
+
+@keyframes popover-out {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-3px) scale(0.98);
+    opacity: 0;
+  }
 }

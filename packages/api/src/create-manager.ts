@@ -16,9 +16,6 @@ if (!tripId || !email || !firstName || !lastName || extra.length > 0) {
 } else {
   const client = createDatabaseClient();
   if (!client) {
-    console.error(
-      "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN before provisioning a manager.",
-    );
     process.exitCode = 1;
   } else {
     try {

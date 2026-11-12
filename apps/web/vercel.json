@@ -5,6 +5,12 @@
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "outputDirectory": "dist",
   "regions": ["cdg1"],
+  "crons": [
+    {
+      "path": "/api/cron/delete-expired-tickets",
+      "schedule": "0 4 * * *"
+    }
+  ],
   "git": {
     "deploymentEnabled": false
   },

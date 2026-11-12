@@ -22,6 +22,76 @@
       "when": 1793386852459,
       "tag": "0002_next_silk_fever",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793418458043,
+      "tag": "0003_soft_rocket_racer",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793419016603,
+      "tag": "0004_icy_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793420270901,
+      "tag": "0005_blue_genesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793491865176,
+      "tag": "0006_import_source_registry",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793582377058,
+      "tag": "0007_certain_flatman",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793582403522,
+      "tag": "0008_lucky_unus",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793583717196,
+      "tag": "0009_slippery_dakota_north",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793665807086,
+      "tag": "0010_yellow_leopardon",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793838734770,
+      "tag": "0011_imported_registration_transport",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793839344331,
+      "tag": "0012_bootstrap_empty_site",
+      "breakpoints": true
     }
   ]
 }

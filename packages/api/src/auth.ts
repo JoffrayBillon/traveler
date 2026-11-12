@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { waitUntil } from "@vercel/functions";
 import type { Auth, BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { magicLink } from "better-auth/plugins";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
-import { drizzle } from "drizzle-orm/libsql";
-import { createTransport } from "nodemailer";
-import { createDatabaseClient } from "./database";
+import { normalizeEmail } from "./email";
+import { validateEnvironment } from "./environment";
+import type { BackgroundTaskScheduler } from "./ports/background-task-scheduler";
+import type { MagicLinkSender } from "./ports/email-sender";
 import * as schema from "./schema";
 
 export type AppDatabase = LibSQLDatabase<typeof schema>;
@@ -17,16 +17,35 @@ export type AuthServices = {
   auth: Auth<BetterAuthOptions>;
   database: AppDatabase;
   scheduleBackgroundTask: BackgroundTaskScheduler;
+  magicLinkCapture?: MagicLinkCapture;
 };
-export type MagicLinkSender = (email: string, url: string) => Promise<void>;
-export type BackgroundTaskScheduler = (task: Promise<unknown>) => void;
+export type { BackgroundTaskScheduler } from "./ports/background-task-scheduler";
+export type { MagicLinkSender } from "./ports/email-sender";
+export type MagicLinkCapture = {
+  authorize: (requestId: string) => void;
+  capture: (requestId: string, url: string) => boolean;
+  take: (requestId: string) => string | undefined;
+};
 
-function scheduleBackgroundTask(task: Promise<unknown>) {
-  if (process.env.VERCEL) {
-    waitUntil(task);
-  } else {
-    void task;
-  }
+export function createMagicLinkCapture(): MagicLinkCapture {
+  const authorizedRequests = new Set<string>();
+  const generatedLinks = new Map<string, string>();
+  return {
+    authorize(requestId) {
+      authorizedRequests.add(requestId);
+    },
+    capture(requestId, url) {
+      if (!authorizedRequests.delete(requestId)) return false;
+      generatedLinks.set(requestId, url);
+      return true;
+    },
+    take(requestId) {
+      authorizedRequests.delete(requestId);
+      const url = generatedLinks.get(requestId);
+      generatedLinks.delete(requestId);
+      return url;
+    },
+  };
 }
 
 function toOrigin(value: string) {
@@ -37,91 +56,97 @@ function toOrigin(value: string) {
   return new URL(url).origin;
 }
 
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    };
-    return entities[character] ?? character;
-  });
+function toHost(value: string) {
+  const url =
+    value.startsWith("http://") || value.startsWith("https://")
+      ? value
+      : `https://${value}`;
+  return new URL(url).host;
 }
 
-async function sendLoginLink(
-  email: string,
-  url: string,
-  env: NodeJS.ProcessEnv,
-) {
-  const host = env.BREVO_SMTP_HOST?.trim();
-  const port = Number(env.BREVO_SMTP_PORT);
-  const user = env.BREVO_SMTP_USER?.trim();
-  const pass = env.BREVO_SMTP_PASSWORD;
-  const from = env.BREVO_FROM?.trim();
-  if (!host || !Number.isInteger(port) || !user || !pass || !from) {
-    throw new Error("Authentication email delivery is not configured.");
-  }
-
-  const transporter = createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
-  const safeUrl = escapeHtml(url);
+export function isTrustedAuthOrigin(origin: string, env: NodeJS.ProcessEnv) {
   try {
-    await transporter.sendMail({
-      from,
-      to: email,
-      subject: "Votre lien de connexion Traveler",
-      text: `Connectez-vous à votre espace Traveler : ${url}\n\nCe lien expire après 10 minutes et ne peut être utilisé qu’une fois.`,
-      html: `<p>Connectez-vous à votre espace Traveler.</p><p><a href="${safeUrl}">Ouvrir mon espace voyage</a></p><p>Ce lien expire après 10 minutes et ne peut être utilisé qu’une fois.</p>`,
-    });
-  } finally {
-    transporter.close();
+    const requestedOrigin = new URL(origin).origin;
+    return [env.BETTER_AUTH_URL, env.VERCEL_URL, env.VERCEL_BRANCH_URL]
+      .filter((value): value is string => Boolean(value?.trim()))
+      .some((value) => toOrigin(value.trim()) === requestedOrigin);
+  } catch {
+    return false;
   }
 }
 
 export function createAuth(
   database: AppDatabase,
   env: NodeJS.ProcessEnv,
-  sendEmail: MagicLinkSender = (email, url) => sendLoginLink(email, url, env),
-  scheduleTask: BackgroundTaskScheduler = scheduleBackgroundTask,
+  sendEmail?: MagicLinkSender,
+  magicLinkCapture?: MagicLinkCapture,
 ): Auth<BetterAuthOptions> {
+  const authEnvironment = validateEnvironment(
+    sendEmail ? "auth-injected" : "auth",
+    env,
+  );
+  if (!sendEmail) {
+    throw new Error("A magic-link email adapter must be injected.");
+  }
   const baseURL =
-    env.BETTER_AUTH_URL?.trim() ||
-    (env.VERCEL_URL ? `https://${env.VERCEL_URL.trim()}` : undefined);
-  const secret = env.BETTER_AUTH_SECRET?.trim();
-  if (!baseURL || !secret || secret.length < 32) {
-    throw new Error("Authentication configuration is incomplete.");
+    authEnvironment.BETTER_AUTH_URL?.trim() ||
+    (authEnvironment.VERCEL_BRANCH_URL
+      ? `https://${authEnvironment.VERCEL_BRANCH_URL.trim()}`
+      : authEnvironment.VERCEL_URL
+        ? `https://${authEnvironment.VERCEL_URL.trim()}`
+        : undefined);
+  const allowedHosts = [
+    authEnvironment.BETTER_AUTH_URL,
+    authEnvironment.VERCEL_URL,
+    authEnvironment.VERCEL_BRANCH_URL,
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .map(toHost);
+  const secret = authEnvironment.BETTER_AUTH_SECRET.trim();
+  if (!baseURL || allowedHosts.length === 0 || !secret) {
+    throw new Error("Validated authentication configuration is incomplete.");
   }
   const trustedOrigins = [
-    env.BETTER_AUTH_URL,
-    env.VERCEL_URL,
-    env.VERCEL_BRANCH_URL,
+    authEnvironment.BETTER_AUTH_URL,
+    authEnvironment.VERCEL_URL,
+    authEnvironment.VERCEL_BRANCH_URL,
   ]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
     .map(toOrigin);
 
   const hasMembershipForEmail = async (email: string) => {
-    const membership = await database
+    const normalizedEmail = normalizeEmail(email);
+    const matchingUsers = await database
+      .select({ id: schema.users.id, email: schema.users.email })
+      .from(schema.users)
+      .where(eq(sql<string>`lower(${schema.users.email})`, normalizedEmail))
+      .limit(2);
+    const matchingUser = matchingUsers[0];
+    if (matchingUsers.length !== 1 || !matchingUser) return false;
+    const [membership] = await database
       .select({ id: schema.tripMemberships.id })
       .from(schema.tripMemberships)
-      .innerJoin(
-        schema.users,
-        eq(schema.tripMemberships.userId, schema.users.id),
-      )
-      .where(eq(schema.users.email, email.trim().toLowerCase()))
+      .where(eq(schema.tripMemberships.userId, matchingUser.id))
       .limit(1);
-    return membership.length > 0;
+    if (!membership) return false;
+    if (matchingUser.email !== normalizedEmail) {
+      await database
+        .update(schema.users)
+        .set({ email: normalizedEmail, updatedAt: new Date() })
+        .where(eq(schema.users.id, matchingUser.id));
+    }
+    return true;
   };
 
   const options: BetterAuthOptions = {
     appName: "Traveler",
-    baseURL,
+    baseURL: {
+      allowedHosts: [...new Set(allowedHosts)],
+      fallback: baseURL,
+      protocol: "auto",
+    },
     secret,
     trustedOrigins: [...new Set(trustedOrigins)],
     database: drizzleAdapter(database, {
@@ -174,14 +199,23 @@ export function createAuth(
         expiresIn: 60 * 10,
         storeToken: "hashed",
         rateLimit: { window: 60, max: 5 },
-        sendMagicLink: async ({ email, url }) => {
-          const delivery = sendEmail(email, url).catch((error: unknown) => {
+        sendMagicLink: async ({ email, url, metadata }) => {
+          try {
+            const requestId = metadata?.copySignInLinkRequestId;
+            if (
+              typeof requestId === "string" &&
+              magicLinkCapture?.capture(requestId, url)
+            ) {
+              return;
+            }
+            await sendEmail(email, url, metadata);
+          } catch (error) {
             console.error(
               "Magic link email delivery failed.",
               error instanceof Error ? error.name : "UnknownError",
             );
-          });
-          scheduleTask(delivery);
+            throw error;
+          }
         },
       }),
     ],
@@ -189,12 +223,18 @@ export function createAuth(
       session: {
         create: {
           before: async (session) => {
-            const membership = await database
+            const memberships = await database
               .select({ id: schema.tripMemberships.id })
               .from(schema.tripMemberships)
-              .where(eq(schema.tripMemberships.userId, session.userId))
-              .limit(1);
-            return membership.length > 0;
+              .where(eq(schema.tripMemberships.userId, session.userId));
+            if (memberships.length === 0) return false;
+            return true;
+          },
+          after: async (session) => {
+            await database
+              .update(schema.tripMemberships)
+              .set({ lastLoginAt: new Date() })
+              .where(eq(schema.tripMemberships.userId, session.userId));
           },
         },
       },
@@ -202,34 +242,4 @@ export function createAuth(
     advanced: { database: { generateId: () => randomUUID() } },
   };
   return betterAuth(options);
-}
-
-export function createAuthServicesProvider(
-  env: NodeJS.ProcessEnv = process.env,
-): () => AuthServices | undefined {
-  let services: AuthServices | undefined;
-  let initialized = false;
-  return () => {
-    if (initialized) return services;
-    initialized = true;
-    const client = createDatabaseClient(env);
-    if (
-      !client ||
-      !env.BETTER_AUTH_SECRET?.trim() ||
-      !(env.BETTER_AUTH_URL?.trim() || env.VERCEL_URL?.trim())
-    ) {
-      return undefined;
-    }
-    try {
-      const database = drizzle({ client, schema });
-      services = {
-        auth: createAuth(database, env, undefined, scheduleBackgroundTask),
-        database,
-        scheduleBackgroundTask,
-      };
-      return services;
-    } catch {
-      return undefined;
-    }
-  };
 }

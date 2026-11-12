@@ -1,4 +1,10 @@
 import { type Client, createClient } from "@libsql/client";
+import {
+  type DatabaseEnvironment,
+  EnvironmentValidationError,
+  formatEnvironmentReport,
+  validateEnvironment,
+} from "./environment";
 
 export type DatabaseProvider = () => Pick<Client, "execute"> | undefined;
 
@@ -18,16 +24,36 @@ export function getDatabaseErrorCode(error: unknown): string | undefined {
 export function createDatabaseClient(
   env: NodeJS.ProcessEnv = process.env,
 ): Client | undefined {
-  const url = env.TURSO_DATABASE_URL?.trim();
-  const authToken = env.TURSO_AUTH_TOKEN?.trim();
-
-  if (!url || !authToken) {
+  let configuration: DatabaseEnvironment;
+  try {
+    configuration = validateEnvironment("database", env);
+  } catch (error) {
+    if (error instanceof EnvironmentValidationError) {
+      console.error(formatEnvironmentReport(error.profile, error.issues));
+    } else {
+      console.error("Could not validate the database environment.");
+    }
     return undefined;
   }
 
+  return createDatabaseClientFromConfiguration(configuration);
+}
+
+export function createDatabaseClientFromConfiguration(
+  configuration: DatabaseEnvironment,
+): Client | undefined {
   try {
-    return createClient({ url, authToken });
-  } catch {
+    return createClient({
+      url: configuration.TURSO_DATABASE_URL,
+      authToken: configuration.TURSO_AUTH_TOKEN,
+    });
+  } catch (error) {
+    const code = getDatabaseErrorCode(error);
+    console.error(
+      code
+        ? `Could not initialize the Turso client (${code}).`
+        : "Could not initialize the Turso client from valid settings.",
+    );
     return undefined;
   }
 }

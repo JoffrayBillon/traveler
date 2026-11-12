@@ -1,0 +1,71 @@
+@theme inline {
+  --font-sans: "Inter Variable", "Segoe UI", Arial, sans-serif;
+  --font-display: "Inter Variable", "Segoe UI", Arial, sans-serif;
+
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --radius-feature: 1.5rem;
+
+  --color-canvas: var(--theme-color-canvas);
+  --color-surface: var(--theme-color-surface);
+  --color-surface-muted: var(--theme-color-surface-muted);
+  --color-content: var(--theme-color-content);
+  --color-content-muted: var(--theme-color-content-muted);
+  --color-content-subtle: var(--theme-color-content-subtle);
+  --color-border: var(--theme-color-border);
+  --color-brand: var(--theme-color-brand);
+  --color-action: var(--theme-color-action);
+  --color-action-hover: var(--theme-color-action-hover);
+  --color-on-action: var(--theme-color-on-action);
+  --color-accent: var(--theme-color-accent);
+  --color-accent-warm: var(--theme-color-accent-warm);
+  --color-danger: var(--theme-color-danger);
+  --color-success: var(--theme-color-success);
+  --color-warning: var(--theme-color-warning);
+  --color-focus: var(--theme-color-focus);
+
+  --shadow-panel: var(--theme-shadow-panel);
+  --shadow-card: var(--theme-shadow-card);
+}
+
+:root {
+  color-scheme: light dark;
+
+  --theme-color-canvas: light-dark(#f5f5f0, #101d19);
+  --theme-color-surface: light-dark(#ffffff, #182822);
+  --theme-color-surface-muted: light-dark(#edeee7, #20342c);
+  --theme-color-content: light-dark(#19352d, #f1f4ed);
+  --theme-color-content-muted: light-dark(#52665d, #c2d0c6);
+  --theme-color-content-subtle: light-dark(#697a72, #aabaae);
+  --theme-color-border: light-dark(#dce3dc, #385044);
+  --theme-color-brand: light-dark(#234c3d, #c9ddce);
+  --theme-color-action: light-dark(#173a30, #16372d);
+  --theme-color-action-hover: light-dark(#32634e, #275544);
+  --theme-color-on-action: #f4f3e9;
+  --theme-color-accent: light-dark(#32634e, #a6c9ae);
+  --theme-color-accent-warm: light-dark(#d9ac54, #ebc979);
+  --theme-color-danger: light-dark(#a33d35, #ffaaa0);
+  --theme-color-success: light-dark(#32614b, #b3dabc);
+  --theme-color-warning: light-dark(#87500a, #f0bd55);
+  --theme-color-focus: var(--theme-color-accent);
+  --theme-color-page-glow: light-dark(
+    rgb(219 224 209 / 44%),
+    rgb(75 110 88 / 18%)
+  );
+  --theme-shadow-panel: light-dark(
+    0 24px 80px rgb(29 52 43 / 9%),
+    0 24px 80px rgb(0 0 0 / 24%)
+  );
+  --theme-shadow-card: light-dark(
+    0 16px 45px rgb(29 52 43 / 6%),
+    0 16px 45px rgb(0 0 0 / 18%)
+  );
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}

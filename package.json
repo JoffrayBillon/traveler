@@ -3,19 +3,20 @@
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "engines": {
-    "node": ">=24 <25"
+    "node": "26.x"
   },
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "lint": "biome check .",
+    "lint": "biome check . && pnpm --filter @traveler/web i18n:check",
     "format": "biome check --write .",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "env:check": "pnpm --filter @traveler/api env:check"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.3",
+    "@biomejs/biome": "2.6.4",
     "turbo": "2.11.10",
     "typescript": "7.0.2"
   }

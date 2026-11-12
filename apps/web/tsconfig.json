@@ -1,6 +1,20 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "paths": {
+      "@traveler/api/*": ["./src/api/*"],
+      "@traveler/components/*": ["./src/components/*"],
+      "@traveler/features/*": ["./src/features/*"],
+      "@traveler/hooks/*": ["./src/hooks/*"],
+      "@traveler/i18n": ["./src/i18n/index.ts"],
+      "@traveler/i18n/*": ["./src/i18n/*"],
+      "@traveler/lib/*": ["./src/lib/*"],
+      "@traveler/routes/*": ["./src/routes/*"],
+      "@traveler/router": ["./src/router.tsx"],
+      "@traveler/test/*": ["./src/test/*"],
+      "@traveler/theme/*": ["./src/theme/*"],
+      "@traveler/types/*": ["./src/types/*"]
+    },
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "types": ["vite/client", "node"]

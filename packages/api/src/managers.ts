@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "./auth";
+import { normalizeEmail } from "./email";
 import * as schema from "./schema";
 
 export class ManagerProvisioningError extends Error {
@@ -21,7 +22,7 @@ export function createManagersStore(database: AppDatabase) {
   return {
     async create(input: ManagerProvisioningInput) {
       const tripId = input.tripId.trim();
-      const email = input.email.trim().toLowerCase();
+      const email = normalizeEmail(input.email);
       const firstName = input.firstName.trim();
       const lastName = input.lastName.trim();
       if (
@@ -44,11 +45,17 @@ export function createManagersStore(database: AppDatabase) {
         if (!trip)
           throw new ManagerProvisioningError("The trip does not exist.");
 
-        const [existingUser] = await transaction
-          .select({ id: schema.users.id, name: schema.users.name })
+        const existingUsers = await transaction
+          .select({ id: schema.users.id, email: schema.users.email })
           .from(schema.users)
-          .where(eq(schema.users.email, email))
-          .limit(1);
+          .where(eq(sql<string>`lower(${schema.users.email})`, email))
+          .limit(2);
+        if (existingUsers.length > 1) {
+          throw new ManagerProvisioningError(
+            "Multiple existing accounts match this email address, ignoring letter case.",
+          );
+        }
+        const existingUser = existingUsers[0];
         const userId = existingUser?.id ?? randomUUID();
         const now = new Date();
 
@@ -61,6 +68,11 @@ export function createManagersStore(database: AppDatabase) {
             createdAt: now,
             updatedAt: now,
           });
+        } else if (existingUser.email !== email) {
+          await transaction
+            .update(schema.users)
+            .set({ email, updatedAt: now })
+            .where(eq(schema.users.id, existingUser.id));
         }
 
         const [membership] = await transaction
