@@ -2,7 +2,6 @@ import { useRoomingMutations } from "@traveler/api/rooming/mutations";
 import type { RoomRequestSummary } from "@traveler/api/rooming/rooming.types";
 import { Button, Card } from "@traveler/components/ui";
 import { useTranslation } from "react-i18next";
-import { RoomHistoryButton } from "./RoomHistoryButton";
 import { roomErrorLabel } from "./rooming-errors";
 
 export function RoomConsentList({
@@ -10,14 +9,12 @@ export function RoomConsentList({
   userId,
   requests,
   onMessage,
-  showHistoryButton = false,
   mode = "all",
 }: {
   tripId: string;
   userId: string;
   requests: RoomRequestSummary[];
   onMessage: (message: string) => void;
-  showHistoryButton?: boolean;
   mode?: "all" | "actionable" | "status";
 }) {
   const { t } = useTranslation();
@@ -42,7 +39,7 @@ export function RoomConsentList({
           )
         : pendingRequests;
 
-  if (visibleRequests.length === 0 && !showHistoryButton) return null;
+  if (visibleRequests.length === 0) return null;
   async function respond(requestId: string, approve: boolean) {
     try {
       const result = await mutations.respondToRequest.mutateAsync({
@@ -91,32 +88,23 @@ export function RoomConsentList({
         mode === "actionable" ? "room-consent-alert-title" : undefined
       }
     >
-      {(visibleRequests.length > 0 || showHistoryButton) && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {visibleRequests.length > 0 && (
-            <div className="grid gap-1">
-              <h4
-                className="text-base font-bold"
-                {...(mode === "actionable"
-                  ? { id: "room-consent-alert-title" }
-                  : {})}
-              >
-                {t(
-                  mode === "actionable"
-                    ? "roomChangeNeedsYourApproval"
-                    : "roomChangeRequests",
-                )}
-              </h4>
-              {mode === "actionable" && (
-                <p className="text-sm text-content-muted">
-                  {t("reviewRoomChangeAndChoose")}
-                </p>
-              )}
-            </div>
+      <div className="grid gap-1">
+        <h4
+          className="text-base font-bold"
+          id={mode === "actionable" ? "room-consent-alert-title" : undefined}
+        >
+          {t(
+            mode === "actionable"
+              ? "roomChangeNeedsYourApproval"
+              : "roomChangeRequests",
           )}
-          {showHistoryButton && <RoomHistoryButton tripId={tripId} />}
-        </div>
-      )}
+        </h4>
+        {mode === "actionable" && (
+          <p className="text-sm text-content-muted">
+            {t("reviewRoomChangeAndChoose")}
+          </p>
+        )}
+      </div>
       {visibleRequests.map((request) => {
         const ownConsent = request.requiredConsents.find(
           (consent) => consent.userId === userId,

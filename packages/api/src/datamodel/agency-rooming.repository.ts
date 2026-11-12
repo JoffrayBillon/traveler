@@ -1,36 +1,19 @@
-import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
 
-export async function ensureAgencyRoomInventory(
+export async function listAgencyExportRooms(
   database: AppDatabase,
   tripId: string,
-  inventory: { name: string; capacity: number }[],
 ) {
-  return database.transaction(async (transaction) => {
-    let rooms = await transaction
-      .select()
-      .from(schema.rooms)
-      .where(eq(schema.rooms.tripId, tripId));
-    if (!rooms.length) {
-      await transaction.insert(schema.rooms).values(
-        inventory.map((room) => ({
-          id: randomUUID(),
-          tripId,
-          name: room.name,
-          capacity: room.capacity,
-          genderPolicy: "unset" as const,
-          compositionVersion: 1,
-        })),
-      );
-      rooms = await transaction
-        .select()
-        .from(schema.rooms)
-        .where(eq(schema.rooms.tripId, tripId));
-    }
-    return rooms;
-  });
+  return database
+    .select({
+      id: schema.rooms.id,
+      name: schema.rooms.name,
+      capacity: schema.rooms.capacity,
+    })
+    .from(schema.rooms)
+    .where(eq(schema.rooms.tripId, tripId));
 }
 
 export async function listAgencyRoomingMembers(
@@ -41,8 +24,6 @@ export async function listAgencyRoomingMembers(
     database
       .select({
         userId: schema.tripMemberships.userId,
-        role: schema.tripMemberships.role,
-        isVip: schema.tripMemberships.isVip,
         firstName: sql<string>`coalesce(${schema.travelerProfiles.firstName}, ${schema.tripMemberships.firstName})`,
         lastName: sql<string>`coalesce(${schema.travelerProfiles.lastName}, ${schema.tripMemberships.lastName})`,
         roomId: schema.roomAssignments.roomId,

@@ -366,6 +366,10 @@ export const fr = {
   detailedImportDescription:
     "Importez la liste détaillée des commandes pour la mise en place initiale. Utilisez la liste des inscrits validés pour les mises à jour fréquentes des validations, annulations et paiements.",
   agencySpreadsheetIsReady: "Le fichier complété pour l’agence est prêt.",
+  agencySpreadsheetRoomPlanMissing:
+    "Générez le plan des chambres avant de préparer le fichier de l’agence.",
+  agencySpreadsheetRoomCapacityMismatch:
+    "La matrice de l’agence ne correspond pas aux capacités du plan des chambres. Vérifiez l’inventaire et le fichier.",
   agencySpreadsheetCouldNotBePrepared:
     "Impossible de préparer le fichier de l’agence. Vérifiez le modèle et réessayez.",
   theImportFailedReviewTheSpreadsheetAgain:

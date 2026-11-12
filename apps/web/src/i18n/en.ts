@@ -353,6 +353,10 @@ export const en = {
   detailedImportDescription:
     "Import the detailed order list for the initial setup. Use the confirmed participant list for frequent updates to confirmations, cancellations and payments.",
   agencySpreadsheetIsReady: "The completed agency spreadsheet is ready.",
+  agencySpreadsheetRoomPlanMissing:
+    "Generate the room plan before preparing the agency spreadsheet.",
+  agencySpreadsheetRoomCapacityMismatch:
+    "The agency template does not match the room plan capacities. Check the inventory and the spreadsheet.",
   agencySpreadsheetCouldNotBePrepared:
     "The agency spreadsheet could not be prepared. Check the template and try again.",
   theImportFailedReviewTheSpreadsheetAgain:

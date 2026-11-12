@@ -4,9 +4,11 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
+import ExcelJS from "exceljs";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRoomingStore, type RoomingError } from "./rooming";
 import * as schema from "./schema";
+import { prepareAgencyRoomingTemplate } from "./services/imports/prepare-agency-rooming-template";
 import {
   applyRoomAssignmentPlan,
   previewRoomAssignments,
@@ -144,6 +146,82 @@ it("uses prefilled genders for new placements and leaves missing genders unassig
     assigned: 1,
     missingGender: 1,
   });
+});
+
+it("exports numbered rooms into matching agency slots without changing the plan", async () => {
+  const { database, trip } = await createFixture();
+  await database
+    .update(schema.rooms)
+    .set({ name: "10", capacity: 3 })
+    .where(eq(schema.rooms.id, "room-one"));
+  await database
+    .update(schema.rooms)
+    .set({ name: "2", capacity: 3 })
+    .where(eq(schema.rooms.id, "room-two"));
+  await database.insert(schema.travelerDetails).values([
+    { tripId: trip.id, userId: "cara", activityProfile: "ski" },
+    { tripId: trip.id, userId: "ben", activityProfile: "spa" },
+  ]);
+  await database
+    .update(schema.tripMemberships)
+    .set({ isVip: true })
+    .where(eq(schema.tripMemberships.userId, "ben"));
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("SKI TRAIN HOTEL");
+  sheet.addRow([
+    "Nbre de pax",
+    "NOMS",
+    "Prénoms",
+    "Catégorie",
+    "Typologie de chambre",
+    "N° de chambre",
+    "non skieur (pas de forfait)",
+    "LIEU DEPART TRAIN",
+    "Régimes spéciaux",
+    "Allergènes",
+    "Téléphone",
+    "Commentaires",
+    "Placement train Aller",
+  ]);
+  for (const [type, capacity, number] of [
+    ["QUAD", 4, 1],
+    ["TRIPLE", 3, 8],
+    ["TRIPLE", 3, 9],
+  ] as const) {
+    for (let bed = 0; bed < capacity; bed++) {
+      sheet.addRow([null, "ancien occupant", null, null, type, number]);
+    }
+  }
+  sheet.getCell("F11").value = 8;
+  sheet.getCell("M6").value = "12A";
+  sheet.getCell("L6").value = "Note agence";
+  const buffer = await workbook.xlsx.writeBuffer();
+  const result = await prepareAgencyRoomingTemplate(
+    database,
+    trip.id,
+    Uint8Array.from(new Uint8Array(buffer)).buffer,
+  );
+  expect(result).toMatchObject({ ok: true });
+  if (!result.ok) return;
+  const output = new ExcelJS.Workbook();
+  await output.xlsx.load(Uint8Array.from(result.workbook).buffer);
+  const exported = output.getWorksheet("SKI TRAIN HOTEL");
+  expect(exported?.getCell("B2").text).toBe("");
+  expect(exported?.getCell("A6").value).toBe(1);
+  expect(exported?.getCell("B6").text).toBe("Cime");
+  expect(exported?.getCell("B9").text).toBe("Boreal");
+  expect(exported?.getCell("D2").text).toBe("");
+  expect(exported?.getCell("D6").text).toBe("adulte");
+  expect(exported?.getCell("D9").text).toBe("adulte");
+  expect(exported?.getCell("G6").text).toBe("skieur (forfait)");
+  expect(exported?.getCell("G9").text).toBe("non skieur (pas de forfait)");
+  expect(exported?.getCell("F6").value).toBe(8);
+  expect(exported?.getCell("F11").value).toBe(9);
+  expect(exported?.getCell("M6").text).toBe("12A");
+  expect(exported?.getCell("L6").text).toBe("Note agence");
+  expect(
+    await database.select({ name: schema.rooms.name }).from(schema.rooms),
+  ).toEqual([{ name: "10" }, { name: "2" }]);
 });
 
 describe("room change consent", () => {
