@@ -22,12 +22,8 @@ export function ImportExportPanel({
       >
         {t("exportTheRoomingSummary")}
       </a>
-      {isManager && (
-        <>
-          <ParticipantImportForm tripId={tripId} />
-          <AgencySpreadsheetForm tripId={tripId} />
-        </>
-      )}
+      {isManager && <ParticipantImportForm tripId={tripId} />}
+      <AgencySpreadsheetForm tripId={tripId} />
     </TabPanel>
   );
 }

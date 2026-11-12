@@ -1,3 +1,4 @@
+import { ApiError } from "@traveler/api/client";
 import { useAgencySpreadsheetMutation } from "@traveler/api/imports/mutations";
 import { Button, Card } from "@traveler/components/ui";
 import { FileDropZone } from "@traveler/components/ui/FileDropZone";
@@ -31,8 +32,18 @@ export function AgencySpreadsheetForm({ tripId }: { tripId: string }) {
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1_000);
       setMessage(t("agencySpreadsheetIsReady"));
-    } catch {
-      setMessage(t("agencySpreadsheetCouldNotBePrepared"));
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : undefined;
+      setMessage(
+        t(
+          code === "agency_room_plan_missing"
+            ? "agencySpreadsheetRoomPlanMissing"
+            : code === "agency_room_inventory_mismatch" ||
+                code === "agency_room_capacity_mismatch"
+              ? "agencySpreadsheetRoomCapacityMismatch"
+              : "agencySpreadsheetCouldNotBePrepared",
+        ),
+      );
     }
   }
 

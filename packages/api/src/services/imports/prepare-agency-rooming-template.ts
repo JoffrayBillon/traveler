@@ -1,18 +1,18 @@
 import type ExcelJS from "exceljs";
 import type { AppDatabase } from "../../auth";
 import {
-  ensureAgencyRoomInventory,
+  listAgencyExportRooms,
   listAgencyRoomingMembers,
 } from "../../datamodel/agency-rooming.repository";
 import { loadBoundedWorkbook } from "../../source-import";
 import {
+  type AgencyRoomSlot,
   agencyRoomingColumns,
   normalizeSheetHeader,
-  roomCapacity,
+  readAgencyRoomSlots,
   setAgencyCell,
 } from "./agency-rooming-sheet";
 
-type InventoryRoom = { name: string; capacity: number; rows: number[] };
 type ExportResult =
   | { ok: false; status: 409 | 422; error: string; errors?: unknown[] }
   | { ok: true; workbook: Uint8Array };
@@ -60,20 +60,9 @@ export async function prepareAgencyRoomingTemplate(
   if (roomColumn === undefined || numberColumn === undefined)
     return { ok: false, status: 422, error: "agency_rooming_headers_missing" };
 
-  const inventoryByName = new Map<string, InventoryRoom>();
-  sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber === 1) return;
-    const type = row.getCell(roomColumn).text.trim();
-    const number = row.getCell(numberColumn).text.trim();
-    if (!type || !number) return;
-    const capacity = roomCapacity(type);
-    if (!capacity) return;
-    const name = `${type.toUpperCase()} ${number}`;
-    const room = inventoryByName.get(name) ?? { name, capacity, rows: [] };
-    room.rows.push(rowNumber);
-    inventoryByName.set(name, room);
-  });
-  const inventory = [...inventoryByName.values()];
+  const inventory = readAgencyRoomSlots(sheet, roomColumn, numberColumn);
+  if (!inventory)
+    return { ok: false, status: 422, error: "agency_room_capacity_mismatch" };
   if (
     !inventory.length ||
     inventory.length > 100 ||
@@ -81,21 +70,25 @@ export async function prepareAgencyRoomingTemplate(
   )
     return { ok: false, status: 422, error: "agency_room_inventory_missing" };
 
-  const rooms = await ensureAgencyRoomInventory(
-    database,
-    tripId,
-    inventory.map(({ name, capacity }) => ({ name, capacity })),
+  const rooms = await listAgencyExportRooms(database, tripId);
+  if (rooms.length === 0)
+    return { ok: false, status: 409, error: "agency_room_plan_missing" };
+
+  const roomsByCapacity = new Map<number, typeof rooms>();
+  rooms.sort((left, right) =>
+    left.name.localeCompare(right.name, "fr", { numeric: true }),
   );
-  const roomByName = new Map(
-    rooms.map((room) => [room.name.toUpperCase(), room]),
-  );
-  if (
-    rooms.length !== inventory.length ||
-    inventory.some(
-      (room) =>
-        roomByName.get(room.name.toUpperCase())?.capacity !== room.capacity,
-    )
-  )
+  for (const room of rooms) {
+    const sameCapacity = roomsByCapacity.get(room.capacity) ?? [];
+    sameCapacity.push(room);
+    roomsByCapacity.set(room.capacity, sameCapacity);
+  }
+
+  const matchedRooms = inventory.map((slot) => ({
+    slot,
+    room: roomsByCapacity.get(slot.capacity)?.shift(),
+  }));
+  if ([...roomsByCapacity.values()].some((remaining) => remaining.length > 0))
     return { ok: false, status: 409, error: "agency_room_inventory_mismatch" };
 
   const { members, phoneByUser } = await listAgencyRoomingMembers(
@@ -110,13 +103,12 @@ export async function prepareAgencyRoomingTemplate(
     assignedByRoom.set(member.roomId, roomMembers);
   }
 
-  for (const room of inventory) {
-    const dbRoom = roomByName.get(room.name.toUpperCase());
-    const occupants = dbRoom ? (assignedByRoom.get(dbRoom.id) ?? []) : [];
-    if (occupants.length > room.rows.length || room.rows.length < room.capacity)
+  for (const { slot, room } of matchedRooms) {
+    const occupants = room ? (assignedByRoom.get(room.id) ?? []) : [];
+    if (occupants.length > slot.capacity || slot.rows.length !== slot.capacity)
       return { ok: false, status: 409, error: "agency_room_capacity_mismatch" };
-    clearAgencyRoomRows(sheet, columns, room);
-    writeAgencyRoomOccupants(sheet, columns, room, occupants, phoneByUser);
+    clearAgencyRoomRows(sheet, columns, slot);
+    writeAgencyRoomOccupants(sheet, columns, slot, occupants, phoneByUser);
   }
 
   return {
@@ -128,7 +120,7 @@ export async function prepareAgencyRoomingTemplate(
 function clearAgencyRoomRows(
   sheet: ExcelJS.Worksheet,
   columns: Map<string, number>,
-  room: InventoryRoom,
+  room: AgencyRoomSlot,
 ) {
   for (const rowNumber of room.rows) {
     const row = sheet.getRow(rowNumber);
@@ -145,15 +137,12 @@ function clearAgencyRoomRows(
     ])
       setAgencyCell(row, columns, field, "");
   }
-  const firstRoomRow = room.rows[0];
-  if (firstRoomRow !== undefined)
-    setAgencyCell(sheet.getRow(firstRoomRow), columns, "Nbre de pax", "0");
 }
 
 function writeAgencyRoomOccupants(
   sheet: ExcelJS.Worksheet,
   columns: Map<string, number>,
-  room: InventoryRoom,
+  room: AgencyRoomSlot,
   occupants: Awaited<ReturnType<typeof listAgencyRoomingMembers>>["members"],
   phoneByUser: Map<string, string>,
 ) {
@@ -163,7 +152,7 @@ function writeAgencyRoomOccupants(
       sheet.getRow(countRow),
       columns,
       "Nbre de pax",
-      String(occupants.length),
+      occupants.length,
     );
 
   occupants.forEach((person, index) => {
@@ -172,21 +161,16 @@ function writeAgencyRoomOccupants(
     const row = sheet.getRow(rowNumber);
     setAgencyCell(row, columns, "NOMS", person.lastName);
     setAgencyCell(row, columns, "Prénoms", person.firstName);
-    setAgencyCell(
-      row,
-      columns,
-      "Catégorie",
-      person.isVip
-        ? "VIP"
-        : person.role === "companion"
-          ? "Accompagnateur"
-          : (person.activityProfile ?? "").toUpperCase(),
-    );
+    setAgencyCell(row, columns, "Catégorie", "adulte");
     setAgencyCell(
       row,
       columns,
       "non skieur (pas de forfait)",
-      person.activityProfile === "spa" ? "Oui" : "Non",
+      person.activityProfile === "ski"
+        ? "skieur (forfait)"
+        : person.activityProfile === "spa"
+          ? "non skieur (pas de forfait)"
+          : "",
     );
     setAgencyCell(
       row,

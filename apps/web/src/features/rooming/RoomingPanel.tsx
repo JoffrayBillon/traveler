@@ -94,7 +94,6 @@ export function RoomingPanel({
             userId={userId}
             requests={requests}
             onMessage={setMessage}
-            showHistoryButton
             mode="status"
           />
         </>

@@ -43,7 +43,7 @@ export function RoomHistoryDialog({
               <X aria-hidden="true" size={18} />
             </Button>
           </header>
-          <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7">
+          <div className="grid min-h-0 flex-1 auto-rows-max content-start gap-3 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7">
             {isLoading ? (
               <p role="status" className="text-sm text-content-muted">
                 {t("loadingRoomHistory")}
