@@ -34,12 +34,19 @@ export function readAgencyRoomSlots(
   numberColumn: number,
 ) {
   const beds: { row: number; type: string; capacity: number }[] = [];
+  let hasInvalidRoomType = false;
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
     const type = normalizeSheetHeader(row.getCell(typeColumn).text);
     const capacity = roomCapacity(type);
-    if (capacity) beds.push({ row: rowNumber, type, capacity });
+    if (capacity) {
+      beds.push({ row: rowNumber, type, capacity });
+    } else if (type || row.getCell(numberColumn).text.trim()) {
+      hasInvalidRoomType = true;
+    }
   });
+
+  if (hasInvalidRoomType) return null;
 
   const slots: AgencyRoomSlot[] = [];
   const identifiers = new Set<string>();

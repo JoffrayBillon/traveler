@@ -195,6 +195,7 @@ it("exports numbered rooms into matching agency slots without changing the plan"
   sheet.getCell("F11").value = 8;
   sheet.getCell("M6").value = "12A";
   sheet.getCell("L6").value = "Note agence";
+  sheet.addRow([null, "Informations agence", "Ski 2027"]);
   const buffer = await workbook.xlsx.writeBuffer();
   const result = await prepareAgencyRoomingTemplate(
     database,
@@ -219,6 +220,24 @@ it("exports numbered rooms into matching agency slots without changing the plan"
   expect(exported?.getCell("F11").value).toBe(9);
   expect(exported?.getCell("M6").text).toBe("12A");
   expect(exported?.getCell("L6").text).toBe("Note agence");
+  expect(exported?.getCell("B12").text).toBe("Informations agence");
+
+  for (const invalidType of ["INCONNU", null]) {
+    sheet.addRow([null, "Ancien occupant", "À retirer", null, invalidType, 99]);
+    const invalidWorkbook = await workbook.xlsx.writeBuffer();
+    expect(
+      await prepareAgencyRoomingTemplate(
+        database,
+        trip.id,
+        Uint8Array.from(new Uint8Array(invalidWorkbook)).buffer,
+      ),
+    ).toEqual({
+      ok: false,
+      status: 422,
+      error: "agency_room_capacity_mismatch",
+    });
+    sheet.spliceRows(sheet.rowCount, 1);
+  }
   expect(
     await database.select({ name: schema.rooms.name }).from(schema.rooms),
   ).toEqual([{ name: "10" }, { name: "2" }]);
