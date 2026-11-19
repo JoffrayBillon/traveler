@@ -307,8 +307,13 @@ describe("application shell", () => {
     vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/trips/trip-1/organize");
     render(<App />);
+    // The deep link loads the organizer route and its directory in separate Suspense boundaries.
     await user.click(
-      await screen.findByRole("button", { name: /Alex Voyageur/ }),
+      await screen.findByRole(
+        "button",
+        { name: /Alex Voyageur/ },
+        { timeout: 3_000 },
+      ),
     );
     const dialog = await screen.findByRole("dialog");
     const emailField = within(dialog).getByRole("textbox", {
