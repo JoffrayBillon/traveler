@@ -6,6 +6,7 @@ import { registerAgencyRoomingExportEndpoint } from "./endpoints/agency-rooming-
 import { registerAuthEndpoints } from "./endpoints/auth.endpoints";
 import { registerIdentityEndpoints } from "./endpoints/identity.endpoints";
 import { registerImportEndpoints } from "./endpoints/import.endpoints";
+import { registerParticipantDeletionEndpoint } from "./endpoints/participant-deletion.endpoint";
 import { registerRoomingMutationEndpoints } from "./endpoints/rooming-mutation.endpoints";
 import { registerRoomingReadEndpoints } from "./endpoints/rooming-read.endpoints";
 import { registerStaffEndpoints } from "./endpoints/staff.endpoints";
@@ -50,6 +51,7 @@ export function createApp(
   registerTransportManagementEndpoints(app, getAuthServices);
 
   registerStaffEndpoints(app, getAuthServices, authEnvironment);
+  registerParticipantDeletionEndpoint(app, getAuthServices, ticketStorage);
   registerImportEndpoints(app, getAuthServices);
 
   registerTicketEndpoints(

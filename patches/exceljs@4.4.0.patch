@@ -1,0 +1,31 @@
+diff --git a/lib/xlsx/xform/sheet/data-validations-xform.js b/lib/xlsx/xform/sheet/data-validations-xform.js
+index 58d6f098aa3e2e712d23185356bd861d76e4e99f..7f442bad441ada5018e8e5b411f42972497ef012 100644
+--- a/lib/xlsx/xform/sheet/data-validations-xform.js
++++ b/lib/xlsx/xform/sheet/data-validations-xform.js
+@@ -45,7 +45,7 @@ function optimiseDataValidations(model) {
+       if (!dv.marked) {
+         const addr = colCache.decodeEx(dv.address);
+         if (addr.dimensions) {
+-          dvMap[addr.dimensions].marked = true;
++          dv.marked = true;
+           return {
+             ...dv.dataValidation,
+             sqref: dv.address,
+@@ -216,14 +216,9 @@ class DataValidationsXform extends BaseXform {
+         // The four known cases: 1. E4:L9 N4:U9  2.E4 L9  3. N4:U9  4. E4
+         const list = this._address.split(/\s+/g) || [];
+         list.forEach(addr => {
+-          if (addr.includes(':')) {
+-            const range = new Range(addr);
+-            range.forEachAddress(address => {
+-              this.model[address] = this._dataValidation;
+-            });
+-          } else {
+-            this.model[addr] = this._dataValidation;
+-          }
++          // Preserve ranges as XML references instead of materializing every cell.
++          const reference = addr.includes(':') ? new Range(addr).range : addr;
++          this.model[reference] = this._dataValidation;
+         });
+         return true;
+       }

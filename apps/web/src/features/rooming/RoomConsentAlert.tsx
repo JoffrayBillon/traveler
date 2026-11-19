@@ -1,4 +1,4 @@
-import { useRoomingQuery } from "@traveler/api/rooming/queries";
+import { useRoomRequestsQuery } from "@traveler/api/rooming/queries";
 import { useState } from "react";
 import { RoomConsentList } from "./RoomConsentList";
 
@@ -9,7 +9,7 @@ export function RoomConsentAlert({
   tripId: string;
   userId: string;
 }) {
-  const query = useRoomingQuery(tripId, false);
+  const query = useRoomRequestsQuery(tripId);
   const [message, setMessage] = useState("");
 
   if (!query.data) return null;
@@ -19,7 +19,7 @@ export function RoomConsentAlert({
       <RoomConsentList
         tripId={tripId}
         userId={userId}
-        requests={query.data.requestData.requests}
+        requests={query.data}
         onMessage={setMessage}
         mode="actionable"
       />

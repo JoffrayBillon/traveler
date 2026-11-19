@@ -3,9 +3,10 @@ import { apiGet } from "@traveler/api/client";
 import { queryKeys } from "@traveler/api/query-keys";
 import type { StaffTraveler } from "./participant.types";
 
-export function useParticipantDirectoryQuery(tripId: string) {
+export function useParticipantDirectoryQuery(tripId: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.participantDirectory(tripId),
+    enabled,
     queryFn: async ({ signal }) =>
       (
         await apiGet<{ travelers: StaffTraveler[] }>(

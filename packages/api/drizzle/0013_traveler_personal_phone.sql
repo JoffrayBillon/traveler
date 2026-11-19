@@ -1,0 +1,1 @@
+ALTER TABLE `traveler_profiles` ADD `personal_phone` text;

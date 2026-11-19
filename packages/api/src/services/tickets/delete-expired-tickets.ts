@@ -1,7 +1,8 @@
-import { and, eq, lte } from "drizzle-orm";
+import { inArray, lte } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
 import type { TicketBlobStorage } from "../../ports/ticket-storage";
 import * as schema from "../../schema";
+import { deleteQueuedTicketBlobs } from "./delete-queued-ticket-blobs";
 
 const RETENTION_DAYS = 90;
 
@@ -13,29 +14,28 @@ export async function deleteExpiredTickets(
   const cutoff = new Date(now);
   cutoff.setUTCDate(cutoff.getUTCDate() - RETENTION_DAYS);
   const cutoffDate = cutoff.toISOString().slice(0, 10);
-  const expired = await database
-    .select({
-      id: schema.transportTickets.id,
-      blobPath: schema.transportTickets.blobPath,
-    })
-    .from(schema.transportTickets)
-    .innerJoin(
-      schema.trips,
-      eq(schema.trips.id, schema.transportTickets.tripId),
-    )
-    .where(and(lte(schema.trips.endsOn, cutoffDate)));
-
-  let deleted = 0;
-  for (const ticket of expired) {
-    try {
-      await storage.del(ticket.blobPath);
-      await database
-        .delete(schema.transportTickets)
-        .where(eq(schema.transportTickets.id, ticket.id));
-      deleted += 1;
-    } catch {
-      // Keep the row so tomorrow's scheduled run can safely retry the deletion.
+  const pending = schema.pendingTicketBlobDeletions;
+  await database.transaction(async (transaction) => {
+    const expiredTrips = transaction
+      .select({ id: schema.trips.id })
+      .from(schema.trips)
+      .where(lte(schema.trips.endsOn, cutoffDate));
+    const expired = await transaction
+      .delete(schema.transportTickets)
+      .where(inArray(schema.transportTickets.tripId, expiredTrips))
+      .returning({ blobPath: schema.transportTickets.blobPath });
+    if (expired.length) {
+      await transaction.insert(pending).values(expired).onConflictDoNothing();
     }
-  }
-  return { deleted, failed: expired.length - deleted };
+  });
+
+  const due = await database
+    .select({ blobPath: pending.blobPath })
+    .from(pending)
+    .where(lte(pending.availableAt, now.getTime()));
+  return deleteQueuedTicketBlobs(
+    database,
+    storage,
+    due.map(({ blobPath }) => blobPath),
+  );
 }

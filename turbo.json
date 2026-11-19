@@ -5,6 +5,12 @@
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "typecheck": { "dependsOn": ["^build", "^typecheck"] },
     "test": { "dependsOn": ["^build", "^typecheck"], "outputs": [] },
-    "dev": { "dependsOn": ["^build"], "cache": false, "persistent": true }
+    "dev": { "dependsOn": ["^build"], "cache": false, "persistent": true },
+    "@traveler/api#dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["TRAVELER_LOCAL_DEMO"]
+    }
   }
 }

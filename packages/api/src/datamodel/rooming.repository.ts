@@ -7,9 +7,11 @@ export async function getRoomingView(
   database: AppDatabase,
   tripId: string,
   userId: string,
+  organizerView = false,
 ) {
   const actor = await getTripMembershipRole(database, tripId, userId);
   if (!actor) return null;
+  const showOrganizerPlan = organizerView && actor.role !== "traveler";
 
   const memberships = await database
     .select({
@@ -17,7 +19,6 @@ export async function getRoomingView(
       firstName: sql<string>`coalesce(${schema.travelerProfiles.firstName}, ${schema.tripMemberships.firstName})`,
       lastName: sql<string>`coalesce(${schema.travelerProfiles.lastName}, ${schema.tripMemberships.lastName})`,
       gender: schema.tripMemberships.gender,
-      genderConfirmed: schema.tripMemberships.genderConfirmed,
     })
     .from(schema.tripMemberships)
     .leftJoin(
@@ -46,37 +47,57 @@ export async function getRoomingView(
       id: schema.rooms.id,
       name: schema.rooms.name,
       capacity: schema.rooms.capacity,
-      genderPolicy: schema.rooms.genderPolicy,
       isLocked: schema.rooms.isLocked,
     })
     .from(schema.rooms)
     .where(eq(schema.rooms.tripId, tripId))
     .orderBy(schema.rooms.name);
   const memberById = new Map(
-    memberships.map(({ genderConfirmed, ...member }) => [
-      member.userId,
-      { ...member, gender: genderConfirmed ? member.gender : null },
-    ]),
+    memberships.map((member) => [member.userId, member]),
   );
 
+  const ownRoomId = assignments.find(
+    (assignment) => assignment.userId === userId,
+  )?.roomId;
+  const ownRoomIsLocked = rooms.find((room) => room.id === ownRoomId)?.isLocked;
+  const visibleRooms = showOrganizerPlan
+    ? rooms
+    : rooms.filter(
+        (room) => room.id === ownRoomId || (!ownRoomIsLocked && !room.isLocked),
+      );
+
   return {
-    rooms: rooms.map((room) => {
+    rooms: visibleRooms.map((room) => {
       const roomAssignments = assignmentsByRoom.get(room.id) ?? [];
+      const occupants = roomAssignments
+        .map((assignment) => memberById.get(assignment.userId))
+        .filter((member) => member !== undefined);
       return {
         ...room,
         occupiedCount: roomAssignments.length,
-        occupants: roomAssignments
-          .map((assignment) => memberById.get(assignment.userId))
-          .filter((member): member is NonNullable<typeof member> =>
-            Boolean(member),
-          ),
+        occupants: occupants.map(({ userId, firstName, lastName }) => ({
+          userId,
+          firstName,
+          lastName,
+        })),
+        ...(showOrganizerPlan
+          ? { composition: getRoomComposition(occupants) }
+          : {}),
       };
     }),
-    unassignedCount:
-      actor.role === "traveler"
-        ? undefined
-        : memberships.length - assignments.length,
+    unassignedCount: showOrganizerPlan
+      ? memberships.length - assignments.length
+      : undefined,
   };
+}
+
+function getRoomComposition(occupants: { gender: "M" | "F" | null }[]) {
+  const genders = new Set(occupants.map((occupant) => occupant.gender));
+  if (genders.has("M") && genders.has("F")) return "mixed";
+  if (genders.has(null)) return "unset";
+  if (genders.has("M")) return "male";
+  if (genders.has("F")) return "female";
+  return "unset";
 }
 
 export async function getRoomingExportData(

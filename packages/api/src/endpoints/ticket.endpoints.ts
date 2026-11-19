@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import type { AuthServices } from "../auth";
 import { createTicketBlobPath } from "../blob-path";
 import type { TicketBlobStorage } from "../ports/ticket-storage";
 import * as schema from "../schema";
 import { getSession } from "../services/auth/get-session";
+import { deleteQueuedTicketBlobs } from "../services/tickets/delete-queued-ticket-blobs";
+
+const ticketUploadGraceMs = 30 * 60 * 1000;
 
 export function registerTicketEndpoints(
   app: Hono,
@@ -35,7 +38,7 @@ export function registerTicketEndpoints(
     if (actor.role === "traveler")
       return context.json({ error: "forbidden" }, 403);
     const [target] = await services.database
-      .select({ userId: schema.tripMemberships.userId })
+      .select({ id: schema.tripMemberships.id })
       .from(schema.tripMemberships)
       .where(
         and(
@@ -76,27 +79,85 @@ export function registerTicketEndpoints(
 
     const id = randomUUID();
     const blobPath = createTicketBlobPath(tripId, targetUserId, id);
-    let blobCreated = false;
+    const pending = schema.pendingTicketBlobDeletions;
+    try {
+      await services.database.insert(pending).values({
+        blobPath,
+        availableAt: Date.now() + ticketUploadGraceMs,
+      });
+    } catch {
+      return context.json({ error: "ticket_upload_failed" }, 503);
+    }
+
     try {
       await ticketStorage.put(blobPath, file, {
         access: "private",
         contentType: file.type,
         addRandomSuffix: false,
       });
-      blobCreated = true;
-      await services.database.insert(schema.transportTickets).values({
-        id,
-        tripId,
-        userId: targetUserId,
-        kind,
-        blobPath,
-        originalName: file.name.replace(/[\r\n\\/]/g, "_").slice(0, 180),
-        contentType: file.type,
-        size: file.size,
-        uploadedBy: session.user.id,
+      await services.database.transaction(async (transaction) => {
+        const members = schema.tripMemberships;
+        const currentMemberships = await transaction
+          .select({
+            id: members.id,
+            userId: members.userId,
+            role: members.role,
+          })
+          .from(members)
+          .where(
+            and(
+              eq(members.tripId, tripId),
+              inArray(members.userId, [session.user.id, targetUserId]),
+            ),
+          );
+        const uploader = currentMemberships.find(
+          ({ userId }) => userId === session.user.id,
+        );
+        if (
+          !uploader ||
+          uploader.role === "traveler" ||
+          !currentMemberships.some(({ id }) => id === target.id)
+        ) {
+          throw new Error("Ticket authorization changed during upload.");
+        }
+        const [published] = await transaction
+          .delete(pending)
+          .where(
+            and(
+              eq(pending.blobPath, blobPath),
+              gt(pending.availableAt, Date.now()),
+            ),
+          )
+          .returning({ blobPath: pending.blobPath });
+        if (!published)
+          throw new Error("The ticket upload intent has expired.");
+        await transaction.insert(schema.transportTickets).values({
+          id,
+          tripId,
+          userId: targetUserId,
+          kind,
+          blobPath,
+          originalName: file.name.replace(/[\r\n\\/]/g, "_").slice(0, 180),
+          contentType: file.type,
+          size: file.size,
+          uploadedBy: session.user.id,
+        });
       });
     } catch {
-      if (blobCreated) await ticketStorage.del(blobPath).catch(() => undefined);
+      try {
+        const [abandoned] = await services.database
+          .update(pending)
+          .set({ availableAt: 0 })
+          .where(eq(pending.blobPath, blobPath))
+          .returning({ blobPath: pending.blobPath });
+        if (abandoned) {
+          await deleteQueuedTicketBlobs(services.database, ticketStorage, [
+            blobPath,
+          ]);
+        }
+      } catch {
+        // The durable intent stays eligible for cleanup when its grace period expires.
+      }
       return context.json({ error: "ticket_upload_failed" }, 503);
     }
     return context.json({ status: "uploaded", ticketId: id }, 201);

@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  exceljs@4.4.0: 34246e3aaea7afb072fa035d426ae9975e4fb40a4ff4d493b11683f3ed8b286b
+
 importers:
 
   .:
@@ -137,7 +140,7 @@ importers:
         version: 0.45.4(@libsql/client@0.18.0)(kysely@0.29.7)
       exceljs:
         specifier: 4.4.0
-        version: 4.4.0
+        version: 4.4.0(patch_hash=34246e3aaea7afb072fa035d426ae9975e4fb40a4ff4d493b11683f3ed8b286b)
       hono:
         specifier: 4.13.14
         version: 4.13.14
@@ -4473,7 +4476,7 @@ snapshots:
     dependencies:
       '@types/estree': 1.0.10
 
-  exceljs@4.4.0:
+  exceljs@4.4.0(patch_hash=34246e3aaea7afb072fa035d426ae9975e4fb40a4ff4d493b11683f3ed8b286b):
     dependencies:
       archiver: 5.3.2
       dayjs: 1.11.23

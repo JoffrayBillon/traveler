@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
+import { revokeMagicLinksForAddress } from "../datamodel/magic-link.repository";
 import {
   createTravelerMembership,
   appointCompanion as persistCompanion,
@@ -177,8 +178,6 @@ export async function updateParticipantEmailInTransaction(
   await transaction
     .delete(schema.sessions)
     .where(eq(schema.sessions.userId, userId));
-  await transaction
-    .delete(schema.verifications)
-    .where(eq(schema.verifications.identifier, oldEmail));
+  await revokeMagicLinksForAddress(transaction, oldEmail);
   return { status: "updated", email } as const;
 }

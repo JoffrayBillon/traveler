@@ -5,22 +5,16 @@ import {
 import { useCurrentTravelerQuery } from "@traveler/api/auth/queries";
 import { ApiError } from "@traveler/api/client";
 import { LoadingIndicator } from "@traveler/components/ui";
+import { useSignInCooldown } from "@traveler/hooks/useSignInCooldown";
 import { useThemePreference } from "@traveler/hooks/useThemePreference";
 import { AppRoutes } from "@traveler/routes/AppRoutes";
 import { MountainSnow } from "lucide-react";
 import { MotionConfig } from "motion/react";
-import {
-  type FormEvent,
-  lazy,
-  Suspense,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, lazy, Suspense, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
-const SIGN_IN_COOLDOWN_SECONDS = 30;
+const SIGN_IN_COOLDOWN_SECONDS = 5 * 60;
 const SignInPage = lazy(() =>
   import("./SignInPage").then((module) => ({ default: module.SignInPage })),
 );
@@ -30,8 +24,6 @@ export function TravelerApp() {
   const mainRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
   const profileQuery = useCurrentTravelerQuery();
-  const [cooldownUntil, setCooldownUntil] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [hasError, setHasError] = useState(false);
@@ -46,29 +38,7 @@ export function TravelerApp() {
       : profileQuery.isError
         ? "unavailable"
         : "ready";
-  const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
-
-  useEffect(() => {
-    if (cooldownUntil === 0) return;
-    function refreshCooldown() {
-      const timestamp = Date.now();
-      setNow(timestamp);
-      if (timestamp >= cooldownUntil) setCooldownUntil(0);
-    }
-    const timer = window.setInterval(refreshCooldown, 1000);
-    window.addEventListener("focus", refreshCooldown);
-    document.addEventListener("visibilitychange", refreshCooldown);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("focus", refreshCooldown);
-      document.removeEventListener("visibilitychange", refreshCooldown);
-    };
-  }, [cooldownUntil]);
-
-  function startCooldown(seconds: number) {
-    setNow(Date.now());
-    setCooldownUntil(Date.now() + seconds * 1000);
-  }
+  const { cooldownSeconds, startCooldown } = useSignInCooldown(email);
 
   function requestSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -98,7 +68,6 @@ export function TravelerApp() {
             );
             return;
           }
-          startCooldown(SIGN_IN_COOLDOWN_SECONDS);
           setHasError(true);
           setMessage(t("signInIsTemporarilyUnavailablePleaseTryAgainLater"));
         },

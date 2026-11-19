@@ -91,10 +91,7 @@ export async function prepareAgencyRoomingTemplate(
   if ([...roomsByCapacity.values()].some((remaining) => remaining.length > 0))
     return { ok: false, status: 409, error: "agency_room_inventory_mismatch" };
 
-  const { members, phoneByUser } = await listAgencyRoomingMembers(
-    database,
-    tripId,
-  );
+  const members = await listAgencyRoomingMembers(database, tripId);
   const assignedByRoom = new Map<string, (typeof members)[number][]>();
   for (const member of members) {
     if (!member.roomId) continue;
@@ -108,7 +105,7 @@ export async function prepareAgencyRoomingTemplate(
     if (occupants.length > slot.capacity || slot.rows.length !== slot.capacity)
       return { ok: false, status: 409, error: "agency_room_capacity_mismatch" };
     clearAgencyRoomRows(sheet, columns, slot);
-    writeAgencyRoomOccupants(sheet, columns, slot, occupants, phoneByUser);
+    writeAgencyRoomOccupants(sheet, columns, slot, occupants);
   }
 
   return {
@@ -143,8 +140,7 @@ function writeAgencyRoomOccupants(
   sheet: ExcelJS.Worksheet,
   columns: Map<string, number>,
   room: AgencyRoomSlot,
-  occupants: Awaited<ReturnType<typeof listAgencyRoomingMembers>>["members"],
-  phoneByUser: Map<string, string>,
+  occupants: Awaited<ReturnType<typeof listAgencyRoomingMembers>>,
 ) {
   const countRow = room.rows[0];
   if (countRow !== undefined)
@@ -185,12 +181,7 @@ function writeAgencyRoomOccupants(
       person.dietaryRequirements ?? "",
     );
     setAgencyCell(row, columns, "Allergènes", person.allergens ?? "");
-    setAgencyCell(
-      row,
-      columns,
-      "Téléphone",
-      phoneByUser.get(person.userId) ?? "",
-    );
+    setAgencyCell(row, columns, "Téléphone", person.personalPhone ?? "");
 
     const commentsColumn = columns.get(normalizeSheetHeader("Commentaires"));
     const currentComments = commentsColumn

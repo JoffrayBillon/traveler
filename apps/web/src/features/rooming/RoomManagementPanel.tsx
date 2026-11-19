@@ -7,14 +7,18 @@ import type {
 import {
   Button,
   listBoxStyles,
+  messageStyles,
   SelectTrigger,
   textFieldStyles,
 } from "@traveler/components/ui";
-import { type FormEvent, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { type FormEvent, useEffect, useState } from "react";
 import {
+  ComboBox,
   Dialog,
   Form,
   Heading,
+  Input,
   Label,
   ListBox,
   ListBoxItem,
@@ -35,31 +39,96 @@ export function RoomManagementPanel({
   tripId,
   rooms,
   travelers,
+  travelerId,
+  onTravelerChange,
   onMessage,
 }: {
   tripId: string;
   rooms: RoomSummary[];
   travelers: StaffTraveler[];
+  travelerId: string | null | undefined;
+  onTravelerChange: (id: string | null | undefined) => void;
   onMessage: (message: string) => void;
 }) {
   const { t } = useTranslation();
   const mutations = useRoomingMutations(tripId);
-  const [travelerId, setTravelerId] = useState<string | null>(null);
-  const [roomId, setRoomId] = useState<string | null>(null);
+  const [destination, setDestination] = useState<{
+    roomId: string;
+    expectedRoomId: string | null;
+  } | null>(null);
+  const roomId = destination?.roomId ?? null;
+  const [assignmentError, setAssignmentError] = useState("");
+  const [exchangeWithUserId, setExchangeWithUserId] = useState<string | null>(
+    null,
+  );
   const [roomPlan, setRoomPlan] = useState<RoomAssignmentPlan | null>(null);
-  const [isManualAssignmentDialogOpen, setIsManualAssignmentDialogOpen] =
-    useState(false);
   const roomByTravelerId = new Map(
     rooms.flatMap((room) =>
       room.occupants.map((occupant) => [occupant.userId, room.id] as const),
     ),
   );
-  const availableRooms = rooms.filter((room) => {
-    const isCurrentRoom = room.occupants.some(
-      (occupant) => occupant.userId === travelerId,
-    );
-    return room.occupiedCount < room.capacity || isCurrentRoom;
-  });
+  const currentRoomId = travelerId
+    ? (roomByTravelerId.get(travelerId) ?? null)
+    : null;
+  const availableRooms = rooms.filter(
+    (room) =>
+      room.id !== currentRoomId &&
+      (room.occupiedCount < room.capacity || currentRoomId !== null),
+  );
+  const destinationRoom = availableRooms.find((room) => room.id === roomId);
+  const exchangeRequired =
+    destinationRoom !== undefined &&
+    destinationRoom.occupiedCount >= destinationRoom.capacity;
+  const isExchange = exchangeRequired;
+  const selectionChanged = Boolean(
+    (destination && destination.expectedRoomId !== currentRoomId) ||
+      (exchangeWithUserId &&
+        (!exchangeRequired ||
+          !destinationRoom?.occupants.some(
+            ({ userId }) => userId === exchangeWithUserId,
+          ))),
+  );
+  useEffect(() => {
+    if (selectionChanged) {
+      setDestination(null);
+      setExchangeWithUserId(null);
+      setAssignmentError(t("roomAssignmentSelectionChanged"));
+    }
+  }, [selectionChanged, t]);
+
+  const assignmentReady = Boolean(
+    roomId &&
+      !selectionChanged &&
+      (roomId === UNASSIGNED_ROOM_ID
+        ? currentRoomId
+        : destinationRoom &&
+          (!isExchange ||
+            destinationRoom.occupants.some(
+              (person) => person.userId === exchangeWithUserId,
+            ))),
+  );
+  const destinations = availableRooms.map((room) => ({
+    id: room.id,
+    name: room.name,
+    label:
+      room.occupiedCount >= room.capacity
+        ? t("fullRoomExchangeOption", {
+            room: room.name,
+            capacity: room.capacity,
+          })
+        : `${room.name} · ${room.occupiedCount}/${room.capacity}`,
+  }));
+  if (currentRoomId) {
+    const name = t("unassignedParticipants");
+    destinations.unshift({ id: UNASSIGNED_ROOM_ID, name, label: name });
+  }
+
+  function closeAssignment() {
+    setAssignmentError("");
+    setDestination(null);
+    setExchangeWithUserId(null);
+    onTravelerChange(undefined);
+  }
 
   async function generateAssignments() {
     try {
@@ -96,13 +165,14 @@ export function RoomManagementPanel({
 
   async function moveTraveler(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!roomId || !travelerId) return;
+    if (!destination || !travelerId || !assignmentReady) return;
+    const { roomId, expectedRoomId } = destination;
+    setAssignmentError("");
     try {
-      const currentRoomId = roomByTravelerId.get(travelerId) ?? null;
       if (roomId === UNASSIGNED_ROOM_ID) {
-        if (!currentRoomId) return;
+        if (!expectedRoomId) return;
         await mutations.unassignTraveler.mutateAsync({
-          roomId: currentRoomId,
+          roomId: expectedRoomId,
           userId: travelerId,
         });
         onMessage(t("travelerRemovedFromRoom"));
@@ -110,16 +180,15 @@ export function RoomManagementPanel({
         await mutations.moveTraveler.mutateAsync({
           roomId,
           userId: travelerId,
-          expectedRoomId: currentRoomId,
+          expectedRoomId,
+          ...(exchangeWithUserId ? { exchangeWithUserId } : {}),
         });
         onMessage(t("roomAssignmentsHaveBeenUpdated"));
       }
-      setRoomId(null);
-      setTravelerId(null);
-      setIsManualAssignmentDialogOpen(false);
+      closeAssignment();
     } catch (error) {
       const code = (error as { code?: string }).code;
-      onMessage(t(roomErrorLabel[code ?? ""] ?? "operationFailed"));
+      setAssignmentError(t(roomErrorLabel[code ?? ""] ?? "operationFailed"));
     }
   }
 
@@ -136,7 +205,7 @@ export function RoomManagementPanel({
           {travelers.length > 0 && rooms.length > 0 && (
             <Button
               appearance="secondary"
-              onPress={() => setIsManualAssignmentDialogOpen(true)}
+              onPress={() => onTravelerChange(null)}
             >
               {t("manualRoomAssignmentAction")}
             </Button>
@@ -154,8 +223,10 @@ export function RoomManagementPanel({
         </div>
       </div>
       <ModalOverlay
-        isOpen={isManualAssignmentDialogOpen}
-        onOpenChange={setIsManualAssignmentDialogOpen}
+        isOpen={travelerId !== undefined}
+        onOpenChange={(open) => {
+          if (!open) closeAssignment();
+        }}
         isDismissable={
           !mutations.moveTraveler.isPending &&
           !mutations.unassignTraveler.isPending
@@ -189,18 +260,19 @@ export function RoomManagementPanel({
             >
               <Select
                 className="grid min-w-0 gap-2"
-                selectedKey={travelerId}
+                selectedKey={travelerId ?? null}
                 onSelectionChange={(key) => {
-                  setTravelerId(key ? String(key) : null);
-                  setRoomId(null);
+                  onTravelerChange(key ? String(key) : null);
+                  setDestination(null);
+                  setExchangeWithUserId(null);
                 }}
                 isRequired
               >
                 <Label className={textFieldStyles().label()}>
                   {t("travelerToMove")}
                 </Label>
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="min-w-0">
+                  <SelectValue className="block truncate" />
                 </SelectTrigger>
                 <Popover>
                   <ListBox className={listBoxStyles().list()}>
@@ -220,45 +292,109 @@ export function RoomManagementPanel({
                   </ListBox>
                 </Popover>
               </Select>
-              <Select
+              <ComboBox
                 className="grid min-w-0 gap-2"
+                key={travelerId ?? ""}
+                defaultItems={destinations}
                 selectedKey={roomId}
-                onSelectionChange={(key) => setRoomId(key ? String(key) : null)}
+                onSelectionChange={(key) => {
+                  setDestination(
+                    key
+                      ? { roomId: String(key), expectedRoomId: currentRoomId }
+                      : null,
+                  );
+                  setExchangeWithUserId(null);
+                  setAssignmentError("");
+                }}
+                isDisabled={!travelerId}
+                menuTrigger="focus"
+                allowsEmptyCollection
                 isRequired
               >
                 <Label className={textFieldStyles().label()}>
                   {t("destinationRoom")}
                 </Label>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <Popover>
-                  <ListBox className={listBoxStyles().list()}>
-                    <ListBoxItem
-                      className={listBoxStyles().item()}
-                      id={UNASSIGNED_ROOM_ID}
-                      isDisabled={!roomByTravelerId.has(travelerId ?? "")}
-                    >
-                      {t("unassignedParticipants")}
-                    </ListBoxItem>
-                    {availableRooms.map((room) => (
+                <div className="relative">
+                  <Input
+                    className={textFieldStyles().input({ class: "pr-12" })}
+                    placeholder={t("searchRoomByNumber")}
+                  />
+                  <Button
+                    appearance="quiet"
+                    className="absolute inset-y-0 right-0 h-full px-3"
+                    aria-label={t("destinationRoom")}
+                  >
+                    <ChevronDown aria-hidden="true" size={16} />
+                  </Button>
+                </div>
+                <Popover className="w-(--trigger-width)">
+                  <ListBox<(typeof destinations)[number]>
+                    className={listBoxStyles().list()}
+                    renderEmptyState={() => (
+                      <span className="block p-3 text-sm text-content-muted">
+                        {t("noMatchingAvailableRooms")}
+                      </span>
+                    )}
+                  >
+                    {(room) => (
                       <ListBoxItem
                         className={listBoxStyles().item()}
-                        key={room.id}
                         id={room.id}
                         textValue={room.name}
                       >
-                        {room.name} · {room.occupiedCount}/{room.capacity}
+                        {room.label}
                       </ListBoxItem>
-                    ))}
+                    )}
                   </ListBox>
                 </Popover>
-              </Select>
+              </ComboBox>
+              {isExchange && destinationRoom && (
+                <Select
+                  className="grid min-w-0 gap-2 sm:col-span-2"
+                  selectedKey={exchangeWithUserId}
+                  onSelectionChange={(key) =>
+                    setExchangeWithUserId(key ? String(key) : null)
+                  }
+                  isRequired
+                >
+                  <Label className={textFieldStyles().label()}>
+                    {t("roomExchangePartner")}
+                  </Label>
+                  <SelectTrigger className="min-w-0">
+                    <SelectValue className="block truncate" />
+                  </SelectTrigger>
+                  <Popover>
+                    <ListBox className={listBoxStyles().list()}>
+                      {destinationRoom.occupants.map((person) => (
+                        <ListBoxItem
+                          className={listBoxStyles().item()}
+                          key={person.userId}
+                          id={person.userId}
+                          textValue={`${person.firstName} ${person.lastName}`}
+                        >
+                          {person.firstName} {person.lastName}
+                        </ListBoxItem>
+                      ))}
+                    </ListBox>
+                  </Popover>
+                </Select>
+              )}
+              {assignmentError && (
+                <p
+                  role="alert"
+                  className={messageStyles({
+                    tone: "danger",
+                    className: "sm:col-span-2",
+                  })}
+                >
+                  {assignmentError}
+                </p>
+              )}
               <footer className="flex flex-wrap justify-end gap-2 sm:col-span-2">
                 <Button
                   appearance="quiet"
                   type="button"
-                  onPress={() => setIsManualAssignmentDialogOpen(false)}
+                  onPress={closeAssignment}
                   isDisabled={
                     mutations.moveTraveler.isPending ||
                     mutations.unassignTraveler.isPending
@@ -270,6 +406,7 @@ export function RoomManagementPanel({
                   appearance="secondary"
                   type="submit"
                   isDisabled={
+                    !assignmentReady ||
                     mutations.moveTraveler.isPending ||
                     mutations.unassignTraveler.isPending
                   }
@@ -279,7 +416,9 @@ export function RoomManagementPanel({
                     ? t("saving")
                     : roomId === UNASSIGNED_ROOM_ID
                       ? t("removeRoomAssignment")
-                      : t("assign2")}
+                      : isExchange
+                        ? t("swapRoomPlaces")
+                        : t("assign2")}
                 </Button>
               </footer>
             </Form>

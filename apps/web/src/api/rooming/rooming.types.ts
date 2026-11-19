@@ -3,13 +3,12 @@ export type RoomSummary = {
   name: string;
   capacity: number;
   occupiedCount: number;
-  genderPolicy: "single_gender" | "mixed" | "unset";
+  composition?: "male" | "female" | "mixed" | "unset";
   isLocked: boolean;
   occupants: {
     userId: string;
     firstName: string;
     lastName: string;
-    gender: "M" | "F" | null;
   }[];
 };
 

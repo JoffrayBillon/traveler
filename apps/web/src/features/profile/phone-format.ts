@@ -5,7 +5,7 @@ import {
 } from "libphonenumber-js/max";
 
 export function getInitialPhone(phone: string) {
-  const parsed = parsePhoneNumberFromString(phone);
+  const parsed = parsePhoneNumberFromString(phone, "FR");
   const country: CountryCode = parsed?.country ?? "FR";
   return {
     country,

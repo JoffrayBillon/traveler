@@ -12,12 +12,14 @@ import { Check, Copy, X } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { Dialog, Heading, Modal, ModalOverlay } from "react-aria-components";
 import { useTranslation } from "react-i18next";
+import { DeleteParticipantDialog } from "./DeleteParticipantDialog";
 import { ParticipantAccountSection } from "./ParticipantAccountSection";
 import { ParticipantContactSection } from "./ParticipantContactSection";
 import { ParticipantPaymentSection } from "./ParticipantPaymentSection";
 import { ParticipantTravelSection } from "./ParticipantTravelSection";
 
 export function ParticipantEditorDialog({
+  tripId,
   selected,
   profile,
   details,
@@ -33,12 +35,15 @@ export function ParticipantEditorDialog({
   isManager,
   isSaving,
   isCopying,
+  isCopied,
   setSelected,
   setProfile,
   setDetails,
   onSave,
   onCopyLink,
+  onDeleted,
 }: {
+  tripId: string;
   selected: StaffTraveler | null;
   profile: ProfileDraft | null;
   details: DetailsDraft | null;
@@ -54,11 +59,13 @@ export function ParticipantEditorDialog({
   isManager: boolean;
   isSaving: boolean;
   isCopying: boolean;
+  isCopied: boolean;
   setSelected: (selected: StaffTraveler | null) => void;
   setProfile: Dispatch<SetStateAction<ProfileDraft | null>>;
   setDetails: Dispatch<SetStateAction<DetailsDraft | null>>;
   onSave: () => void;
   onCopyLink: () => void;
+  onDeleted: () => void;
 }) {
   const { t } = useTranslation();
   const hasInvalidCarpoolDriver = Boolean(
@@ -121,6 +128,7 @@ export function ParticipantEditorDialog({
                 onProfileChange={changeProfile}
               />
               <ParticipantContactSection
+                key={selected.userId}
                 profile={profile}
                 onChange={changeProfile}
               />
@@ -136,6 +144,19 @@ export function ParticipantEditorDialog({
                 participant={selected}
                 isManager={isManager}
               />
+              {isManager && selected.role === "traveler" && (
+                <div className="flex border-t border-border pt-4">
+                  <DeleteParticipantDialog
+                    key={selected.userId}
+                    tripId={tripId}
+                    userId={selected.userId}
+                    email={selected.email}
+                    name={`${selected.firstName} ${selected.lastName}`}
+                    isDisabled={isSaving || isCopying}
+                    onDeleted={onDeleted}
+                  />
+                </div>
+              )}
             </div>
           )}
           <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 sm:px-8">
@@ -145,12 +166,18 @@ export function ParticipantEditorDialog({
                 onPress={() => onCopyLink()}
                 isDisabled={isCopying || isSaving}
               >
-                {isCopying ? (
+                {isCopied ? (
                   <Check aria-hidden="true" size={16} />
                 ) : (
                   <Copy aria-hidden="true" size={16} />
                 )}
-                {isCopying ? t("copied") : t("copySignInLink")}
+                <span aria-live="polite">
+                  {isCopying
+                    ? t("copyingSignInLink")
+                    : isCopied
+                      ? t("copied")
+                      : t("copySignInLink")}
+                </span>
               </Button>
             ) : (
               <span />

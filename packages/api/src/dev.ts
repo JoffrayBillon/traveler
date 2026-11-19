@@ -22,7 +22,8 @@ const client = createClient({
 });
 const database = drizzle({ client, schema });
 await migrate(database, { migrationsFolder: "./drizzle" });
-const seeded = await seedLocalDemoData(database);
+const useDemoAccounts = process.env.TRAVELER_LOCAL_DEMO === "1";
+const seeded = useDemoAccounts && (await seedLocalDemoData(database));
 const magicLinkCapture = createMagicLinkCapture();
 const localEnvironment = {
   BETTER_AUTH_SECRET:
@@ -55,9 +56,11 @@ const app = createApp(
 );
 
 console.info("Traveler local simulator — no Turso or Brevo connection.");
-console.info("Demo accounts:");
-for (const account of LOCAL_DEMO_ACCOUNTS)
-  console.info(`- ${account.role}: ${account.email}`);
+if (useDemoAccounts) {
+  console.info("Demo accounts:");
+  for (const account of LOCAL_DEMO_ACCOUNTS)
+    console.info(`- ${account.role}: ${account.email}`);
+}
 console.info(`Local database: ${resolve(localDirectory, "traveler.db")}`);
 if (seeded) console.info("Missing demo accounts or trip have been added.");
 

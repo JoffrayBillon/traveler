@@ -12,6 +12,7 @@ async function invalidateParticipants(
       queryKey: queryKeys.participantDirectory(tripId),
     }),
     queryClient.invalidateQueries({ queryKey: queryKeys.rooming(tripId) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.roomRequests(tripId) }),
     queryClient.invalidateQueries({ queryKey: queryKeys.transport(tripId) }),
   ]);
 }
@@ -29,6 +30,26 @@ export function useCreateParticipantMutation(tripId: string) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.participantDirectory(tripId),
       }),
+  });
+}
+
+export function useDeleteParticipantMutation(tripId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, email }: { userId: string; email: string }) =>
+      apiRequest<{ status: "deleted" }>(
+        `/api/trips/${encodeURIComponent(tripId)}/participants/${encodeURIComponent(userId)}`,
+        { method: "DELETE", body: JSON.stringify({ email }) },
+      ),
+    retry: false,
+    onSuccess: async () => {
+      await Promise.all([
+        invalidateParticipants(queryClient, tripId),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.roomingHistory(tripId),
+        }),
+      ]);
+    },
   });
 }
 

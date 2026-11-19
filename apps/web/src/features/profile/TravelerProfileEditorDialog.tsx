@@ -1,13 +1,17 @@
 import { ApiError } from "@traveler/api/client";
 import { useSaveTravelerProfileMutation } from "@traveler/api/profile/mutations";
-import type { TravelerProfileValues } from "@traveler/api/profile/profile.types";
+import type {
+  SaveTravelerProfileInput,
+  TravelerProfileValues,
+} from "@traveler/api/profile/profile.types";
 import { ModalForm } from "@traveler/components/ui";
 import {
   type CountryCode,
   parsePhoneNumberFromString,
 } from "libphonenumber-js/max";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PhoneNumberField } from "./PhoneNumberField";
 import { getInitialPhone } from "./phone-format";
 import { TravelerDietaryFields } from "./TravelerDietaryFields";
 import { TravelerEmergencyContactFields } from "./TravelerEmergencyContactFields";
@@ -38,6 +42,12 @@ export function TravelerProfileEditorDialog({
     initial.dietaryRequirements,
   );
   const [allergens, setAllergens] = useState(initial.allergens);
+  const [personalPhoneCountry, setPersonalPhoneCountry] = useState<CountryCode>(
+    () => getInitialPhone(initial.personalPhone ?? "").country,
+  );
+  const [personalPhoneInput, setPersonalPhoneInput] = useState(
+    () => getInitialPhone(initial.personalPhone ?? "").value,
+  );
   const [emergencyContactFirstName, setEmergencyContactFirstName] = useState(
     initial.emergencyContactFirstName,
   );
@@ -52,14 +62,25 @@ export function TravelerProfileEditorDialog({
   );
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [phoneSubmitAttempted, setPhoneSubmitAttempted] = useState(false);
+  const [personalPhoneTouched, setPersonalPhoneTouched] = useState(false);
+  const [personalPhoneSubmitAttempted, setPersonalPhoneSubmitAttempted] =
+    useState(false);
   const [message, setMessage] = useState("");
+  const initialOnOpen = useRef(initial);
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!isOpen) return;
+    const isOpening = isOpen && !wasOpen.current;
+    wasOpen.current = isOpen;
+    if (!isOpening) return;
+    initialOnOpen.current = initial;
     setFirstName(initial.firstName);
     setLastName(initial.lastName);
     setGender(initial.gender);
     setDietaryRequirements(initial.dietaryRequirements);
     setAllergens(initial.allergens);
+    const initialPersonalPhone = getInitialPhone(initial.personalPhone ?? "");
+    setPersonalPhoneCountry(initialPersonalPhone.country);
+    setPersonalPhoneInput(initialPersonalPhone.value);
     setEmergencyContactFirstName(initial.emergencyContactFirstName);
     setEmergencyContactLastName(initial.emergencyContactLastName);
     const initialPhone = getInitialPhone(initial.emergencyContactPhone);
@@ -67,18 +88,10 @@ export function TravelerProfileEditorDialog({
     setPhoneInput(initialPhone.value);
     setPhoneTouched(false);
     setPhoneSubmitAttempted(false);
+    setPersonalPhoneTouched(false);
+    setPersonalPhoneSubmitAttempted(false);
     setMessage("");
-  }, [
-    isOpen,
-    initial.firstName,
-    initial.lastName,
-    initial.gender,
-    initial.dietaryRequirements,
-    initial.allergens,
-    initial.emergencyContactFirstName,
-    initial.emergencyContactLastName,
-    initial.emergencyContactPhone,
-  ]);
+  }, [isOpen, initial]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,14 +100,33 @@ export function TravelerProfileEditorDialog({
       return;
     }
     const parsedPhone = parsePhoneNumberFromString(phoneInput, phoneCountry);
+    const initialPersonalPhone = getInitialPhone(
+      initialOnOpen.current.personalPhone ?? "",
+    );
+    const personalPhoneChanged =
+      Boolean(personalPhoneInput.trim() || initialPersonalPhone.value) &&
+      (personalPhoneInput !== initialPersonalPhone.value ||
+        personalPhoneCountry !== initialPersonalPhone.country);
+    const parsedPersonalPhone = personalPhoneInput.trim()
+      ? parsePhoneNumberFromString(personalPhoneInput, personalPhoneCountry)
+      : undefined;
     if (!parsedPhone?.isValid()) {
       setPhoneTouched(true);
       setPhoneSubmitAttempted(true);
       return;
     }
+    if (
+      personalPhoneInput.trim() &&
+      !parsedPersonalPhone?.isValid() &&
+      personalPhoneChanged
+    ) {
+      setPersonalPhoneTouched(true);
+      setPersonalPhoneSubmitAttempted(true);
+      return;
+    }
     const normalizedPhone = parsedPhone.number;
     setMessage("");
-    const savedValues: TravelerProfileValues = {
+    const savedValues: SaveTravelerProfileInput = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       gender,
@@ -104,6 +136,9 @@ export function TravelerProfileEditorDialog({
       emergencyContactFirstName: emergencyContactFirstName.trim(),
       emergencyContactLastName: emergencyContactLastName.trim(),
       emergencyContactPhone: normalizedPhone,
+      ...(personalPhoneChanged
+        ? { personalPhone: parsedPersonalPhone?.number ?? "" }
+        : {}),
       completed: true,
     };
     try {
@@ -149,6 +184,26 @@ export function TravelerProfileEditorDialog({
         onDietaryRequirementsChange={setDietaryRequirements}
         onAllergensChange={setAllergens}
       />
+      <div className="rounded-card border border-border bg-surface-muted p-4 sm:p-5">
+        <PhoneNumberField
+          value={personalPhoneInput}
+          country={personalPhoneCountry}
+          onChange={setPersonalPhoneInput}
+          onCountryChange={setPersonalPhoneCountry}
+          onBlur={() => setPersonalPhoneTouched(true)}
+          isInvalid={
+            Boolean(personalPhoneInput.trim()) &&
+            (personalPhoneTouched || personalPhoneSubmitAttempted) &&
+            !parsePhoneNumberFromString(
+              personalPhoneInput,
+              personalPhoneCountry,
+            )?.isValid()
+          }
+          errorMessage={t("enterAValidPhoneNumber")}
+          label={t("personalPhone")}
+          isRequired={false}
+        />
+      </div>
       <TravelerEmergencyContactFields
         firstName={emergencyContactFirstName}
         lastName={emergencyContactLastName}
