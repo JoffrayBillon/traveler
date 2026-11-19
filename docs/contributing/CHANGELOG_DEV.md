@@ -1,5 +1,11 @@
 # Technical changelog
 
+## 2026-11-19 — Agency export — Keep Excel validation ranges compact
+
+- Details/impact: patch ExcelJS to preserve dropdown validation ranges without expanding them into individual cells. The agency workbook keeps its validation rules on export.
+- Test status: 58 API tests pass under Node 26, including an export with a full-column validation. The supplied matrix and an existing export passed under a 256 MiB Node heap limit with validation ranges preserved.
+
+
 ## 2026-11-19 — Organizer directory — Keep copy confirmation visible
 
 - Details/impact: show copying progress until the clipboard write completes, then keep the successful copied state for three seconds and reset it for another participant. Align the copied-link expiry message with the one-hour authentication lifetime.

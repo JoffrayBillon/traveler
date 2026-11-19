@@ -196,6 +196,16 @@ it("exports numbered rooms into matching agency slots without changing the plan"
   sheet.getCell("M6").value = "12A";
   sheet.getCell("L6").value = "Note agence";
   sheet.addRow([null, "Informations agence", "Ski 2027"]);
+  type WorksheetWithValidations = ExcelJS.WorksheetModel & {
+    dataValidations: Record<string, ExcelJS.DataValidation>;
+  };
+  const categoryRange = "D1:D1048576";
+  const categoryValidation: ExcelJS.DataValidation = {
+    type: "list",
+    formulae: ['"adulte,enfant 5/11 ans,enfant -5 ans"'],
+  };
+  (sheet.model as WorksheetWithValidations).dataValidations[categoryRange] =
+    categoryValidation;
   const buffer = await workbook.xlsx.writeBuffer();
   const result = await prepareAgencyRoomingTemplate(
     database,
@@ -207,6 +217,11 @@ it("exports numbered rooms into matching agency slots without changing the plan"
   const output = new ExcelJS.Workbook();
   await output.xlsx.load(Uint8Array.from(result.workbook).buffer);
   const exported = output.getWorksheet("SKI TRAIN HOTEL");
+  expect(
+    (exported?.model as WorksheetWithValidations | undefined)?.dataValidations,
+  ).toEqual({
+    [categoryRange]: categoryValidation,
+  });
   expect(exported?.getCell("B2").text).toBe("");
   expect(exported?.getCell("A6").value).toBe(1);
   expect(exported?.getCell("B6").text).toBe("Cime");
