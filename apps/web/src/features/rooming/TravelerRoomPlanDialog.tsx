@@ -2,7 +2,6 @@ import { useRoomingMutations } from "@traveler/api/rooming/mutations";
 import type { RoomSummary } from "@traveler/api/rooming/rooming.types";
 import { Button, Card } from "@traveler/components/ui";
 import { ArrowLeftRight, X } from "lucide-react";
-import { useState } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -15,12 +14,16 @@ import { roomErrorLabel } from "./rooming-errors";
 
 export function TravelerRoomPlanDialog({
   tripId,
+  isOpen,
+  onOpenChange,
   rooms,
   ownRoom,
   userId,
   onMessage,
 }: {
   tripId: string;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
   rooms: RoomSummary[];
   ownRoom: RoomSummary;
   userId: string;
@@ -28,7 +31,6 @@ export function TravelerRoomPlanDialog({
 }) {
   const { t } = useTranslation();
   const mutations = useRoomingMutations(tripId);
-  const [isOpen, setIsOpen] = useState(false);
 
   async function requestExchange(
     person: RoomSummary["occupants"][number],
@@ -49,7 +51,7 @@ export function TravelerRoomPlanDialog({
           },
         ],
       });
-      setIsOpen(false);
+      onOpenChange(false);
       onMessage(t("yourSwapProposalHasBeenSentToThePeopleInvolved"));
     } catch (error) {
       const code = (error as { code?: string }).code;
@@ -60,7 +62,7 @@ export function TravelerRoomPlanDialog({
   }
 
   return (
-    <DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
+    <DialogTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
       <Button appearance="secondary">{t("viewRoomPlan")}</Button>
       <ModalOverlay
         isDismissable={!mutations.createRequest.isPending}

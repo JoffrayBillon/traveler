@@ -1,5 +1,9 @@
+import { getIP } from "better-auth/api";
 import { z } from "zod";
-import type { AuthServices } from "../../auth";
+import {
+  type AuthServices,
+  bindAuthToVerificationTransaction,
+} from "../../auth";
 import {
   findMagicLinkIdentity,
   findPendingMagicLink,
@@ -10,6 +14,14 @@ export const magicLinkConfirmationSchema = z.object({
   callbackURL: z.string().max(2048).optional(),
   newUserCallbackURL: z.string().max(2048).optional(),
 });
+
+import { reserveMagicLinkRequest } from "./magic-link-rate-limit";
+
+class RollBackVerification extends Error {
+  constructor(readonly response: Response) {
+    super("Verification did not issue a session");
+  }
+}
 
 const recordSchema = z.object({
   type: z.literal("magic-link"),
@@ -55,5 +67,52 @@ export async function confirmMagicLink(
   const headers = new Headers(request.headers);
   headers.delete("content-length");
   headers.delete("content-type");
-  return services.auth.handler(new Request(url, { method: "GET", headers }));
+  try {
+    const retryAfter = await reserveMagicLinkRequest(
+      services.database,
+      "verification",
+      getIP(request, services.auth.options) ?? "local",
+      60,
+      5,
+    );
+    if (retryAfter !== null) {
+      return Response.json(
+        { error: "rate_limited" },
+        {
+          status: 429,
+          headers: { "Retry-After": String(retryAfter) },
+        },
+      );
+    }
+    return await services.database.transaction(async (transaction) => {
+      const auth = bindAuthToVerificationTransaction(
+        services.auth,
+        transaction,
+      );
+      const response = await auth.handler(
+        new Request(url, { method: "GET", headers }),
+      );
+      const ctx = await auth.$context;
+      const cookieName = `${ctx.authCookies.sessionToken.name}=`;
+      if (
+        !response.headers
+          .getSetCookie()
+          .some(
+            (cookie) =>
+              cookie.startsWith(cookieName) &&
+              Boolean(cookie.slice(cookieName.length).split(";", 1)[0]),
+          )
+      ) {
+        throw new RollBackVerification(response);
+      }
+      return response;
+    });
+  } catch (error) {
+    if (error instanceof RollBackVerification) return error.response;
+    console.error(
+      "Magic link confirmation failed.",
+      error instanceof Error ? error.name : "UnknownError",
+    );
+    return Response.json({ error: "service_unavailable" }, { status: 503 });
+  }
 }

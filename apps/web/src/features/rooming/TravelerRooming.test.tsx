@@ -57,9 +57,11 @@ it("only offers exchanges in unlocked rooms and closes the plan when one's own r
   expect(
     screen.queryByRole("button", { name: planName }),
   ).not.toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Déverrouiller la chambre" }),
-  ).toBeEnabled();
+  const unlock = screen.getByRole("button", {
+    name: "Déverrouiller la chambre",
+  });
+  expect(unlock).toBeEnabled();
+  expect(unlock).toHaveFocus();
   expect(screen.getByText(/Léa Voyageur/)).toBeVisible();
 
   rerender(renderRooming(ownRoom));

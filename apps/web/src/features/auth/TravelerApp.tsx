@@ -68,7 +68,6 @@ export function TravelerApp() {
             );
             return;
           }
-          startCooldown(SIGN_IN_COOLDOWN_SECONDS);
           setHasError(true);
           setMessage(t("signInIsTemporarilyUnavailablePleaseTryAgainLater"));
         },

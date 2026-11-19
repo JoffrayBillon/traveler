@@ -1,6 +1,7 @@
-import { and, eq, isNull, like, or, type SQL, sql } from "drizzle-orm";
+import { and, eq, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
+import { revokeMagicLinksForAddress } from "./magic-link.repository";
 import { refreshRoomComposition } from "./traveler.repository";
 
 type Transaction = Parameters<Parameters<AppDatabase["transaction"]>[0]>[0];
@@ -36,6 +37,14 @@ export async function deleteTripParticipantData(
       and(
         eq(schema.transportTickets.tripId, tripId),
         eq(schema.transportTickets.uploadedBy, userId),
+      ),
+    );
+  await transaction
+    .delete(schema.transportGroupAssignments)
+    .where(
+      and(
+        eq(schema.transportGroupAssignments.tripId, tripId),
+        eq(schema.transportGroupAssignments.userId, userId),
       ),
     );
   await transaction
@@ -206,15 +215,13 @@ export async function deleteAccountWithoutMemberships(
   // A roster cancellation removes membership but can leave tickets and carpool references.
   const blobPaths = await queueTicketDeletion(transaction, userId);
   await releaseCarpoolPassengers(transaction, userId);
+  await transaction
+    .delete(schema.sessions)
+    .where(eq(schema.sessions.userId, userId));
+  await transaction
+    .delete(schema.accounts)
+    .where(eq(schema.accounts.userId, userId));
   await transaction.delete(schema.users).where(eq(schema.users.id, userId));
-  const { identifier, value } = schema.verifications;
-  await transaction.delete(schema.verifications).where(
-    and(
-      like(identifier, "magic-link:%"),
-      sql`CASE WHEN json_valid(${value})
-        THEN lower(json_extract(${value}, '$.email')) = ${email}
-        ELSE 0 END`,
-    ),
-  );
+  await revokeMagicLinksForAddress(transaction, email);
   return blobPaths;
 }

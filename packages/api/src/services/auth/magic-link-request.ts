@@ -1,164 +1,150 @@
-import { createHash, randomUUID } from "node:crypto";
-import { eq, lte } from "drizzle-orm";
+import { getIP } from "better-auth/api";
+import { lte } from "drizzle-orm";
+import { z } from "zod";
 import type { AuthServices } from "../../auth";
 import { normalizeEmail } from "../../email";
-import * as schema from "../../schema";
+import { signInRateLimits } from "../../schema";
+import { reserveMagicLinkRequest } from "./magic-link-rate-limit";
 
-const magicLinkEmailCooldownMs = 5 * 60 * 1000;
+const signInBody = z
+  .object({ email: z.string().trim().max(320).pipe(z.email()) })
+  .passthrough();
+
 export async function handleMagicLinkRequest(
   services: AuthServices,
   request: Request,
-  options: { copyOnly?: boolean } = {},
+  copyActorId?: string,
 ) {
-  const normalized = await normalizeMagicLinkRequest(request);
-  if (normalized.email && !options.copyOnly) {
-    const retryAfter = await enforceMagicLinkEmailCooldown(
-      services,
-      normalized.email,
-    );
-    if (retryAfter !== null) {
-      return Response.json(
-        { error: "rate_limited" },
-        {
-          status: 429,
-          headers: {
-            "Cache-Control": "no-store",
-            "Retry-After": String(retryAfter),
-          },
-        },
-      );
-    }
-  }
-
-  const processRequest = async () => {
-    const response = await services.auth.handler(normalized.request);
-    if (response.status >= 500) {
-      console.error("Magic link request processing failed.", response.status);
-    }
-    return response;
-  };
-
-  if (options.copyOnly) {
-    try {
-      const response = await processRequest();
-      if (response.status === 429) {
-        return Response.json(
-          { error: "rate_limited" },
-          {
-            status: 429,
-            headers: {
-              "Cache-Control": "no-store",
-              "Retry-After":
-                response.headers.get("Retry-After") ??
-                response.headers.get("X-Retry-After") ??
-                "30",
-            },
-          },
-        );
-      }
-      if (!response.ok) {
-        return Response.json(
-          { error: "email_delivery_failed" },
-          { status: 503, headers: { "Cache-Control": "no-store" } },
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Magic link request processing failed.",
-        error instanceof Error ? error.name : "UnknownError",
-      );
-      return Response.json(
-        { error: "email_delivery_failed" },
-        { status: 503, headers: { "Cache-Control": "no-store" } },
-      );
-    }
+  const contentType = request.headers
+    .get("Content-Type")
+    ?.split(";")[0]
+    ?.trim()
+    .toLowerCase();
+  if (contentType !== "application/json") {
     return Response.json(
-      { status: "accepted" },
-      { status: 202, headers: { "Cache-Control": "no-store" } },
+      { error: "unsupported_media_type" },
+      {
+        status: 415,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
+  }
+  const raw: unknown = await request.json().catch(() => null);
+  const input = signInBody.safeParse(raw);
+  if (!input.success)
+    return Response.json(
+      { error: "invalid_email" },
+      {
+        status: 400,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
+
+  const email = normalizeEmail(input.data.email);
+  let retryAfter: number | null;
+  try {
+    retryAfter = copyActorId
+      ? await reserveMagicLinkRequest(
+          services.database,
+          "manager",
+          copyActorId,
+          60,
+          5,
+        )
+      : await reserveMagicLinkRequest(
+          services.database,
+          "network",
+          getIP(request, services.auth.options) ?? "local",
+          60,
+          5,
+        );
+    if (retryAfter === null && !copyActorId) {
+      retryAfter = await reserveMagicLinkRequest(
+        services.database,
+        "address",
+        email,
+        300,
+        1,
+      );
+    }
+  } catch (error) {
+    logRequestFailure(error);
+    return unavailable();
+  }
+  if (retryAfter !== null) {
+    return Response.json(
+      { error: "rate_limited" },
+      {
+        status: 429,
+        headers: {
+          "Cache-Control": "no-store",
+          "Retry-After": String(retryAfter),
+        },
+      },
     );
   }
 
-  const task = Promise.resolve()
-    .then(processRequest)
-    .catch((error: unknown) => {
-      console.error(
-        "Magic link request processing failed.",
-        error instanceof Error ? error.name : "UnknownError",
-      );
-    });
-  services.scheduleBackgroundTask(task);
+  const headers = new Headers(request.headers);
+  headers.delete("content-length");
+  headers.set("Content-Type", "application/json");
+  const normalized = new Request(request.url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ ...input.data, email }),
+  });
 
+  if (copyActorId) {
+    try {
+      const response = await services.auth.handler(normalized);
+      if (!response.ok) return unavailable();
+    } catch (error) {
+      logRequestFailure(error);
+      return unavailable();
+    }
+  } else {
+    services.scheduleBackgroundTask(
+      services.auth
+        .handler(normalized)
+        .then((response) => {
+          if (response.status >= 500) logRequestFailure(response.status);
+        })
+        .catch(logRequestFailure),
+    );
+  }
+  services.scheduleBackgroundTask(
+    services.database
+      .delete(signInRateLimits)
+      .where(lte(signInRateLimits.expiresAt, Date.now()))
+      .then(() => undefined)
+      .catch(logRequestFailure),
+  );
   // Acknowledge before account lookup so membership cannot be inferred by timing.
   return Response.json(
     { status: "accepted" },
     {
-      status: 200,
+      status: copyActorId ? 202 : 200,
       headers: { "Cache-Control": "no-store" },
     },
   );
 }
 
-async function normalizeMagicLinkRequest(request: Request) {
-  let body: unknown;
-  try {
-    body = await request.clone().json();
-  } catch {
-    return { request };
-  }
-  if (
-    !body ||
-    typeof body !== "object" ||
-    !("email" in body) ||
-    typeof body.email !== "string"
-  ) {
-    return { request };
-  }
-
-  const email = normalizeEmail(body.email);
-  const headers = new Headers(request.headers);
-  headers.delete("content-length");
-  return {
-    email,
-    request: new Request(request.url, {
-      method: request.method,
-      headers,
-      body: JSON.stringify({ ...body, email }),
-    }),
-  };
+function unavailable() {
+  return Response.json(
+    { error: "email_delivery_failed" },
+    {
+      status: 503,
+      headers: { "Cache-Control": "no-store" },
+    },
+  );
 }
 
-async function enforceMagicLinkEmailCooldown(
-  services: AuthServices,
-  email: string,
-) {
-  const now = Date.now();
-  const key = `magic-link-email:${createHash("sha256").update(email).digest("hex")}`;
-  const accepted = await services.database
-    .insert(schema.rateLimits)
-    .values({ id: randomUUID(), key, count: 1, lastRequest: now })
-    .onConflictDoUpdate({
-      target: schema.rateLimits.key,
-      set: { count: 1, lastRequest: now },
-      setWhere: lte(
-        schema.rateLimits.lastRequest,
-        now - magicLinkEmailCooldownMs,
-      ),
-    })
-    .returning({ id: schema.rateLimits.id });
-
-  if (accepted.length > 0) return null;
-
-  const [existing] = await services.database
-    .select({ lastRequest: schema.rateLimits.lastRequest })
-    .from(schema.rateLimits)
-    .where(eq(schema.rateLimits.key, key))
-    .limit(1);
-  if (!existing) return Math.ceil(magicLinkEmailCooldownMs / 1000);
-
-  return Math.max(
-    1,
-    Math.ceil(
-      (existing.lastRequest + magicLinkEmailCooldownMs - Date.now()) / 1000,
-    ),
+function logRequestFailure(error: unknown) {
+  console.error(
+    "Magic link request processing failed.",
+    error instanceof Error
+      ? error.name
+      : typeof error === "number"
+        ? error
+        : "UnknownError",
   );
 }

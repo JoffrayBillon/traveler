@@ -1,5 +1,11 @@
 # Technical changelog
 
+## 2026-11-20 — Release review — Harden sign-in, tickets, and room changes
+
+- Details/impact: separate sign-in quotas from Better Auth pruning and check the network quota before the email cooldown. Verify magic links and create sessions atomically. Revoke old links when changing an email. Track ticket uploads before storage, recheck trip roles and memberships before publication, and retry abandoned uploads through the retention queue.
+- Details/impact: preserve traveler drafts and unchanged phone numbers, invalidate exchanges when the underlying rooms change, and keep focus and status messages accessible. Pass the local demo flag through Turborepo.
+- Test status: API tests cover quota order, old link revocation, session rollback, cleanup retries and eligibility changes during ticket upload. Web tests cover stale exchange selections, focus after locking and deletion during a pending request.
+
 ## 2026-11-19 — Room plan — Hide locked rooms from exchanges
 
 - Details/impact: omit other locked rooms from the personal plan. While a traveler's own room is locked, keep the room card and unlock control available and hide the exchange dialog. The organizer plan retains all rooms.

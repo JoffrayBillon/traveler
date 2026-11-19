@@ -1,4 +1,4 @@
-import type { TravelerProfileValues } from "@traveler/api/profile/profile.types";
+import type { SaveTravelerProfileInput } from "@traveler/api/profile/profile.types";
 import type { TravelerTripData } from "./trip.types";
 
 export const emptyTravelerProfile = {
@@ -13,7 +13,7 @@ export const emptyTravelerProfile = {
 
 export function applyProfileValues(
   current: TravelerTripData,
-  values: TravelerProfileValues,
+  values: SaveTravelerProfileInput,
 ): TravelerTripData {
   return {
     ...current,
@@ -30,7 +30,10 @@ export function applyProfileValues(
       emergencyContactFirstName: values.emergencyContactFirstName,
       emergencyContactLastName: values.emergencyContactLastName,
       emergencyContactPhone: values.emergencyContactPhone,
-      personalPhone: values.personalPhone ?? null,
+      personalPhone:
+        values.personalPhone === undefined
+          ? (current.profile?.personalPhone ?? null)
+          : values.personalPhone || null,
       completed: values.completed,
     },
   };

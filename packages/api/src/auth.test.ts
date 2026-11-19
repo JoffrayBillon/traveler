@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBrevoMagicLinkSender } from "./adapters/email/brevo-magic-link.adapter";
@@ -12,6 +12,7 @@ import { createAuthServicesProvider } from "./composition";
 import { EnvironmentValidationError } from "./environment";
 import { createManagersStore } from "./managers";
 import * as schema from "./schema";
+import { updateParticipantEmail } from "./services/participant-management";
 import { createTripsStore } from "./trips";
 
 const clients: ReturnType<typeof createClient>[] = [];
@@ -312,9 +313,26 @@ it("requires a manager and the exact email to erase trip data and revoke the las
     (await remove(firstTrip.id, managerCookie, "other@example.com")).status,
   ).toBe(409);
 
+  await database.insert(schema.transportGroups).values({
+    id: "group-paris",
+    tripId: firstTrip.id,
+    name: "Paris",
+    sourceCity: "Paris",
+    normalizedCity: "paris",
+  });
+  await database.insert(schema.transportGroupAssignments).values({
+    tripId: firstTrip.id,
+    groupId: "group-paris",
+    userId,
+    assignedBy: manager.userId,
+  });
+  await services.client.execute("PRAGMA foreign_keys=OFF");
   const removed = await remove(firstTrip.id, managerCookie, "ALEX@example.com");
   expect(removed.status).toBe(200);
   expect(await removed.json()).toEqual({ status: "deleted" });
+  expect(
+    await database.select().from(schema.transportGroupAssignments),
+  ).toEqual([]);
   expect(await database.select().from(schema.tripRegistrations)).toEqual([
     expect.objectContaining({ id: "booking2", userId }),
   ]);
@@ -344,11 +362,13 @@ it("requires a manager and the exact email to erase trip data and revoke the las
   await flushBackgroundTasks(services.backgroundTasks);
   expect(
     await database.select().from(schema.pendingTicketBlobDeletions),
-  ).toEqual([{ blobPath: "local/alex-ticket" }]);
+  ).toEqual([{ blobPath: "local/alex-ticket", availableAt: 0 }]);
+  expect(deleteBlob).toHaveBeenNthCalledWith(1, "local/alex-ticket");
   const retry = await app.request("/api/cron/delete-expired-tickets", {
     headers: { Authorization: "Bearer test-cron-secret" },
   });
   expect(await retry.json()).toMatchObject({ deleted: 1, failed: 0 });
+  expect(deleteBlob).toHaveBeenNthCalledWith(2, "local/alex-ticket");
   expect(
     await database.select().from(schema.pendingTicketBlobDeletions),
   ).toEqual([]);
@@ -1416,6 +1436,245 @@ describe("invite-only magic-link authentication", () => {
     logError.mockRestore();
   });
 
+  it.each(["role", "membership"] as const)(
+    "aborts a ticket when uploader %s changes after storage upload",
+    async (changed) => {
+      const sendEmail = vi
+        .fn<(email: string, url: string) => Promise<void>>()
+        .mockResolvedValue(undefined);
+      const services = await createTestServices(sendEmail);
+      const trip = await createTripsStore(services.database).create(
+        "Test trip",
+      );
+      const manager = await createManagersStore(services.database).create({
+        tripId: trip.id,
+        email: "manager@example.com",
+        firstName: "Mina",
+        lastName: "Manager",
+      });
+      const del = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("temporary storage failure"))
+        .mockResolvedValue(undefined);
+      const put = vi.fn(async (blobPath: string) => {
+        const [intent] = await services.database
+          .select()
+          .from(schema.pendingTicketBlobDeletions);
+        expect(intent?.blobPath).toBe(blobPath);
+        expect(intent?.availableAt).toBeGreaterThan(Date.now());
+        const during = await runRetention();
+        expect(await during.json()).toEqual({ deleted: 0, failed: 0 });
+        const memberships = schema.tripMemberships;
+        if (changed === "role") {
+          await services.database
+            .update(memberships)
+            .set({ role: "traveler" })
+            .where(eq(memberships.userId, manager.userId));
+        } else {
+          const [member] = await services.database
+            .delete(memberships)
+            .where(eq(memberships.userId, manager.userId))
+            .returning();
+          if (!member) throw new Error("Expected original membership");
+          await services.database.insert(memberships).values({
+            ...member,
+            id: "replacement-membership",
+          });
+        }
+      });
+      const app = createApp(
+        () => services.client,
+        () => services,
+        {
+          authEnvironment: { ...authEnv, CRON_SECRET: "test-cron-secret" },
+          ticketStorage: { put, get: vi.fn(), del },
+          ticketStorageAvailable: () => true,
+        },
+      );
+      function runRetention() {
+        return app.request("/api/cron/delete-expired-tickets", {
+          headers: { Authorization: "Bearer test-cron-secret" },
+        });
+      }
+      await app.request("/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: String(authEnv.BETTER_AUTH_URL),
+        },
+        body: JSON.stringify({ email: manager.email }),
+      });
+      await flushBackgroundTasks(services.backgroundTasks);
+      const login = await confirmLink(app, sendEmail.mock.calls[0]?.[1] ?? "");
+      const cookie = login.headers.get("set-cookie")?.split(";")[0];
+      if (!cookie) throw new Error("Expected a manager session");
+
+      const form = new FormData();
+      form.set("kind", "outbound");
+      form.set(
+        "file",
+        new File(["ticket"], "ticket.pdf", { type: "application/pdf" }),
+      );
+      const upload = await app.request(
+        `/api/trips/${trip.id}/travelers/${manager.userId}/tickets`,
+        {
+          method: "POST",
+          headers: { Cookie: cookie },
+          body: form,
+        },
+      );
+      expect(upload.status).toBe(503);
+      expect(await upload.json()).toEqual({ error: "ticket_upload_failed" });
+      expect(
+        await services.database.select().from(schema.transportTickets),
+      ).toEqual([]);
+      const [intent] = await services.database
+        .select()
+        .from(schema.pendingTicketBlobDeletions);
+      expect(intent?.availableAt).toBe(0);
+      expect(put).toHaveBeenCalledOnce();
+      expect(del).toHaveBeenNthCalledWith(1, intent?.blobPath);
+      const retry = await runRetention();
+      expect(await retry.json()).toEqual({ deleted: 1, failed: 0 });
+      expect(del).toHaveBeenNthCalledWith(2, intent?.blobPath);
+    },
+  );
+
+  it("revokes a hashed magic-link record for the old email on address correction", async () => {
+    const services = await createTestServices();
+    const trip = await createTripsStore(services.database).create("Test trip");
+    const account = await createManagersStore(services.database).create({
+      tripId: trip.id,
+      email: "old@example.com",
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+    const now = new Date();
+    const values = {
+      createdAt: now,
+      updatedAt: now,
+      expiresAt: new Date(now.getTime() + 60_000),
+    };
+    await services.database.insert(schema.verifications).values([
+      {
+        ...values,
+        id: "old",
+        identifier: "magic-link:hashed-old",
+        value: JSON.stringify({ type: "magic-link", email: account.email }),
+      },
+      {
+        ...values,
+        id: "other",
+        identifier: "magic-link:hashed-other",
+        value: JSON.stringify({
+          type: "magic-link",
+          email: "other@example.com",
+        }),
+      },
+    ]);
+    expect(
+      await updateParticipantEmail(
+        services.database,
+        trip.id,
+        account.userId,
+        "new@example.com",
+      ),
+    ).toMatchObject({ status: "updated" });
+    expect(
+      await services.database
+        .select({ id: schema.verifications.id })
+        .from(schema.verifications),
+    ).toEqual([{ id: "other" }]);
+  });
+
+  it("checks the network quota before reserving the address and rejects noncanonical sign-in paths", async () => {
+    const services = await createTestServices();
+    const app = createApp(
+      () => services.client,
+      () => services,
+    );
+    const requestLink = (email: string, suffix = "") =>
+      app.request(`/api/auth/sign-in/magic-link${suffix}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: String(authEnv.BETTER_AUTH_URL),
+          "X-Forwarded-For": "198.51.100.21",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+    expect((await requestLink("later@example.com", "/")).status).toBe(404);
+    expect(
+      await services.database.select().from(schema.signInRateLimits),
+    ).toEqual([]);
+    for (let i = 0; i < 5; i++) {
+      expect((await requestLink(`person${i}@example.com`)).status).toBe(200);
+      await flushBackgroundTasks(services.backgroundTasks);
+    }
+    const rejected = await requestLink("later@example.com");
+    expect(rejected.status).toBe(429);
+    expect(Number(rejected.headers.get("Retry-After"))).toBeLessThanOrEqual(60);
+    await services.database
+      .update(schema.signInRateLimits)
+      .set({ expiresAt: Date.now() - 1 })
+      .where(like(schema.signInRateLimits.key, "network:%"));
+    expect((await requestLink("later@example.com")).status).toBe(200);
+    await flushBackgroundTasks(services.backgroundTasks);
+  });
+
+  it("rolls back token consumption when session creation fails and retries the same link", async () => {
+    const sendEmail = vi
+      .fn<(email: string, url: string) => Promise<void>>()
+      .mockResolvedValue(undefined);
+    const services = await createTestServices(sendEmail);
+    const trip = await createTripsStore(services.database).create("Test trip");
+    await createManagersStore(services.database).create({
+      tripId: trip.id,
+      email: "manager@example.com",
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+    const app = createApp(
+      () => services.client,
+      () => services,
+    );
+    await app.request("/api/auth/sign-in/magic-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: String(authEnv.BETTER_AUTH_URL),
+      },
+      body: JSON.stringify({ email: "manager@example.com", callbackURL: "/" }),
+    });
+    await flushBackgroundTasks(services.backgroundTasks);
+    const link = sendEmail.mock.calls[0]?.[1] ?? "";
+    expect(link).toBeTruthy();
+    await services.client.execute(
+      "CREATE TRIGGER fail_session BEFORE INSERT ON session BEGIN SELECT raise(ABORT, 'simulated session insert failure'); END",
+    );
+    const logger = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const failed = await confirmLink(app, link);
+      expect(failed.headers.get("set-cookie")).toBeNull();
+      expect(
+        await services.database.select().from(schema.verifications),
+      ).toHaveLength(1);
+      expect(
+        await services.database.select().from(schema.sessions),
+      ).toHaveLength(0);
+    } finally {
+      logger.mockRestore();
+      await services.client.execute("DROP TRIGGER fail_session");
+    }
+
+    const retry = await confirmLink(app, link);
+    expect(retry.headers.get("set-cookie")).toBeTruthy();
+    expect(retry.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(retry.headers.get("Referrer-Policy")).toBe("no-referrer");
+    expect((await confirmLink(app, link)).headers.get("set-cookie")).toBeNull();
+  });
+
   it("limits each email address to one magic-link request every five minutes", async () => {
     const services = await createTestServices(
       vi.fn().mockResolvedValue(undefined),
@@ -1451,11 +1710,11 @@ describe("invite-only magic-link authentication", () => {
     expect(retryAfter).toBeLessThanOrEqual(300);
     await services.database
       .update(schema.rateLimits)
-      .set({ lastRequest: Date.now() - 31_000 });
+      .set({ lastRequest: Date.now() - 61_000 });
     expect((await requestLink()).status).toBe(429);
     await services.database
-      .update(schema.rateLimits)
-      .set({ lastRequest: Date.now() - 301_000 });
+      .update(schema.signInRateLimits)
+      .set({ expiresAt: Date.now() - 1 });
     expect((await requestLink()).status).toBe(200);
     await flushBackgroundTasks(services.backgroundTasks);
   });

@@ -108,6 +108,16 @@ export const rateLimits = sqliteTable(
   (table) => [uniqueIndex("rateLimit_key_unique").on(table.key)],
 );
 
+export const signInRateLimits = sqliteTable(
+  "sign_in_rate_limits",
+  {
+    key: text("key").primaryKey().notNull(),
+    count: integer("count").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [index("sign_in_rate_limits_expiry_index").on(table.expiresAt)],
+);
+
 export const tripMemberships = sqliteTable(
   "trip_memberships",
   {
@@ -396,6 +406,7 @@ export const pendingTicketBlobDeletions = sqliteTable(
   "pending_ticket_blob_deletions",
   {
     blobPath: text("blob_path").primaryKey().notNull(),
+    availableAt: integer("available_at").default(0).notNull(),
   },
 );
 

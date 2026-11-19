@@ -13,6 +13,8 @@ import type { MagicLinkSender } from "./ports/email-sender";
 import * as schema from "./schema";
 
 export type AppDatabase = LibSQLDatabase<typeof schema>;
+type AuthTransaction = Parameters<Parameters<AppDatabase["transaction"]>[0]>[0];
+
 export type AuthServices = {
   auth: Auth<BetterAuthOptions>;
   database: AppDatabase;
@@ -73,6 +75,57 @@ export function isTrustedAuthOrigin(origin: string, env: NodeJS.ProcessEnv) {
   } catch {
     return false;
   }
+}
+
+function createAuthAdapter(database: AppDatabase | AuthTransaction) {
+  return drizzleAdapter(database, {
+    provider: "sqlite",
+    schema: {
+      user: schema.users,
+      session: schema.sessions,
+      account: schema.accounts,
+      verification: schema.verifications,
+      rateLimit: schema.rateLimits,
+    },
+  });
+}
+
+function createSessionHooks(
+  database: Pick<AppDatabase, "select" | "update">,
+): BetterAuthOptions["databaseHooks"] {
+  return {
+    session: {
+      create: {
+        before: async (session) => {
+          const memberships = await database
+            .select({ id: schema.tripMemberships.id })
+            .from(schema.tripMemberships)
+            .where(eq(schema.tripMemberships.userId, session.userId))
+            .limit(1);
+          return memberships.length > 0;
+        },
+        after: async (session) => {
+          await database
+            .update(schema.tripMemberships)
+            .set({ lastLoginAt: new Date() })
+            .where(eq(schema.tripMemberships.userId, session.userId));
+        },
+      },
+    },
+  };
+}
+
+export function bindAuthToVerificationTransaction(
+  auth: AuthServices["auth"],
+  transaction: AuthTransaction,
+) {
+  return betterAuth({
+    ...auth.options,
+    database: createAuthAdapter(transaction),
+    databaseHooks: createSessionHooks(transaction),
+    // The verification quota is reserved outside this transaction, including failed attempts.
+    rateLimit: { enabled: false },
+  });
 }
 
 export function createAuth(
@@ -149,16 +202,7 @@ export function createAuth(
     },
     secret,
     trustedOrigins: [...new Set(trustedOrigins)],
-    database: drizzleAdapter(database, {
-      provider: "sqlite",
-      schema: {
-        user: schema.users,
-        session: schema.sessions,
-        account: schema.accounts,
-        verification: schema.verifications,
-        rateLimit: schema.rateLimits,
-      },
-    }),
+    database: createAuthAdapter(database),
     session: {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
@@ -169,7 +213,7 @@ export function createAuth(
       window: 60,
       max: 100,
       customRules: {
-        "/sign-in/magic-link": { window: 60, max: 5 },
+        "/sign-in/magic-link": false,
       },
     },
     hooks: {
@@ -219,26 +263,7 @@ export function createAuth(
         },
       }),
     ],
-    databaseHooks: {
-      session: {
-        create: {
-          before: async (session) => {
-            const memberships = await database
-              .select({ id: schema.tripMemberships.id })
-              .from(schema.tripMemberships)
-              .where(eq(schema.tripMemberships.userId, session.userId));
-            if (memberships.length === 0) return false;
-            return true;
-          },
-          after: async (session) => {
-            await database
-              .update(schema.tripMemberships)
-              .set({ lastLoginAt: new Date() })
-              .where(eq(schema.tripMemberships.userId, session.userId));
-          },
-        },
-      },
-    },
+    databaseHooks: createSessionHooks(database),
     advanced: { database: { generateId: () => randomUUID() } },
   };
   return betterAuth(options);

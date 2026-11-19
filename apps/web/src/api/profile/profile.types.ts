@@ -11,3 +11,10 @@ export type TravelerProfileValues = {
   personalPhone?: string | null;
   completed: boolean;
 };
+
+export type SaveTravelerProfileInput = Omit<
+  TravelerProfileValues,
+  "personalPhone"
+> & {
+  personalPhone?: string;
+};

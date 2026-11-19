@@ -240,6 +240,8 @@ export const en = {
   noEligibleTravelerForRoomPlan:
     "There are no new room assignments to propose right now.",
   applyRoomPlan: "Apply this plan",
+  roomAssignmentSelectionChanged:
+    "The plan has changed. Select the destination room again.",
   roomPlanChangedRefreshPreview:
     "Rooming data changed after this preview. Review a new plan before applying it.",
   roomPlanCouldNotBeGenerated: "The room plan could not be prepared.",

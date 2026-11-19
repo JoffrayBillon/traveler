@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { queryKeys } from "@traveler/api/query-keys";
 import type { RoomSummary } from "@traveler/api/rooming/rooming.types";
 import "@traveler/i18n";
 import { afterEach, expect, it, vi } from "vitest";
@@ -19,7 +20,11 @@ afterEach(() => vi.unstubAllGlobals());
 const lea = { userId: "lea", firstName: "Léa", lastName: "Martin" };
 const alex = { userId: "alex", firstName: "Alex", lastName: "Dupont" };
 
-function renderPlan(rooms: RoomSummary[], travelers = [lea]) {
+function renderPlan(
+  rooms: RoomSummary[],
+  travelers = [lea],
+  client = new QueryClient(),
+) {
   const fetchMock = vi.fn(async (input: string, request?: RequestInit) => {
     if (request?.method === "PUT") return Response.json({ status: "saved" });
     if (input.endsWith("/rooms?view=organizer"))
@@ -32,7 +37,7 @@ function renderPlan(rooms: RoomSummary[], travelers = [lea]) {
   vi.stubGlobal("fetch", fetchMock);
 
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <RoomingPanel tripId="test" userId="manager" view="organizer" />
     </QueryClientProvider>,
   );
@@ -194,6 +199,76 @@ it("refreshes the plan on demand and describes the last refresh on keyboard focu
     ]);
   });
 });
+
+it.each(["source moves", "destination opens"] as const)(
+  "requires a new exchange selection if the %s while the dialog is open",
+  async (change) => {
+    const user = userEvent.setup();
+    const client = new QueryClient();
+    const source = {
+      id: "source",
+      name: "01",
+      capacity: 1,
+      occupiedCount: 1,
+      occupants: [lea],
+      isLocked: false,
+    };
+    const target = {
+      id: "target",
+      name: "47",
+      capacity: 1,
+      occupiedCount: 1,
+      occupants: [alex],
+      isLocked: false,
+    };
+    const spare = {
+      id: "spare",
+      name: "48",
+      capacity: 2,
+      occupiedCount: 0,
+      occupants: [],
+      isLocked: false,
+    };
+    const requests = renderPlan([source, target, spare], [lea, alex], client);
+    await user.click(await screen.findByRole("button", { name: "Léa Martin" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.click(
+      dialog.getByRole("combobox", { name: "Chambre de destination" }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: /47.*Échange/ }),
+    );
+    await user.click(
+      dialog.getByRole("button", { name: /Personne avec qui échanger/ }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: "Alex Dupont" }),
+    );
+    expect(
+      dialog.getByRole("button", { name: "Échanger les places" }),
+    ).toBeEnabled();
+
+    act(() => {
+      client.setQueryData(
+        queryKeys.rooming("test", true),
+        change === "source moves"
+          ? [
+              { ...source, occupiedCount: 0, occupants: [] },
+              target,
+              { ...spare, occupiedCount: 1, occupants: [lea] },
+            ]
+          : [source, { ...target, capacity: 2 }, spare],
+      );
+    });
+    expect(await dialog.findByRole("alert")).toHaveTextContent(
+      "Le plan a changé",
+    );
+    expect(dialog.getByRole("button", { name: "Attribuer" })).toBeDisabled();
+    expect(
+      requests.mock.calls.some(([, request]) => request?.method === "PUT"),
+    ).toBe(false);
+  },
+);
 
 it.each(["dialog", "drag"] as const)(
   "swaps two occupants of full rooms via %s",

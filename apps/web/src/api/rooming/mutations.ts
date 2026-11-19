@@ -17,8 +17,11 @@ export function useRoomingMutations(tripId: string) {
   const queryClient = useQueryClient();
   const invalidatePlan = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.rooming(tripId) });
-  const invalidateRequests = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.roomRequests(tripId) });
+  async function invalidateRequests() {
+    const queryKey = queryKeys.roomRequests(tripId);
+    await queryClient.cancelQueries({ queryKey });
+    await queryClient.invalidateQueries({ queryKey });
+  }
   const invalidateHistory = () =>
     queryClient.invalidateQueries({
       queryKey: queryKeys.roomingHistory(tripId),
@@ -38,6 +41,8 @@ export function useRoomingMutations(tripId: string) {
         invalidateHistory(),
       ]);
     }
+    if (status === "stale")
+      return Promise.all([invalidatePlan(), invalidateRequests()]);
     return invalidateRequests();
   }
   const saveRoomInventory = useMutation({

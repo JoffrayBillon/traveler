@@ -17,7 +17,7 @@ export function registerAuthEndpoints(
       context.header("Cache-Control", "no-store");
       return context.json({ error: "service_unavailable" }, 503);
     }
-    const path = context.req.path.replace(/\/+$/, "");
+    const path = context.req.path.replace(/\/{2,}/g, "/").replace(/\/+$/, "");
     const isVerification = path === "/api/auth/magic-link/verify";
     const isPreview = path === "/api/auth/magic-link/preview";
     if (isVerification || isPreview) {
@@ -48,12 +48,33 @@ export function registerAuthEndpoints(
           ? context.json(identity)
           : context.json({ error: "invalid_token" }, 410);
       }
-      return confirmMagicLink(services, context.req.raw, input.data);
+      const response = await confirmMagicLink(
+        services,
+        context.req.raw,
+        input.data,
+      );
+      const headers = new Headers(response.headers);
+      headers.set("Cache-Control", "private, no-store");
+      headers.set("Referrer-Policy", "no-referrer");
+      headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
     }
     if (
       context.req.method === "POST" &&
       path === "/api/auth/sign-in/magic-link"
     ) {
+      context.header("Cache-Control", "no-store");
+      if (new URL(context.req.url).pathname !== path) {
+        return context.json({ error: "not_found" }, 404);
+      }
+      const origin = context.req.header("Origin");
+      if (origin && !(await services.auth.$context).isTrustedOrigin(origin)) {
+        return context.json({ error: "forbidden" }, 403);
+      }
       return handleMagicLinkRequest(services, context.req.raw);
     }
     return services.auth.handler(context.req.raw);

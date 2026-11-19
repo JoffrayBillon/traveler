@@ -12,7 +12,7 @@ import {
   textFieldStyles,
 } from "@traveler/components/ui";
 import { ChevronDown } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import {
   ComboBox,
   Dialog,
@@ -52,7 +52,11 @@ export function RoomManagementPanel({
 }) {
   const { t } = useTranslation();
   const mutations = useRoomingMutations(tripId);
-  const [roomId, setRoomId] = useState<string | null>(null);
+  const [destination, setDestination] = useState<{
+    roomId: string;
+    expectedRoomId: string | null;
+  } | null>(null);
+  const roomId = destination?.roomId ?? null;
   const [assignmentError, setAssignmentError] = useState("");
   const [exchangeWithUserId, setExchangeWithUserId] = useState<string | null>(
     null,
@@ -75,9 +79,26 @@ export function RoomManagementPanel({
   const exchangeRequired =
     destinationRoom !== undefined &&
     destinationRoom.occupiedCount >= destinationRoom.capacity;
-  const isExchange = exchangeRequired || exchangeWithUserId !== null;
+  const isExchange = exchangeRequired;
+  const selectionChanged = Boolean(
+    (destination && destination.expectedRoomId !== currentRoomId) ||
+      (exchangeWithUserId &&
+        (!exchangeRequired ||
+          !destinationRoom?.occupants.some(
+            ({ userId }) => userId === exchangeWithUserId,
+          ))),
+  );
+  useEffect(() => {
+    if (selectionChanged) {
+      setDestination(null);
+      setExchangeWithUserId(null);
+      setAssignmentError(t("roomAssignmentSelectionChanged"));
+    }
+  }, [selectionChanged, t]);
+
   const assignmentReady = Boolean(
     roomId &&
+      !selectionChanged &&
       (roomId === UNASSIGNED_ROOM_ID
         ? currentRoomId
         : destinationRoom &&
@@ -104,7 +125,7 @@ export function RoomManagementPanel({
 
   function closeAssignment() {
     setAssignmentError("");
-    setRoomId(null);
+    setDestination(null);
     setExchangeWithUserId(null);
     onTravelerChange(undefined);
   }
@@ -144,13 +165,14 @@ export function RoomManagementPanel({
 
   async function moveTraveler(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!roomId || !travelerId || !assignmentReady) return;
+    if (!destination || !travelerId || !assignmentReady) return;
+    const { roomId, expectedRoomId } = destination;
     setAssignmentError("");
     try {
       if (roomId === UNASSIGNED_ROOM_ID) {
-        if (!currentRoomId) return;
+        if (!expectedRoomId) return;
         await mutations.unassignTraveler.mutateAsync({
-          roomId: currentRoomId,
+          roomId: expectedRoomId,
           userId: travelerId,
         });
         onMessage(t("travelerRemovedFromRoom"));
@@ -158,7 +180,7 @@ export function RoomManagementPanel({
         await mutations.moveTraveler.mutateAsync({
           roomId,
           userId: travelerId,
-          expectedRoomId: currentRoomId,
+          expectedRoomId,
           ...(exchangeWithUserId ? { exchangeWithUserId } : {}),
         });
         onMessage(t("roomAssignmentsHaveBeenUpdated"));
@@ -241,7 +263,7 @@ export function RoomManagementPanel({
                 selectedKey={travelerId ?? null}
                 onSelectionChange={(key) => {
                   onTravelerChange(key ? String(key) : null);
-                  setRoomId(null);
+                  setDestination(null);
                   setExchangeWithUserId(null);
                 }}
                 isRequired
@@ -276,8 +298,13 @@ export function RoomManagementPanel({
                 defaultItems={destinations}
                 selectedKey={roomId}
                 onSelectionChange={(key) => {
-                  setRoomId(key ? String(key) : null);
+                  setDestination(
+                    key
+                      ? { roomId: String(key), expectedRoomId: currentRoomId }
+                      : null,
+                  );
                   setExchangeWithUserId(null);
+                  setAssignmentError("");
                 }}
                 isDisabled={!travelerId}
                 menuTrigger="focus"

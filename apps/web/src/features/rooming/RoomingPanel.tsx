@@ -38,14 +38,11 @@ export function RoomingPanel({
 
   async function refresh() {
     setMessage("");
-    const results = await Promise.all([
+    await Promise.all([
       plan.refetch(),
       requests.refetch(),
       ...(isStaff ? [directory.refetch()] : []),
     ]);
-    if (results.some((result) => result.isError)) {
-      setMessage(t("roomPlanRefreshFailed"));
-    }
   }
 
   const requestList = requests.data && (
@@ -119,9 +116,10 @@ export function RoomingPanel({
           {requestList}
         </>
       )}
-      {requests.isLoadingError && (
-        <p role="alert">{t("roomRequestsUnavailable")}</p>
+      {(plan.isRefetchError || (isStaff && directory.isRefetchError)) && (
+        <p role="alert">{t("roomPlanRefreshFailed")}</p>
       )}
+      {requests.isError && <p role="alert">{t("roomRequestsUnavailable")}</p>}
       {message && (
         <p className={messageStyles()} role="status" aria-live="polite">
           {message}

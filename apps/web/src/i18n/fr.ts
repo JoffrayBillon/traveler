@@ -249,6 +249,8 @@ export const fr = {
   noEligibleTravelerForRoomPlan:
     "Aucune nouvelle affectation ne peut être proposée pour le moment.",
   applyRoomPlan: "Appliquer ce plan",
+  roomAssignmentSelectionChanged:
+    "Le plan a changé. Sélectionnez à nouveau la chambre de destination.",
   roomPlanChangedRefreshPreview:
     "Les données du rooming ont changé depuis l’aperçu. Vérifiez un nouveau plan avant de l’appliquer.",
   roomPlanCouldNotBeGenerated: "Impossible de préparer le plan des chambres.",

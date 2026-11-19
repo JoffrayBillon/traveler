@@ -11,6 +11,7 @@ import type {
 import { useParticipantDirectoryQuery } from "@traveler/api/participants/queries";
 import { useTripTransportQuery } from "@traveler/api/transport/queries";
 import { ParticipantSearchField } from "@traveler/components/ParticipantSearchField";
+import { messageStyles } from "@traveler/components/ui";
 import { normalizeSearchText } from "@traveler/lib/normalize-search-text";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -226,9 +227,13 @@ export function ParticipantDirectory({
         isError={participantsQuery.isError}
         isFiltered={isFiltered}
         isManager={isManager}
-        message={message}
         onSelect={openParticipant}
       />
+      {message && (
+        <p className={messageStyles()} role="status" aria-live="polite">
+          {message}
+        </p>
+      )}
       <ParticipantEditorDialog
         tripId={tripId}
         selected={selected}

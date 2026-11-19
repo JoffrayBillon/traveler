@@ -1,12 +1,15 @@
 import { ApiError } from "@traveler/api/client";
 import { useSaveTravelerProfileMutation } from "@traveler/api/profile/mutations";
-import type { TravelerProfileValues } from "@traveler/api/profile/profile.types";
+import type {
+  SaveTravelerProfileInput,
+  TravelerProfileValues,
+} from "@traveler/api/profile/profile.types";
 import { ModalForm } from "@traveler/components/ui";
 import {
   type CountryCode,
   parsePhoneNumberFromString,
 } from "libphonenumber-js/max";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PhoneNumberField } from "./PhoneNumberField";
 import { getInitialPhone } from "./phone-format";
@@ -63,8 +66,13 @@ export function TravelerProfileEditorDialog({
   const [personalPhoneSubmitAttempted, setPersonalPhoneSubmitAttempted] =
     useState(false);
   const [message, setMessage] = useState("");
+  const initialOnOpen = useRef(initial);
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!isOpen) return;
+    const isOpening = isOpen && !wasOpen.current;
+    wasOpen.current = isOpen;
+    if (!isOpening) return;
+    initialOnOpen.current = initial;
     setFirstName(initial.firstName);
     setLastName(initial.lastName);
     setGender(initial.gender);
@@ -83,18 +91,7 @@ export function TravelerProfileEditorDialog({
     setPersonalPhoneTouched(false);
     setPersonalPhoneSubmitAttempted(false);
     setMessage("");
-  }, [
-    isOpen,
-    initial.firstName,
-    initial.lastName,
-    initial.gender,
-    initial.dietaryRequirements,
-    initial.allergens,
-    initial.personalPhone,
-    initial.emergencyContactFirstName,
-    initial.emergencyContactLastName,
-    initial.emergencyContactPhone,
-  ]);
+  }, [isOpen, initial]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,10 +100,13 @@ export function TravelerProfileEditorDialog({
       return;
     }
     const parsedPhone = parsePhoneNumberFromString(phoneInput, phoneCountry);
-    const initialPersonalPhone = getInitialPhone(initial.personalPhone ?? "");
+    const initialPersonalPhone = getInitialPhone(
+      initialOnOpen.current.personalPhone ?? "",
+    );
     const personalPhoneChanged =
-      personalPhoneInput !== initialPersonalPhone.value ||
-      personalPhoneCountry !== initialPersonalPhone.country;
+      Boolean(personalPhoneInput.trim() || initialPersonalPhone.value) &&
+      (personalPhoneInput !== initialPersonalPhone.value ||
+        personalPhoneCountry !== initialPersonalPhone.country);
     const parsedPersonalPhone = personalPhoneInput.trim()
       ? parsePhoneNumberFromString(personalPhoneInput, personalPhoneCountry)
       : undefined;
@@ -126,7 +126,7 @@ export function TravelerProfileEditorDialog({
     }
     const normalizedPhone = parsedPhone.number;
     setMessage("");
-    const savedValues: TravelerProfileValues = {
+    const savedValues: SaveTravelerProfileInput = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       gender,
