@@ -1,5 +1,17 @@
 # Technical changelog
 
+## 2026-11-19 — Organizer directory — Keep copy confirmation visible
+
+- Details/impact: show copying progress until the clipboard write completes, then keep the successful copied state for three seconds and reset it for another participant. Align the copied-link expiry message with the one-hour authentication lifetime.
+- Test status: web TypeScript, translation parity and targeted Biome checks passed; real clipboard interaction remains to be checked.
+
+
+## 2026-11-19 — Authentication — Confirm magic links before redemption
+
+- Details/impact: protect links from mail scanners and previews by opening a confirmation page and consuming tokens only through a same-origin POST. Show the associated first/last names after a read-only validity check, expire links after one hour, and enforce a five-minute per-address email cooldown persisted across reloads and tabs. Exempt manager-generated copied links from the email cooldown while retaining native auth rate limits.
+- Test status: API and browser-component regressions cover safe GET/HEAD, preview, confirmation, replay, expiration, origin/callback rejection and persisted cooldowns, including copying links after an email request and repeated manager copies. Native Chrome preview/reload/confirmation and production builds passed under Node 26. Provider-specific mail scanning still needs live verification.
+
+
 ## 2026-11-05 — Database bootstrap — Provision an empty site
 
 - Details/impact: create a blank trip when no trip exists and provision the configured initial manager only when the user table is empty. The account is unverified and linked to one trip for passwordless login.

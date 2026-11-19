@@ -13,7 +13,7 @@ import { useTripTransportQuery } from "@traveler/api/transport/queries";
 import { textFieldStyles } from "@traveler/components/ui";
 import { getLocale } from "@traveler/i18n";
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input, Label, TextField } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { AddParticipantDialog } from "./AddParticipantDialog";
@@ -43,6 +43,14 @@ export function ParticipantDirectory({
   const [role, setRole] = useState<StaffTraveler["role"]>("traveler");
   const [isVip, setIsVip] = useState(false);
   const [message, setMessage] = useState("");
+  const [isCopying, setIsCopying] = useState(false);
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!copiedUserId) return;
+    const timer = window.setTimeout(() => setCopiedUserId(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [copiedUserId]);
 
   const visibleParticipants = useMemo(() => {
     const query = normalizeSearchText(search);
@@ -64,6 +72,7 @@ export function ParticipantDirectory({
   }, [participants, search]);
 
   function openParticipant(person: StaffTraveler) {
+    setCopiedUserId(null);
     setSelected(person);
     setProfile({
       firstName: person.firstName,
@@ -121,13 +130,16 @@ export function ParticipantDirectory({
   }
 
   async function copySignInLink() {
-    if (!selected) return;
+    if (!selected || isCopying) return;
+    setIsCopying(true);
+    setCopiedUserId(null);
     setMessage("");
     try {
       const link = await copyParticipantLinkMutation.mutateAsync(
         selected.userId,
       );
       await navigator.clipboard.writeText(link);
+      setCopiedUserId(selected.userId);
       setMessage(t("signInLinkCopied"));
     } catch (error) {
       if (error instanceof ApiError && error.status === 429) {
@@ -139,6 +151,8 @@ export function ParticipantDirectory({
         return;
       }
       setMessage(t("signInLinkCouldNotBeCopied"));
+    } finally {
+      setIsCopying(false);
     }
   }
 
@@ -210,7 +224,8 @@ export function ParticipantDirectory({
         onIsVipChange={setIsVip}
         isManager={isManager}
         isSaving={saveParticipantMutation.isPending}
-        isCopying={copyParticipantLinkMutation.isPending}
+        isCopying={isCopying}
+        isCopied={selected !== null && copiedUserId === selected.userId}
         setSelected={setSelected}
         setProfile={setProfile}
         setDetails={setDetails}

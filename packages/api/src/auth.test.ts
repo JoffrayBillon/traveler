@@ -82,6 +82,18 @@ async function createTestServices(
   };
 }
 
+function confirmLink(
+  app: ReturnType<typeof createApp>,
+  link: string,
+  origin?: string,
+) {
+  const url = new URL(link);
+  return app.request(link, {
+    method: "POST",
+    headers: { Origin: origin ?? url.origin },
+    body: url.searchParams,
+  });
+}
 async function flushBackgroundTasks(tasks: Promise<unknown>[]) {
   while (tasks.length > 0) await Promise.all(tasks.splice(0));
 }
@@ -167,7 +179,10 @@ describe("invite-only magic-link authentication", () => {
       .from(schema.users)
       .where(eq(schema.users.id, "mixed-case-user"));
     expect(user?.email).toBe("alex.voyageur@example.com");
-    const verified = await app.request(sendEmail.mock.calls[0]?.[1] as string);
+    const verified = await confirmLink(
+      app,
+      sendEmail.mock.calls[0]?.[1] as string,
+    );
     expect(verified.headers.get("set-cookie")).toContain(
       "better-auth.session_token",
     );
@@ -303,7 +318,8 @@ describe("invite-only magic-link authentication", () => {
       body: JSON.stringify({ email: manager.email, callbackURL: "/" }),
     });
     await flushBackgroundTasks(services.backgroundTasks);
-    const managerSession = await app.request(
+    const managerSession = await confirmLink(
+      app,
       sendEmail.mock.calls.at(-1)?.[1] as string,
     );
     const managerCookie = managerSession.headers
@@ -325,6 +341,24 @@ describe("invite-only magic-link authentication", () => {
       ]),
     });
 
+    const participantEmail = await app.request("/api/auth/sign-in/magic-link", {
+      method: "POST",
+      headers: {
+        Origin: authEnv.BETTER_AUTH_URL as string,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "participant@example.com",
+        callbackURL: "/",
+      }),
+    });
+    expect(participantEmail.status).toBe(200);
+    await flushBackgroundTasks(services.backgroundTasks);
+    const ownLink = await app.request(
+      `/api/trips/${trip.id}/participants/${manager.userId}/login-link`,
+      { method: "POST", headers: { Cookie: managerCookie } },
+    );
+    expect(ownLink.status).toBe(200);
     const sendLink = await app.request(
       `/api/trips/${trip.id}/participants/${participantId}/login-link`,
       {
@@ -338,9 +372,23 @@ describe("invite-only magic-link authentication", () => {
     expect(sendLink.status).toBe(200);
     const generatedLink = (await sendLink.json()).link as string;
     expect(generatedLink).toContain("https://traveler-preview.example.com");
-    expect(sendEmail).toHaveBeenCalledOnce();
+    const repeatedLink = await app.request(
+      `/api/trips/${trip.id}/participants/${participantId}/login-link`,
+      {
+        method: "POST",
+        headers: {
+          Cookie: managerCookie,
+          Origin: "https://traveler-preview.example.com",
+        },
+      },
+    );
+    expect(repeatedLink.status).toBe(200);
+    expect((await repeatedLink.json()).link).toContain(
+      "/api/auth/magic-link/verify",
+    );
+    expect(sendEmail).toHaveBeenCalledTimes(2);
 
-    const participantSession = await app.request(generatedLink);
+    const participantSession = await confirmLink(app, generatedLink);
     const participantCookie = participantSession.headers
       .get("set-cookie")
       ?.split(";")[0] as string;
@@ -406,7 +454,10 @@ describe("invite-only magic-link authentication", () => {
       body: JSON.stringify({ email: manager.email, callbackURL: "/" }),
     });
     await flushBackgroundTasks(services.backgroundTasks);
-    const login = await app.request(sendEmail.mock.calls[0]?.[1] as string);
+    const login = await confirmLink(
+      app,
+      sendEmail.mock.calls[0]?.[1] as string,
+    );
     const cookie = login.headers.get("set-cookie")?.split(";")[0] as string;
 
     const response = await app.request(
@@ -472,7 +523,7 @@ describe("invite-only magic-link authentication", () => {
     await flushBackgroundTasks(services.backgroundTasks);
     const managerLink = sendEmail.mock.calls.at(-1)?.[1];
     expect(managerLink).toBeTruthy();
-    const managerSession = await app.request(managerLink as string);
+    const managerSession = await confirmLink(app, managerLink as string);
     const managerCookie = managerSession.headers
       .get("set-cookie")
       ?.split(";")[0];
@@ -588,7 +639,7 @@ describe("invite-only magic-link authentication", () => {
     expect(travelerLinkResponse.status).toBe(200);
     await flushBackgroundTasks(services.backgroundTasks);
     const travelerLink = sendEmail.mock.calls.at(-1)?.[1];
-    const travelerSession = await app.request(travelerLink as string);
+    const travelerSession = await confirmLink(app, travelerLink as string);
     const travelerCookie = travelerSession.headers
       .get("set-cookie")
       ?.split(";")[0];
@@ -756,7 +807,10 @@ describe("invite-only magic-link authentication", () => {
       body: JSON.stringify({ email: manager.email, callbackURL: "/" }),
     });
     await flushBackgroundTasks(services.backgroundTasks);
-    const login = await app.request(sendEmail.mock.calls.at(-1)?.[1] as string);
+    const login = await confirmLink(
+      app,
+      sendEmail.mock.calls.at(-1)?.[1] as string,
+    );
     const cookie = login.headers.get("set-cookie")?.split(";")[0] as string;
 
     const response = await app.request(
@@ -912,7 +966,98 @@ describe("invite-only magic-link authentication", () => {
     expect(sendEmail.mock.calls[0]?.[0]).toBe("manager@example.com");
 
     const magicLink = new URL(sendEmail.mock.calls[0]?.[1] ?? "");
-    const verificationResponse = await app.request(magicLink.href);
+    const previewUrl = new URL(
+      "http://127.0.0.1:3001/api/auth/magic-link/preview",
+    );
+    const preview = () =>
+      app.request(previewUrl.href, {
+        method: "POST",
+        headers: {
+          Origin: magicLink.origin,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: magicLink.searchParams.get("token") }),
+      });
+    for (const method of ["GET", "HEAD", "GET"]) {
+      const scanned = await app.request(magicLink.href, { method });
+      expect(scanned.status).toBe(302);
+      expect(scanned.headers.get("location")).toContain(
+        "/sign-in/confirm#token=",
+      );
+      expect(scanned.headers.get("set-cookie")).toBeNull();
+      expect(scanned.headers.get("cache-control")).toContain("no-store");
+    }
+    for (const path of [
+      "/api/auth/magic-link/verify/",
+      "/api/auth//magic-link/verify",
+      "/api/auth/%6dagic-link/verify",
+    ]) {
+      const alias = new URL(magicLink);
+      alias.pathname = path;
+      const response = await app.request(alias.href);
+      expect(response.headers.get("set-cookie")).toBeNull();
+    }
+    expect(await (await preview()).json()).toEqual({
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+    expect(await (await preview()).json()).toEqual({
+      firstName: "Mina",
+      lastName: "Manager",
+    });
+    expect(
+      await services.database.select().from(schema.verifications),
+    ).toHaveLength(1);
+    expect(await services.database.select().from(schema.sessions)).toHaveLength(
+      0,
+    );
+    const [pending] = await services.database
+      .select()
+      .from(schema.verifications);
+    if (!pending) throw new Error("Expected a pending verification");
+    expect(pending.expiresAt.getTime()).toBeGreaterThan(
+      Date.now() + 59 * 60 * 1000,
+    );
+    expect(pending?.expiresAt.getTime()).toBeLessThanOrEqual(
+      Date.now() + 60 * 60 * 1000,
+    );
+    expect(
+      (await confirmLink(app, magicLink.href, "https://attacker.example.com"))
+        .status,
+    ).toBe(403);
+    expect(
+      (
+        await app.request(magicLink.href, {
+          method: "POST",
+          body: magicLink.searchParams,
+        })
+      ).status,
+    ).toBe(403);
+    const unsafeCallback = new URL(magicLink);
+    unsafeCallback.searchParams.set(
+      "callbackURL",
+      "https://attacker.example.com",
+    );
+    expect((await confirmLink(app, unsafeCallback.href)).status).toBe(403);
+    expect(
+      await services.database.select().from(schema.verifications),
+    ).toHaveLength(1);
+    await services.database
+      .update(schema.verifications)
+      .set({ expiresAt: new Date(Date.now() - 1000) });
+    expect((await preview()).status).toBe(410);
+    const expired = await confirmLink(app, magicLink.href);
+    expect(expired.headers.get("set-cookie")).toBeNull();
+    expect(expired.headers.get("location")).toContain("error=INVALID_TOKEN");
+    await services.database.delete(schema.verifications);
+    await services.database.insert(schema.verifications).values(pending);
+    const internalVerificationUrl = new URL(magicLink);
+    internalVerificationUrl.port = "3001";
+    const verificationResponse = await confirmLink(
+      app,
+      internalVerificationUrl.href,
+      magicLink.origin,
+    );
     expect(verificationResponse.status).toBe(302);
     const cookie = verificationResponse.headers
       .get("set-cookie")
@@ -922,7 +1067,7 @@ describe("invite-only magic-link authentication", () => {
       1,
     );
 
-    await app.request(magicLink.href);
+    await confirmLink(app, magicLink.href);
     expect(await services.database.select().from(schema.sessions)).toHaveLength(
       1,
     );
@@ -992,7 +1137,7 @@ describe("invite-only magic-link authentication", () => {
     logError.mockRestore();
   });
 
-  it("limits each email address to one magic-link request every 30 seconds", async () => {
+  it("limits each email address to one magic-link request every five minutes", async () => {
     const services = await createTestServices(
       vi.fn().mockResolvedValue(undefined),
     );
@@ -1024,6 +1169,15 @@ describe("invite-only magic-link authentication", () => {
     expect(await secondResponse.json()).toEqual({ error: "rate_limited" });
     const retryAfter = Number(secondResponse.headers.get("Retry-After"));
     expect(retryAfter).toBeGreaterThan(0);
-    expect(retryAfter).toBeLessThanOrEqual(30);
+    expect(retryAfter).toBeLessThanOrEqual(300);
+    await services.database
+      .update(schema.rateLimits)
+      .set({ lastRequest: Date.now() - 31_000 });
+    expect((await requestLink()).status).toBe(429);
+    await services.database
+      .update(schema.rateLimits)
+      .set({ lastRequest: Date.now() - 301_000 });
+    expect((await requestLink()).status).toBe(200);
+    await flushBackgroundTasks(services.backgroundTasks);
   });
 });

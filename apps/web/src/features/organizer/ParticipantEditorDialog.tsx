@@ -33,6 +33,7 @@ export function ParticipantEditorDialog({
   isManager,
   isSaving,
   isCopying,
+  isCopied,
   setSelected,
   setProfile,
   setDetails,
@@ -54,6 +55,7 @@ export function ParticipantEditorDialog({
   isManager: boolean;
   isSaving: boolean;
   isCopying: boolean;
+  isCopied: boolean;
   setSelected: (selected: StaffTraveler | null) => void;
   setProfile: Dispatch<SetStateAction<ProfileDraft | null>>;
   setDetails: Dispatch<SetStateAction<DetailsDraft | null>>;
@@ -145,12 +147,18 @@ export function ParticipantEditorDialog({
                 onPress={() => onCopyLink()}
                 isDisabled={isCopying || isSaving}
               >
-                {isCopying ? (
+                {isCopied ? (
                   <Check aria-hidden="true" size={16} />
                 ) : (
                   <Copy aria-hidden="true" size={16} />
                 )}
-                {isCopying ? t("copied") : t("copySignInLink")}
+                <span aria-live="polite">
+                  {isCopying
+                    ? t("copyingSignInLink")
+                    : isCopied
+                      ? t("copied")
+                      : t("copySignInLink")}
+                </span>
               </Button>
             ) : (
               <span />

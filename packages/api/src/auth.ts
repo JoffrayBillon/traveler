@@ -196,7 +196,7 @@ export function createAuth(
     plugins: [
       magicLink({
         disableSignUp: true,
-        expiresIn: 60 * 10,
+        expiresIn: 60 * 60,
         storeToken: "hashed",
         rateLimit: { window: 60, max: 5 },
         sendMagicLink: async ({ email, url, metadata }) => {

@@ -1,4 +1,15 @@
 export const en = {
+  confirmSignInTitle: "Confirm your sign-in",
+  confirmSignInIdentity: "Are you {{name}}?",
+  confirmSignInDescription:
+    "Your link will only be used when you confirm your sign-in.",
+  confirmSignInButton: "Yes, sign me in",
+  signingIn: "Signing in…",
+  signInAsSomeoneElse: "Use another account",
+  signInLinkInvalid:
+    "This link has expired or has already been used. Request a new sign-in link.",
+  requestNewSignInLink: "Request a new link",
+  checkingSignInLink: "Checking your link…",
   detailedTransportMappingDescription:
     "Choose an existing group for each city in the spreadsheet. The choice applies to validated registrations without configured transport.",
   rosterReviewDescription:
@@ -269,8 +280,9 @@ export const en = {
   roleChangeNotAllowed: "This role change is not allowed.",
   copySignInLink: "Generate and copy sign-in link",
   copied: "Copied",
+  copyingSignInLink: "Copying…",
   signInLinkCopied:
-    "Sign-in link generated and copied. It expires in 10 minutes and works once.",
+    "Sign-in link generated and copied. It expires in 1 hour and works once.",
   signInLinkCouldNotBeCopied:
     "The sign-in link could not be generated or copied.",
   saveChanges: "Save changes",

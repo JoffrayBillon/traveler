@@ -3,13 +3,18 @@ import type { ThemePreference } from "@traveler/hooks/useThemePreference";
 import type { TravelerProfile } from "@traveler/types/profile";
 import { lazy, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 import { NotFoundRoute } from "./NotFoundRoute";
 import { TravelerLayout } from "./TravelerLayout";
 
 const OrganizerRoute = lazy(() =>
   import("./OrganizerRoute").then((module) => ({
     default: module.OrganizerRoute,
+  })),
+);
+const SignInConfirmationRoute = lazy(() =>
+  import("./SignInConfirmationRoute").then((module) => ({
+    default: module.SignInConfirmationRoute,
   })),
 );
 const TripRoute = lazy(() =>
@@ -44,6 +49,7 @@ export function AppRoutes({
   mainRef: RefObject<HTMLElement | null>;
 }) {
   const { t } = useTranslation();
+  const location = useLocation();
   const loadingProfile = <LoadingIndicator label={t("loadingYourSpace")} />;
 
   function renderProtectedRoute(
@@ -68,6 +74,10 @@ export function AppRoutes({
           />
         }
       >
+        <Route
+          path="sign-in/confirm"
+          element={<SignInConfirmationRoute key={location.key} />}
+        />
         <Route
           index
           element={profile ? <Navigate to="/trips" replace /> : signInPage}

@@ -1,5 +1,10 @@
 import type { Hono } from "hono";
 import type { AuthServices } from "../auth";
+import {
+  confirmMagicLink,
+  magicLinkConfirmationSchema,
+  previewMagicLink,
+} from "../services/auth/magic-link-confirmation";
 import { handleMagicLinkRequest } from "../services/auth/magic-link-request";
 
 export function registerAuthEndpoints(
@@ -12,9 +17,42 @@ export function registerAuthEndpoints(
       context.header("Cache-Control", "no-store");
       return context.json({ error: "service_unavailable" }, 503);
     }
+    const path = context.req.path.replace(/\/+$/, "");
+    const isVerification = path === "/api/auth/magic-link/verify";
+    const isPreview = path === "/api/auth/magic-link/preview";
+    if (isVerification || isPreview) {
+      context.header("Cache-Control", "private, no-store");
+      context.header("Referrer-Policy", "no-referrer");
+      context.header("X-Robots-Tag", "noindex, nofollow, noarchive");
+      if (isVerification && ["GET", "HEAD"].includes(context.req.method)) {
+        return context.redirect(
+          `/sign-in/confirm#${new URL(context.req.url).searchParams.toString()}`,
+          302,
+        );
+      }
+      if (context.req.method !== "POST")
+        return context.json({ error: "method_not_allowed" }, 405);
+      const origin = context.req.header("origin");
+      const authContext = await services.auth.$context;
+      if (!origin || !authContext.isTrustedOrigin(origin)) {
+        return context.json({ error: "forbidden" }, 403);
+      }
+      const body = isPreview
+        ? await context.req.json().catch(() => null)
+        : await context.req.parseBody().catch(() => null);
+      const input = magicLinkConfirmationSchema.safeParse(body);
+      if (!input.success) return context.json({ error: "invalid_token" }, 400);
+      if (isPreview) {
+        const identity = await previewMagicLink(services, input.data.token);
+        return identity
+          ? context.json(identity)
+          : context.json({ error: "invalid_token" }, 410);
+      }
+      return confirmMagicLink(services, context.req.raw, input.data);
+    }
     if (
       context.req.method === "POST" &&
-      context.req.path === "/api/auth/sign-in/magic-link"
+      path === "/api/auth/sign-in/magic-link"
     ) {
       return handleMagicLinkRequest(services, context.req.raw);
     }

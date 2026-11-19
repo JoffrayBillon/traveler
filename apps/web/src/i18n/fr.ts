@@ -1,4 +1,15 @@
 export const fr = {
+  confirmSignInTitle: "Confirmer votre connexion",
+  confirmSignInIdentity: "Êtes-vous bien {{name}} ?",
+  confirmSignInDescription:
+    "Votre lien sera utilisé uniquement lorsque vous confirmerez votre connexion.",
+  confirmSignInButton: "Oui, me connecter",
+  signingIn: "Connexion en cours…",
+  signInAsSomeoneElse: "Utiliser un autre compte",
+  signInLinkInvalid:
+    "Ce lien a expiré ou a déjà été utilisé. Demandez un nouveau lien de connexion.",
+  requestNewSignInLink: "Demander un nouveau lien",
+  checkingSignInLink: "Vérification du lien…",
   detailedTransportMappingDescription:
     "Choisissez un groupe existant pour chaque ville du fichier. Le choix s’applique aux inscriptions validées sans transport configuré.",
   rosterReviewDescription:
@@ -279,8 +290,9 @@ export const fr = {
   roleChangeNotAllowed: "Ce changement de rôle n’est pas autorisé.",
   copySignInLink: "Générer et copier le lien de connexion",
   copied: "Copié",
+  copyingSignInLink: "Copie en cours…",
   signInLinkCopied:
-    "Lien de connexion généré et copié. Il expire dans 10 minutes et ne fonctionne qu’une fois.",
+    "Lien de connexion généré et copié. Il expire dans 1 heure et ne fonctionne qu’une fois.",
   signInLinkCouldNotBeCopied:
     "Impossible de générer ou de copier le lien de connexion.",
   saveChanges: "Enregistrer les modifications",

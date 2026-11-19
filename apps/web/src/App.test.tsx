@@ -29,6 +29,7 @@ function mockResponse(
 
 beforeEach(() => {
   queryClient.clear();
+  window.localStorage.clear();
   window.history.pushState({}, "", "/");
   window.localStorage.removeItem("traveler-theme");
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(401)));
@@ -41,6 +42,68 @@ afterEach(() => {
 });
 
 describe("application shell", () => {
+  it("previews a sign-in link without redeeming it or sending mail", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/sign-in/confirm#token=synthetic-token&callbackURL=%2Ftrips",
+    );
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string) =>
+        Promise.resolve(
+          url === "/api/auth/magic-link/preview"
+            ? mockResponse(200, { firstName: "Mina", lastName: "Manager" })
+            : mockResponse(401),
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    expect(
+      await screen.findByText("Êtes-vous bien Mina Manager ?"),
+    ).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Oui, me connecter" });
+    const form = button.closest("form");
+    expect(form).toHaveAttribute("method", "post");
+    expect(form).toHaveAttribute("action", "/api/auth/magic-link/verify");
+    expect(form?.querySelector('[name="token"]')).toHaveValue(
+      "synthetic-token",
+    );
+    expect(form?.querySelector('[name="callbackURL"]')).toHaveValue("/trips");
+    expect(
+      fetchMock.mock.calls.every(
+        ([url]) => url === "/api/me" || url === "/api/auth/magic-link/preview",
+      ),
+    ).toBe(true);
+  });
+
+  it("shows an expired link without automatically requesting another email", async () => {
+    window.history.pushState({}, "", "/sign-in/confirm#token=expired-token");
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string) =>
+        Promise.resolve(
+          mockResponse(url === "/api/auth/magic-link/preview" ? 410 : 401),
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ce lien a expiré",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Oui, me connecter" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Demander un nouveau lien" }),
+    ).toHaveAttribute("href", "/");
+    expect(
+      fetchMock.mock.calls.some(
+        ([url]) => url === "/api/auth/sign-in/magic-link",
+      ),
+    ).toBe(false);
+  });
+
   it("provides a main landmark and a keyboard skip link", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -317,7 +380,7 @@ describe("application shell", () => {
       "Si cette adresse est autorisée, son lien de connexion est affiché dans le terminal de l’API locale.",
     );
     const retryButton = screen.getByRole("button", {
-      name: "Réessayez dans 30 s",
+      name: "Réessayez dans 300 s",
     });
     expect(retryButton).toBeDisabled();
     await user.click(retryButton);
@@ -418,11 +481,11 @@ describe("application shell", () => {
       await Promise.resolve();
     });
     expect(
-      screen.getByRole("button", { name: "Réessayez dans 30 s" }),
+      screen.getByRole("button", { name: "Réessayez dans 300 s" }),
     ).toBeDisabled();
 
     await act(async () => {
-      vi.setSystemTime(Date.now() + 31_000);
+      vi.setSystemTime(Date.now() + 301_000);
       window.dispatchEvent(new Event("focus"));
     });
 

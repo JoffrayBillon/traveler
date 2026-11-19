@@ -18,8 +18,8 @@ export function createBrevoMagicLinkSender(
         sender: { name: "BotMail", email: senderEmail },
         to: [{ email }],
         subject: "Votre lien de connexion Traveler",
-        textContent: `Connectez-vous à votre espace Traveler : ${url}\n\nCe lien expire après 10 minutes et ne peut être utilisé qu’une fois.`,
-        htmlContent: `<p>Connectez-vous à votre espace Traveler.</p><p><a href="${safeUrl}">Ouvrir mon espace voyage</a></p><p>Ce lien expire après 10 minutes et ne peut être utilisé qu’une fois.</p>`,
+        textContent: `Connectez-vous à votre espace Traveler : ${url}\n\nConfirmez votre identité sur la page pour vous connecter. Ce lien expire après 1 heure et ne peut être utilisé qu’une fois.`,
+        htmlContent: `<p>Connectez-vous à votre espace Traveler.</p><p><a href="${safeUrl}">Ouvrir mon espace voyage</a></p><p>Confirmez votre identité sur la page pour vous connecter. Ce lien expire après 1 heure et ne peut être utilisé qu’une fois.</p>`,
       });
     } catch (error) {
       if (error instanceof Brevo.UnauthorizedError) {

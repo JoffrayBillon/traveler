@@ -4,14 +4,14 @@ import type { AuthServices } from "../../auth";
 import { normalizeEmail } from "../../email";
 import * as schema from "../../schema";
 
-const magicLinkEmailCooldownMs = 30_000;
+const magicLinkEmailCooldownMs = 5 * 60 * 1000;
 export async function handleMagicLinkRequest(
   services: AuthServices,
   request: Request,
-  options: { awaitProcessing?: boolean } = {},
+  options: { copyOnly?: boolean } = {},
 ) {
   const normalized = await normalizeMagicLinkRequest(request);
-  if (normalized.email) {
+  if (normalized.email && !options.copyOnly) {
     const retryAfter = await enforceMagicLinkEmailCooldown(
       services,
       normalized.email,
@@ -38,7 +38,7 @@ export async function handleMagicLinkRequest(
     return response;
   };
 
-  if (options.awaitProcessing) {
+  if (options.copyOnly) {
     try {
       const response = await processRequest();
       if (response.status === 429) {
