@@ -3,12 +3,12 @@ import { apiRequest } from "@traveler/api/client";
 import { queryKeys } from "@traveler/api/query-keys";
 import { applyProfileValues } from "@traveler/api/trips/model";
 import type { TravelerTripData } from "@traveler/api/trips/trip.types";
-import type { TravelerProfileValues } from "./profile.types";
+import type { SaveTravelerProfileInput } from "./profile.types";
 
 export function useSaveTravelerProfileMutation(tripId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (values: TravelerProfileValues) =>
+    mutationFn: (values: SaveTravelerProfileInput) =>
       apiRequest(`/api/trips/${encodeURIComponent(tripId)}/profile`, {
         method: "PUT",
         body: JSON.stringify(values),
@@ -18,9 +18,17 @@ export function useSaveTravelerProfileMutation(tripId: string) {
         queryKeys.traveler(tripId),
         (current) => (current ? applyProfileValues(current, values) : current),
       );
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.rooming(tripId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.rooming(tripId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.roomRequests(tripId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.participantDirectory(tripId),
+        }),
+      ]);
     },
   });
 }

@@ -20,6 +20,7 @@ export type ProfileDraft = Pick<
   | "emergencyContactFirstName"
   | "emergencyContactLastName"
   | "emergencyContactPhone"
+  | "personalPhone"
 >;
 
 export type DetailsDraft = Omit<

@@ -10,14 +10,17 @@ import type {
 } from "@traveler/api/participants/participant-form.types";
 import { useParticipantDirectoryQuery } from "@traveler/api/participants/queries";
 import { useTripTransportQuery } from "@traveler/api/transport/queries";
-import { textFieldStyles } from "@traveler/components/ui";
-import { getLocale } from "@traveler/i18n";
-import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Input, Label, TextField } from "react-aria-components";
+import { ParticipantSearchField } from "@traveler/components/ParticipantSearchField";
+import { messageStyles } from "@traveler/components/ui";
+import { normalizeSearchText } from "@traveler/lib/normalize-search-text";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AddParticipantDialog } from "./AddParticipantDialog";
 import { ParticipantEditorDialog } from "./ParticipantEditorDialog";
+import {
+  defaultParticipantFilters,
+  ParticipantFilters,
+} from "./ParticipantFilters";
 import { ParticipantList } from "./ParticipantList";
 
 export function ParticipantDirectory({
@@ -36,6 +39,7 @@ export function ParticipantDirectory({
   const participants = participantsQuery.data ?? [];
   const transportDrivers = transportQuery.data?.drivers ?? [];
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState(defaultParticipantFilters);
   const [selected, setSelected] = useState<StaffTraveler | null>(null);
   const [profile, setProfile] = useState<ProfileDraft | null>(null);
   const [details, setDetails] = useState<DetailsDraft | null>(null);
@@ -43,27 +47,59 @@ export function ParticipantDirectory({
   const [role, setRole] = useState<StaffTraveler["role"]>("traveler");
   const [isVip, setIsVip] = useState(false);
   const [message, setMessage] = useState("");
+  const [isCopying, setIsCopying] = useState(false);
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!copiedUserId) return;
+    const timer = window.setTimeout(() => setCopiedUserId(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [copiedUserId]);
 
   const visibleParticipants = useMemo(() => {
     const query = normalizeSearchText(search);
-    if (!query) return participants;
-    return participants.filter((person) =>
-      normalizeSearchText(
-        [
-          person.firstName,
-          person.lastName,
-          person.email,
-          person.role,
-          person.emergencyContactPhone,
-          person.departureCity,
-        ]
-          .filter(Boolean)
-          .join(" "),
-      ).includes(query),
+    return participants.filter((person) => {
+      const transport = person.groupId
+        ? `group:${person.groupId}`
+        : person.transportChoice === "none" ||
+            (person.transportChoice == null && person.transportMode === "none")
+          ? "none"
+          : "unconfirmed";
+      if (
+        (isManager &&
+          filters.payment !== "all" &&
+          filters.payment !== (person.paymentStatus ?? "unset")) ||
+        (filters.role !== "all" && filters.role !== person.role) ||
+        (filters.activity !== "all" &&
+          filters.activity !== (person.activityProfile ?? "unset")) ||
+        (filters.transport !== "all" && filters.transport !== transport)
+      )
+        return false;
+      return (
+        !query ||
+        normalizeSearchText(
+          [
+            person.firstName,
+            person.lastName,
+            person.email,
+            person.role,
+            person.emergencyContactPhone,
+            person.departureCity,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ).includes(query)
+      );
+    });
+  }, [participants, search, filters, isManager]);
+  const isFiltered =
+    Boolean(normalizeSearchText(search)) ||
+    Object.entries(filters).some(
+      ([key, value]) => value !== "all" && (key !== "payment" || isManager),
     );
-  }, [participants, search]);
 
   function openParticipant(person: StaffTraveler) {
+    setCopiedUserId(null);
     setSelected(person);
     setProfile({
       firstName: person.firstName,
@@ -74,6 +110,7 @@ export function ParticipantDirectory({
       emergencyContactFirstName: person.emergencyContactFirstName,
       emergencyContactLastName: person.emergencyContactLastName,
       emergencyContactPhone: person.emergencyContactPhone,
+      personalPhone: person.personalPhone ?? "",
     });
     setDetails({
       activityProfile: person.activityProfile,
@@ -92,11 +129,18 @@ export function ParticipantDirectory({
 
   async function saveParticipant() {
     if (!selected || !profile || !details) return;
+    const profileToSave = { ...profile };
+    if (profile.personalPhone === (selected.personalPhone ?? "")) {
+      delete profileToSave.personalPhone;
+    } else if (profile.personalPhone === null) {
+      setMessage(t("enterAValidPhoneNumber"));
+      return;
+    }
     setMessage("");
     try {
       await saveParticipantMutation.mutateAsync({
         participant: selected,
-        profile,
+        profile: profileToSave,
         details,
         email,
         role,
@@ -121,13 +165,16 @@ export function ParticipantDirectory({
   }
 
   async function copySignInLink() {
-    if (!selected) return;
+    if (!selected || isCopying) return;
+    setIsCopying(true);
+    setCopiedUserId(null);
     setMessage("");
     try {
       const link = await copyParticipantLinkMutation.mutateAsync(
         selected.userId,
       );
       await navigator.clipboard.writeText(link);
+      setCopiedUserId(selected.userId);
       setMessage(t("signInLinkCopied"));
     } catch (error) {
       if (error instanceof ApiError && error.status === 429) {
@@ -139,6 +186,8 @@ export function ParticipantDirectory({
         return;
       }
       setMessage(t("signInLinkCouldNotBeCopied"));
+    } finally {
+      setIsCopying(false);
     }
   }
 
@@ -165,37 +214,28 @@ export function ParticipantDirectory({
           />
         )}
       </div>
-      <TextField
-        className="grid max-w-xl gap-2"
-        value={search}
-        onChange={setSearch}
-      >
-        <Label className={textFieldStyles().label()}>
-          {t("searchParticipants")}
-        </Label>
-        <div className="relative">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-content-subtle"
-            size={17}
-          />
-          <Input
-            className={`${textFieldStyles().input()} pl-10`}
-            type="search"
-            autoComplete="off"
-          />
-        </div>
-      </TextField>
+      <ParticipantSearchField value={search} onChange={setSearch} />
+      <ParticipantFilters
+        filters={filters}
+        groups={transportGroups}
+        isManager={isManager}
+        onChange={setFilters}
+      />
       <ParticipantList
         participants={visibleParticipants}
         isLoading={participantsQuery.isPending}
         isError={participantsQuery.isError}
-        search={search}
+        isFiltered={isFiltered}
         isManager={isManager}
-        message={message}
         onSelect={openParticipant}
       />
+      {message && (
+        <p className={messageStyles()} role="status" aria-live="polite">
+          {message}
+        </p>
+      )}
       <ParticipantEditorDialog
+        tripId={tripId}
         selected={selected}
         profile={profile}
         details={details}
@@ -210,21 +250,18 @@ export function ParticipantDirectory({
         onIsVipChange={setIsVip}
         isManager={isManager}
         isSaving={saveParticipantMutation.isPending}
-        isCopying={copyParticipantLinkMutation.isPending}
+        isCopying={isCopying}
+        isCopied={selected !== null && copiedUserId === selected.userId}
         setSelected={setSelected}
         setProfile={setProfile}
         setDetails={setDetails}
         onSave={() => void saveParticipant()}
         onCopyLink={() => void copySignInLink()}
+        onDeleted={() => {
+          setSelected(null);
+          setMessage(t("participantDeleted"));
+        }}
       />
     </section>
   );
-}
-
-function normalizeSearchText(value: string) {
-  return value
-    .trim()
-    .toLocaleLowerCase(getLocale())
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
 }

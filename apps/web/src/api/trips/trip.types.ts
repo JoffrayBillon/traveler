@@ -13,6 +13,7 @@ export type TravelerTripData = {
     emergencyContactFirstName: string | null;
     emergencyContactLastName: string | null;
     emergencyContactPhone: string | null;
+    personalPhone?: string | null;
     completed: boolean;
   };
   details: null | {

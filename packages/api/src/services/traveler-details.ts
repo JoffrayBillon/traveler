@@ -8,6 +8,7 @@ import {
   saveTravelerCarpoolPreferences,
   saveTravelerDetails,
 } from "../datamodel/traveler.repository";
+import { parsePersonalPhone } from "./personal-phone";
 
 import {
   synchronizeDepartureTimes,
@@ -107,6 +108,7 @@ export async function completeTravelerProfile(
       ? input.emergencyContactPhone.trim()
       : "";
   const parsedPhone = parsePhoneNumberFromString(emergencyContactPhone);
+  const personalPhone = parsePersonalPhone(input.personalPhone);
   if (
     firstName.length < 1 ||
     firstName.length > 100 ||
@@ -120,7 +122,8 @@ export async function completeTravelerProfile(
     emergencyContactLastName.length < 1 ||
     emergencyContactLastName.length > 100 ||
     emergencyContactPhone.length > 40 ||
-    !parsedPhone?.isValid()
+    !parsedPhone?.isValid() ||
+    personalPhone === null
   )
     return { ok: false as const, error: "invalid_profile" };
   if (membership.genderConfirmed && membership.gender !== gender)
@@ -137,6 +140,7 @@ export async function completeTravelerProfile(
     emergencyContactFirstName,
     emergencyContactLastName,
     emergencyContactPhone: parsedPhone.number,
+    personalPhone,
   });
   if (!saved) return { ok: false as const, error: "gender_locked" };
   return { ok: true as const };

@@ -23,7 +23,7 @@ export async function listTripMembershipsForUser(
 }
 
 export async function getTripMembershipRole(
-  database: AppDatabase,
+  database: Pick<AppDatabase, "select">,
   tripId: string,
   userId: string,
 ) {

@@ -131,7 +131,7 @@ export function registerStaffAccountEndpoints(
             metadata: { copySignInLinkRequestId: requestId },
           }),
         }),
-        { awaitProcessing: true },
+        session.user.id,
       );
       if (response.status === 429) {
         magicLinkCapture.take(requestId);

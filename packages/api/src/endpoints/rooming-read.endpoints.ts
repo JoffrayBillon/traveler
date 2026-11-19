@@ -20,6 +20,7 @@ export function registerRoomingReadEndpoints(
       services.database,
       context.req.param("tripId"),
       session.user.id,
+      context.req.query("view") === "organizer",
     );
     if (!result) return context.json({ error: "not_found" }, 404);
     return context.json(result);

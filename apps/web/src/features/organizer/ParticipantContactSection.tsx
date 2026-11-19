@@ -1,4 +1,9 @@
 import type { ProfileDraft } from "@traveler/api/participants/participant-form.types";
+import { PhoneNumberField } from "@traveler/features/profile/PhoneNumberField";
+import { getInitialPhone } from "@traveler/features/profile/phone-format";
+import type { CountryCode } from "libphonenumber-js/max";
+import { parsePhoneNumberFromString } from "libphonenumber-js/max";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ProfileText } from "./ProfileText";
 
@@ -15,6 +20,14 @@ export function ParticipantContactSection({
   onChange,
 }: ParticipantContactSectionProps) {
   const { t } = useTranslation();
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(
+    () => getInitialPhone(profile.personalPhone ?? "").country,
+  );
+  const [phoneInput, setPhoneInput] = useState(
+    () => getInitialPhone(profile.personalPhone ?? "").value,
+  );
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const phoneCountryRef = useRef(phoneCountry);
   function changeProfile<K extends keyof ProfileDraft>(
     key: K,
     value: ProfileDraft[K],
@@ -29,6 +42,33 @@ export function ParticipantContactSection({
       <h3 className="text-base font-bold" id="user-contact-title">
         {t("contactAndDietaryDetails")}
       </h3>
+      <PhoneNumberField
+        label={t("personalPhone")}
+        isRequired={false}
+        value={phoneInput}
+        country={phoneCountry}
+        onChange={(value) => {
+          setPhoneInput(value);
+          const parsed = value
+            ? parsePhoneNumberFromString(value, phoneCountryRef.current)
+            : undefined;
+          onChange(
+            "personalPhone",
+            value ? (parsed?.isValid() ? parsed.number : null) : "",
+          );
+        }}
+        onCountryChange={(country) => {
+          phoneCountryRef.current = country;
+          setPhoneCountry(country);
+        }}
+        onBlur={() => setPhoneTouched(true)}
+        isInvalid={
+          phoneTouched &&
+          Boolean(phoneInput.trim()) &&
+          !parsePhoneNumberFromString(phoneInput, phoneCountry)?.isValid()
+        }
+        errorMessage={t("enterAValidPhoneNumber")}
+      />
       <ProfileText
         label={t("dietaryRequirements")}
         value={profile.dietaryRequirements ?? ""}

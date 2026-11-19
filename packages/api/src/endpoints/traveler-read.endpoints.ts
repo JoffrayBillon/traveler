@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import type { AuthServices } from "../auth";
+import { personalPhone } from "../datamodel/personal-phone.query";
 import * as schema from "../schema";
 import { getSession } from "../services/auth/get-session";
 export function registerTravelerReadEndpoints(
@@ -34,6 +35,7 @@ export function registerTravelerReadEndpoints(
         emergencyContactLastName:
           schema.travelerProfiles.emergencyContactLastName,
         emergencyContactPhone: schema.travelerProfiles.emergencyContactPhone,
+        personalPhone,
         profileCompletedAt: schema.travelerProfiles.completedAt,
       })
       .from(schema.tripMemberships)
@@ -121,6 +123,7 @@ export function registerTravelerReadEndpoints(
         emergencyContactFirstName: membership.emergencyContactFirstName,
         emergencyContactLastName: membership.emergencyContactLastName,
         emergencyContactPhone: membership.emergencyContactPhone,
+        personalPhone: membership.personalPhone,
         completed:
           membership.genderConfirmed && Boolean(membership.profileCompletedAt),
       },

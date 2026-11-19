@@ -8,5 +8,13 @@ export type TravelerProfileValues = {
   emergencyContactFirstName: string;
   emergencyContactLastName: string;
   emergencyContactPhone: string;
+  personalPhone?: string | null;
   completed: boolean;
+};
+
+export type SaveTravelerProfileInput = Omit<
+  TravelerProfileValues,
+  "personalPhone"
+> & {
+  personalPhone?: string;
 };

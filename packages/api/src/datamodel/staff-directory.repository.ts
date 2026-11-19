@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
+import { personalPhone } from "./personal-phone.query";
 
 export async function findTripMemberRole(
   database: AppDatabase,
@@ -34,6 +35,7 @@ export function listTripTravelerRows(database: AppDatabase, tripId: string) {
       lastLoginAt: schema.tripMemberships.lastLoginAt,
       dietaryRequirements: schema.travelerProfiles.dietaryRequirements,
       allergens: schema.travelerProfiles.allergens,
+      personalPhone,
       profileCompletedAt: schema.travelerProfiles.completedAt,
       emergencyContactFirstName:
         schema.travelerProfiles.emergencyContactFirstName,

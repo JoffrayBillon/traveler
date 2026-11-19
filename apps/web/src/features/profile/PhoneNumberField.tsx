@@ -36,6 +36,8 @@ export function PhoneNumberField({
   onBlur,
   isInvalid,
   errorMessage,
+  label,
+  isRequired = true,
 }: {
   value: string;
   country: CountryCode;
@@ -44,6 +46,8 @@ export function PhoneNumberField({
   onBlur: () => void;
   isInvalid: boolean;
   errorMessage: string;
+  label?: string;
+  isRequired?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const countryNames = useMemo(
@@ -88,10 +92,12 @@ export function PhoneNumberField({
         onChange(formatPhoneInput(input, country));
       }}
       onBlur={onBlur}
-      isRequired
+      isRequired={isRequired}
       isInvalid={isInvalid}
     >
-      <Label className={textFieldStyles().label()}>{t("phoneNumber")}</Label>
+      <Label className={textFieldStyles().label()}>
+        {label ?? t("phoneNumber")}
+      </Label>
       <div className="flex h-11 min-w-0 items-stretch overflow-hidden rounded-control border border-border bg-surface focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus">
         <Select
           aria-label={t("chooseCountry")}

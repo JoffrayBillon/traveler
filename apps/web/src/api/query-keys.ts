@@ -1,10 +1,11 @@
 export const queryKeys = {
   me: ["me"] as const,
   traveler: (tripId: string) => ["trips", tripId, "traveler"] as const,
-  rooming: (tripId: string, includeTravelers?: boolean) =>
-    includeTravelers === undefined
+  rooming: (tripId: string, organizerView?: boolean) =>
+    organizerView === undefined
       ? (["trips", tripId, "rooming"] as const)
-      : (["trips", tripId, "rooming", includeTravelers] as const),
+      : (["trips", tripId, "rooming", organizerView] as const),
+  roomRequests: (tripId: string) => ["trips", tripId, "room-requests"] as const,
   roomInventory: (tripId: string) =>
     ["trips", tripId, "room-inventory"] as const,
   roomingHistory: (tripId: string) =>

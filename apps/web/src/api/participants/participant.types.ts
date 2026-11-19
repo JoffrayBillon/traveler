@@ -20,6 +20,7 @@ export type StaffTraveler = {
   emergencyContactFirstName: string | null;
   emergencyContactLastName: string | null;
   emergencyContactPhone: string | null;
+  personalPhone?: string | null;
   activityProfile: "ski" | "spa" | null;
   skiDayThree: boolean | null;
   transportChoice: "group" | "none" | "unconfirmed" | null;

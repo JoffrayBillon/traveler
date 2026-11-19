@@ -67,6 +67,10 @@ export function TravelerProfileSummary({
             value={profile.allergens || t("noneDeclared")}
           />
           <TravelerProfileValue
+            label={t("personalPhone")}
+            value={profile.personalPhone ?? "—"}
+          />
+          <TravelerProfileValue
             label={t("emergencyContact")}
             value={`${profile.emergencyContactFirstName} ${profile.emergencyContactLastName} · ${profile.emergencyContactPhone}`.trim()}
           />
