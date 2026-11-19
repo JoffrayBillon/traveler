@@ -121,6 +121,7 @@ export const en = {
   emergencyContactDescription:
     "A person the organizers can reach if they need to contact someone on your behalf.",
   phoneNumber: "Phone number",
+  personalPhone: "Personal phone",
   chooseCountry: "Choose country",
   enterAValidPhoneNumber: "Enter a valid phone number.",
   editMyProfile: "Edit my profile",
@@ -157,9 +158,7 @@ export const en = {
   selectRoommateToRequestExchange:
     "Select someone to request a room exchange with.",
   yourRoomIsLockedNoExchangeRequests:
-    "Your room is locked. Unlock it to request an exchange.",
-  youNeedARoomToRequestAnExchange:
-    "You need an assigned room before requesting an exchange.",
+    "Unlock your room to view the plan and request an exchange.",
   requestRoomExchangeWith: "Request a room exchange with {{name}}",
   organizerRoomingOverviewDescription:
     "Review and organize room assignments. Drag participants between rooms or use the manual assignment controls.",
@@ -173,7 +172,6 @@ export const en = {
   dropTravelerHereToUnassign:
     "Drop someone from a room here to leave them unassigned.",
   noUnassignedParticipants: "No participants are unassigned.",
-  approvedMixedRoom: "approved mixed room",
   emptyRoom: "Empty room",
   roomCountBedSAvailable: "{{room}} · {{count}} bed(s) available",
   operationFailed: "The operation failed.",
@@ -209,7 +207,7 @@ export const en = {
   decline: "Decline",
   yourApprovalIsRecorded: "Your approval is recorded",
   roomPlan: "Room plan",
-  manualRoomAssignmentAction: "Manual assignment",
+  manualRoomAssignmentAction: "Assign a room",
   manualRoomAssignmentTitle: "Change a person’s room assignment",
   manualRoomAssignmentDescription:
     "Choose a person and a room, or return them to the unassigned list.",
@@ -256,6 +254,11 @@ export const en = {
   availableRoomTargets: "Available rooms",
   travelerToMove: "Person to move",
   destinationRoom: "Destination room",
+  searchRoomByNumber: "Search by room number",
+  fullRoomExchangeOption: "{{room}} · {{capacity}}/{{capacity}} · Swap",
+  roomExchangePartner: "Person to swap with",
+  swapRoomPlaces: "Swap places",
+  noMatchingAvailableRooms: "No available rooms match.",
   alreadyAssigned: "already assigned",
   traveler: "Traveler",
   organizerSpace: "Organizer space",
@@ -352,6 +355,16 @@ export const en = {
   informationToCome: "Information to come",
   tripInformation: "Trip information",
   addUserManually: "Add a user",
+  deleteParticipant: "Delete traveler",
+  deleteParticipantDescription:
+    "The trip data for {{name}} will be permanently deleted. Their account and access will also be removed if this is their last trip.",
+  confirmParticipantEmail: "Re-enter the traveler’s email address",
+  deleteParticipantPermanently: "Delete permanently",
+  participantDeletionEmailChanged:
+    "The email address has changed. Reopen the profile to check the new address.",
+  participantDeletionFailed: "The traveler could not be deleted. Try again.",
+  participantDeleted: "The traveler was deleted.",
+  deletedParticipantName: "Deleted traveler",
   addUser: "Add user",
   manualParticipantDescription:
     "Create a user account for this trip. Set their role from the user profile after creation.",
@@ -380,6 +393,11 @@ export const en = {
     "Sign-in is temporarily unavailable. Please try again later.",
   signOutIsTemporarilyUnavailable: "Sign-out is temporarily unavailable.",
   theRequestWasDeclined: "The request was declined.",
+  refreshRoomPlan: "Refresh room plan",
+  roomPlanLastUpdated: "Last refreshed {{time}}",
+  roomPlanNotYetUpdated: "The room plan has not been loaded yet",
+  roomPlanRefreshFailed: "Could not refresh. Try again.",
+  roomRequestsUnavailable: "Room change requests are unavailable.",
   roomAssignmentsHaveBeenUpdated: "Room assignments have been updated.",
   travelerRemovedFromRoom:
     "The person has been returned to the unassigned list.",
@@ -488,6 +506,10 @@ export const en = {
   uploadThe2025MatriceRoominglisteSkiOnePointXlsxTemplateToFillItWithRoomsTravelersDietaryRequirementsAndTransportInformationKeepTheTrainSeatColumnsFromTheTemplate:
     "Upload the “2025_matrice_roomingliste_ski_ONE POINT.xlsx” template to fill it with rooms, travelers, dietary requirements and transport information. Keep the train seat columns from the template.",
   payment: "Payment",
+  allFilterValues: "All",
+  participantFilterActivity: "Package",
+  resetParticipantFilters: "Reset filters",
+  unknownPayment: "Unknown",
   email: "Email",
   file: "File",
   firstName: "First name",

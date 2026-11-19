@@ -12,6 +12,7 @@ import {
   updateParticipantEmailInTransaction,
   updateParticipantRoleInTransaction,
 } from "./participant-management";
+import { parsePersonalPhone } from "./personal-phone";
 
 type ParticipantEditorTransaction = Parameters<
   Parameters<AppDatabase["transaction"]>[0]
@@ -32,6 +33,7 @@ type ParticipantEditorInput = {
     emergencyContactFirstName: string;
     emergencyContactLastName: string;
     emergencyContactPhone: string;
+    personalPhone: string | undefined;
   };
   details: {
     activityProfile: ActivityProfile;
@@ -253,6 +255,7 @@ async function applyParticipantEditorUpdate(
       emergencyContactFirstName: input.profile.emergencyContactFirstName,
       emergencyContactLastName: input.profile.emergencyContactLastName,
       emergencyContactPhone: parsedEmergencyPhone?.number ?? "",
+      personalPhone: input.profile.personalPhone,
       completedAt:
         input.profile.firstName &&
         input.profile.lastName &&
@@ -272,6 +275,7 @@ async function applyParticipantEditorUpdate(
         emergencyContactFirstName: input.profile.emergencyContactFirstName,
         emergencyContactLastName: input.profile.emergencyContactLastName,
         emergencyContactPhone: parsedEmergencyPhone?.number ?? "",
+        personalPhone: input.profile.personalPhone,
         completedAt:
           input.profile.firstName &&
           input.profile.lastName &&
@@ -393,6 +397,7 @@ function parseParticipantEditorInput(
     100,
   );
   const emergencyContactPhone = optionalText(profile.emergencyContactPhone, 40);
+  const personalPhone = parsePersonalPhone(profile.personalPhone);
   const gender = profile.gender;
   const activityProfile = details.activityProfile;
   const skiDayThree =
@@ -410,6 +415,7 @@ function parseParticipantEditorInput(
     emergencyContactFirstName === null ||
     emergencyContactLastName === null ||
     emergencyContactPhone === null ||
+    personalPhone === null ||
     (gender !== null && gender !== "M" && gender !== "F") ||
     (activityProfile !== null &&
       activityProfile !== "ski" &&
@@ -485,6 +491,7 @@ function parseParticipantEditorInput(
       emergencyContactFirstName,
       emergencyContactLastName,
       emergencyContactPhone,
+      personalPhone,
     },
     details: {
       activityProfile: activityProfile as ActivityProfile,

@@ -121,6 +121,7 @@ export const fr = {
   emergencyContactDescription:
     "Une personne que l’équipe pourra joindre si elle doit contacter quelqu’un pour vous.",
   phoneNumber: "Téléphone",
+  personalPhone: "Téléphone personnel",
   chooseCountry: "Choisir un pays",
   enterAValidPhoneNumber: "Saisissez un numéro de téléphone valide.",
   editMyProfile: "Modifier ma fiche",
@@ -159,9 +160,7 @@ export const fr = {
   selectRoommateToRequestExchange:
     "Sélectionnez une personne pour proposer un échange de chambre.",
   yourRoomIsLockedNoExchangeRequests:
-    "Votre chambre est verrouillée. Déverrouillez-la pour proposer un échange.",
-  youNeedARoomToRequestAnExchange:
-    "Vous devez avoir une chambre attribuée pour demander un échange.",
+    "Déverrouillez votre chambre pour voir le plan et proposer un échange.",
   requestRoomExchangeWith: "Demander un échange de chambre avec {{name}}",
   organizerRoomingOverviewDescription:
     "Consultez et organisez les chambres. Déplacez les participants par glisser-déposer ou utilisez les commandes d’affectation manuelle.",
@@ -176,7 +175,6 @@ export const fr = {
   dropTravelerHereToUnassign:
     "Glissez ici une personne d’une chambre pour la remettre sans chambre.",
   noUnassignedParticipants: "Aucun participant sans chambre.",
-  approvedMixedRoom: "mixte validée",
   emptyRoom: "Chambre vide",
   roomCountBedSAvailable: "{{room}} · {{count}} place(s) libre(s)",
   operationFailed: "L’opération a échoué.",
@@ -216,7 +214,7 @@ export const fr = {
   decline: "Je refuse",
   yourApprovalIsRecorded: "Votre accord est enregistré",
   roomPlan: "Plan des chambres",
-  manualRoomAssignmentAction: "Affectation manuelle",
+  manualRoomAssignmentAction: "Affecter une chambre",
   manualRoomAssignmentTitle: "Modifier l’affectation d’une personne",
   manualRoomAssignmentDescription:
     "Choisissez une personne et une chambre, ou remettez-la sans chambre.",
@@ -265,6 +263,11 @@ export const fr = {
   availableRoomTargets: "Chambres disponibles",
   travelerToMove: "Personne à déplacer",
   destinationRoom: "Chambre de destination",
+  searchRoomByNumber: "Rechercher par numéro",
+  fullRoomExchangeOption: "{{room}} · {{capacity}}/{{capacity}} · Échange",
+  roomExchangePartner: "Personne avec qui échanger",
+  swapRoomPlaces: "Échanger les places",
+  noMatchingAvailableRooms: "Aucune chambre disponible ne correspond.",
   alreadyAssigned: "déjà placé",
   traveler: "Voyageur",
   organizerSpace: "Espace organisation",
@@ -365,6 +368,16 @@ export const fr = {
   informationToCome: "Informations à venir",
   tripInformation: "Informations du voyage",
   addUserManually: "Ajouter un utilisateur",
+  deleteParticipant: "Supprimer le voyageur",
+  deleteParticipantDescription:
+    "Les données de {{name}} pour ce voyage seront supprimées définitivement. Son compte et ses accès seront aussi supprimés si c’est son dernier voyage.",
+  confirmParticipantEmail: "Ressaisissez l’adresse e-mail du voyageur",
+  deleteParticipantPermanently: "Supprimer définitivement",
+  participantDeletionEmailChanged:
+    "L’adresse e-mail a changé. Rouvrez la fiche pour vérifier la nouvelle adresse.",
+  participantDeletionFailed: "La suppression du voyageur a échoué. Réessayez.",
+  participantDeleted: "Le voyageur a été supprimé.",
+  deletedParticipantName: "Voyageur supprimé",
   addUser: "Ajouter l’utilisateur",
   manualParticipantDescription:
     "Créez un compte pour ce voyage. Vous pourrez attribuer son rôle depuis sa fiche utilisateur.",
@@ -394,6 +407,12 @@ export const fr = {
   signOutIsTemporarilyUnavailable:
     "La déconnexion est momentanément indisponible.",
   theRequestWasDeclined: "La demande a été refusée.",
+  refreshRoomPlan: "Actualiser le plan des chambres",
+  roomPlanLastUpdated: "Dernière actualisation {{time}}",
+  roomPlanNotYetUpdated: "Le plan n’a pas encore été chargé",
+  roomPlanRefreshFailed: "L’actualisation a échoué. Réessayez.",
+  roomRequestsUnavailable:
+    "Les demandes de changement de chambre sont indisponibles.",
   roomAssignmentsHaveBeenUpdated: "La répartition a été mise à jour.",
   travelerRemovedFromRoom: "La personne a été remise sans chambre.",
   removeRoomAssignment: "Remettre sans chambre",
@@ -503,6 +522,10 @@ export const fr = {
   uploadThe2025MatriceRoominglisteSkiOnePointXlsxTemplateToFillItWithRoomsTravelersDietaryRequirementsAndTransportInformationKeepTheTrainSeatColumnsFromTheTemplate:
     "Importez le modèle « 2025_matrice_roomingliste_ski_ONE POINT.xlsx » pour le remplir avec les chambres, voyageurs, régimes et informations de transport. Les colonnes de placement train restent celles du modèle.",
   payment: "Paiement",
+  allFilterValues: "Tout",
+  participantFilterActivity: "Déclinaison",
+  resetParticipantFilters: "Réinitialiser les filtres",
+  unknownPayment: "Non renseigné",
   email: "E-mail",
   file: "Fichier",
   firstName: "Prénom",

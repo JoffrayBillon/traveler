@@ -22,7 +22,7 @@ export function ParticipantList({
   participants,
   isLoading,
   isError,
-  search,
+  isFiltered,
   isManager,
   message,
   onSelect,
@@ -30,7 +30,7 @@ export function ParticipantList({
   participants: StaffTraveler[];
   isLoading: boolean;
   isError: boolean;
-  search: string;
+  isFiltered: boolean;
   isManager: boolean;
   message: string;
   onSelect: (participant: StaffTraveler) => void;
@@ -42,7 +42,7 @@ export function ParticipantList({
   if (participants.length === 0)
     return (
       <p className="rounded-card border border-dashed border-border p-4 text-sm text-content-muted">
-        {search
+        {isFiltered
           ? t("noSearchResults")
           : t("noParticipantsHaveBeenImportedForThisTrip")}
       </p>

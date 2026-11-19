@@ -15,13 +15,31 @@ type CreateRoomRequest =
 
 export function useRoomingMutations(tripId: string) {
   const queryClient = useQueryClient();
-  const invalidateRooming = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.rooming(tripId) }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.roomingHistory(tripId),
-      }),
-    ]);
+  const invalidatePlan = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.rooming(tripId) });
+  const invalidateRequests = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.roomRequests(tripId) });
+  const invalidateHistory = () =>
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.roomingHistory(tripId),
+    });
+
+  function refreshAssignments() {
+    void invalidateRequests();
+    void invalidateHistory();
+    return invalidatePlan();
+  }
+
+  function refreshRequest({ status }: { status: string }) {
+    if (status === "applied") {
+      return Promise.all([
+        invalidateRequests(),
+        invalidatePlan(),
+        invalidateHistory(),
+      ]);
+    }
+    return invalidateRequests();
+  }
   const saveRoomInventory = useMutation({
     mutationFn: (inventory: RoomInventoryItem[]) =>
       apiRequest<{
@@ -32,9 +50,10 @@ export function useRoomingMutations(tripId: string) {
         method: "PUT",
         body: JSON.stringify({ inventory }),
       }),
-    onSuccess: async () => {
+    onSuccess: async ({ removed }) => {
+      if (removed) void invalidateRequests();
       await Promise.all([
-        invalidateRooming(),
+        invalidatePlan(),
         queryClient.invalidateQueries({
           queryKey: queryKeys.roomInventory(tripId),
         }),
@@ -45,8 +64,11 @@ export function useRoomingMutations(tripId: string) {
 
   const createRequest = useMutation({
     mutationFn: (input: CreateRoomRequest) =>
-      apiPost(`${base}/room-requests`, input),
-    onSuccess: invalidateRooming,
+      apiPost<{ request: { status: "pending" | "applied" } }>(
+        `${base}/room-requests`,
+        input,
+      ),
+    onSuccess: ({ request }) => refreshRequest(request),
   });
   const respondToRequest = useMutation({
     mutationFn: ({
@@ -56,11 +78,11 @@ export function useRoomingMutations(tripId: string) {
       requestId: string;
       approve: boolean;
     }) =>
-      apiPost<{ status?: string }>(
+      apiPost<{ status: string }>(
         `${base}/room-requests/${encodeURIComponent(requestId)}/consent`,
         { approve },
       ),
-    onSuccess: invalidateRooming,
+    onSuccess: refreshRequest,
   });
   const generateRoomAssignments = useMutation({
     mutationFn: (snapshot: string) =>
@@ -71,7 +93,14 @@ export function useRoomingMutations(tripId: string) {
         missingGender: number;
         inventoryCreated: boolean;
       }>(`${base}/rooms/generate`, { snapshot }),
-    onSuccess: invalidateRooming,
+    onSuccess: async ({ inventoryCreated }) => {
+      if (inventoryCreated) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.roomInventory(tripId),
+        });
+      }
+      await refreshAssignments();
+    },
   });
   const previewRoomAssignments = useMutation({
     mutationFn: () =>
@@ -82,19 +111,21 @@ export function useRoomingMutations(tripId: string) {
       roomId,
       userId,
       expectedRoomId,
+      exchangeWithUserId,
     }: {
       roomId: string;
       userId: string;
       expectedRoomId: string | null;
+      exchangeWithUserId?: string;
     }) =>
       apiRequest(
         `${base}/rooms/${encodeURIComponent(roomId)}/participants/${encodeURIComponent(userId)}`,
         {
           method: "PUT",
-          body: JSON.stringify({ expectedRoomId }),
+          body: JSON.stringify({ expectedRoomId, exchangeWithUserId }),
         },
       ),
-    onSuccess: invalidateRooming,
+    onSuccess: refreshAssignments,
   });
   const unassignTraveler = useMutation({
     mutationFn: ({ roomId, userId }: { roomId: string; userId: string }) =>
@@ -102,7 +133,7 @@ export function useRoomingMutations(tripId: string) {
         `${base}/rooms/${encodeURIComponent(roomId)}/participants/${encodeURIComponent(userId)}`,
         { method: "DELETE" },
       ),
-    onSuccess: invalidateRooming,
+    onSuccess: refreshAssignments,
   });
   const setRoomLock = useMutation({
     mutationFn: ({ roomId, locked }: { roomId: string; locked: boolean }) =>
@@ -113,7 +144,10 @@ export function useRoomingMutations(tripId: string) {
           body: JSON.stringify({ locked }),
         },
       ),
-    onSuccess: invalidateRooming,
+    onSuccess: ({ locked }) => {
+      if (locked) void invalidateRequests();
+      return invalidatePlan();
+    },
   });
   const withdrawRequest = useMutation({
     mutationFn: (requestId: string) =>
@@ -121,7 +155,7 @@ export function useRoomingMutations(tripId: string) {
         `${base}/room-requests/${encodeURIComponent(requestId)}`,
         { method: "DELETE" },
       ),
-    onSuccess: invalidateRooming,
+    onSuccess: invalidateRequests,
   });
 
   return {

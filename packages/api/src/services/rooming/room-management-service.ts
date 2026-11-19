@@ -12,6 +12,7 @@ export async function staffMoveTraveler(
   expectedRoomId: string | null,
   targetRoomId: string,
   actorUserId: string,
+  exchangeWithUserId?: string,
 ) {
   return database.transaction(async (transaction) => {
     const [traveler] = await transaction
@@ -33,7 +34,10 @@ export async function staffMoveTraveler(
       .limit(1);
     if (!traveler || !targetRoom) return { error: "not_found" as const };
     const [current] = await transaction
-      .select({ roomId: schema.roomAssignments.roomId })
+      .select({
+        id: schema.roomAssignments.id,
+        roomId: schema.roomAssignments.roomId,
+      })
       .from(schema.roomAssignments)
       .where(
         and(
@@ -45,9 +49,16 @@ export async function staffMoveTraveler(
     const currentRoomId = current?.roomId ?? null;
     if (currentRoomId !== expectedRoomId)
       return { error: "room_composition_changed" as const };
-    if (currentRoomId === targetRoomId) return { status: "unchanged" as const };
+    if (currentRoomId === targetRoomId) {
+      return exchangeWithUserId
+        ? { error: "room_composition_changed" as const }
+        : { status: "unchanged" as const };
+    }
     const targetOccupants = await transaction
-      .select({ userId: schema.roomAssignments.userId })
+      .select({
+        id: schema.roomAssignments.id,
+        userId: schema.roomAssignments.userId,
+      })
       .from(schema.roomAssignments)
       .where(
         and(
@@ -55,34 +66,19 @@ export async function staffMoveTraveler(
           eq(schema.roomAssignments.roomId, targetRoomId),
         ),
       );
-    if (targetOccupants.length >= targetRoom.capacity)
-      return { error: "room_capacity_exceeded" as const };
-
     const changedRooms = [targetRoomId];
-    if (currentRoomId) {
-      changedRooms.push(currentRoomId);
-      await transaction
-        .delete(schema.roomAssignments)
-        .where(
-          and(
-            eq(schema.roomAssignments.tripId, tripId),
-            eq(schema.roomAssignments.userId, userId),
-          ),
-        );
-    }
-    await transaction.insert(schema.roomAssignments).values({
-      id: randomUUID(),
-      tripId,
-      roomId: targetRoomId,
-      userId,
-    });
+    let historyChanges: {
+      userId: string;
+      fromRoomId: string | null;
+      toRoomId: string | null;
+    }[];
+    let status: "moved" | "exchanged";
 
-    if (currentRoomId) {
+    if (exchangeWithUserId) {
+      if (!currentRoomId || !current)
+        return { error: "room_composition_changed" as const };
       const [sourceRoom] = await transaction
-        .select({
-          capacity: schema.rooms.capacity,
-          isLocked: schema.rooms.isLocked,
-        })
+        .select({ id: schema.rooms.id })
         .from(schema.rooms)
         .where(
           and(
@@ -91,27 +87,98 @@ export async function staffMoveTraveler(
           ),
         )
         .limit(1);
-      if (sourceRoom?.isLocked) {
-        const remainingOccupants = await transaction
-          .select({ userId: schema.roomAssignments.userId })
-          .from(schema.roomAssignments)
+      const exchangeOccupant = targetOccupants.find(
+        ({ userId: occupantId }) => occupantId === exchangeWithUserId,
+      );
+      if (
+        !sourceRoom ||
+        exchangeWithUserId === userId ||
+        !exchangeOccupant ||
+        targetOccupants.length < targetRoom.capacity
+      )
+        return { error: "room_composition_changed" as const };
+
+      changedRooms.push(currentRoomId);
+      await transaction
+        .update(schema.roomAssignments)
+        .set({ roomId: targetRoomId })
+        .where(eq(schema.roomAssignments.id, current.id));
+      await transaction
+        .update(schema.roomAssignments)
+        .set({ roomId: currentRoomId })
+        .where(eq(schema.roomAssignments.id, exchangeOccupant.id));
+
+      historyChanges = [
+        { userId, fromRoomId: currentRoomId, toRoomId: targetRoomId },
+        {
+          userId: exchangeWithUserId,
+          fromRoomId: targetRoomId,
+          toRoomId: currentRoomId,
+        },
+      ];
+      status = "exchanged";
+    } else {
+      if (targetOccupants.length >= targetRoom.capacity)
+        return { error: "room_capacity_exceeded" as const };
+      if (currentRoomId) {
+        changedRooms.push(currentRoomId);
+        await transaction
+          .delete(schema.roomAssignments)
           .where(
             and(
               eq(schema.roomAssignments.tripId, tripId),
-              eq(schema.roomAssignments.roomId, currentRoomId),
+              eq(schema.roomAssignments.userId, userId),
             ),
           );
-        if (remainingOccupants.length < sourceRoom.capacity)
-          await transaction
-            .update(schema.rooms)
-            .set({ isLocked: false })
+      }
+      await transaction.insert(schema.roomAssignments).values({
+        id: randomUUID(),
+        tripId,
+        roomId: targetRoomId,
+        userId,
+      });
+
+      if (currentRoomId) {
+        const [sourceRoom] = await transaction
+          .select({
+            capacity: schema.rooms.capacity,
+            isLocked: schema.rooms.isLocked,
+          })
+          .from(schema.rooms)
+          .where(
+            and(
+              eq(schema.rooms.tripId, tripId),
+              eq(schema.rooms.id, currentRoomId),
+            ),
+          )
+          .limit(1);
+        if (sourceRoom?.isLocked) {
+          const remainingOccupants = await transaction
+            .select({ userId: schema.roomAssignments.userId })
+            .from(schema.roomAssignments)
             .where(
               and(
-                eq(schema.rooms.tripId, tripId),
-                eq(schema.rooms.id, currentRoomId),
+                eq(schema.roomAssignments.tripId, tripId),
+                eq(schema.roomAssignments.roomId, currentRoomId),
               ),
             );
+          if (remainingOccupants.length < sourceRoom.capacity)
+            await transaction
+              .update(schema.rooms)
+              .set({ isLocked: false })
+              .where(
+                and(
+                  eq(schema.rooms.tripId, tripId),
+                  eq(schema.rooms.id, currentRoomId),
+                ),
+              );
+        }
       }
+
+      historyChanges = [
+        { userId, fromRoomId: currentRoomId, toRoomId: targetRoomId },
+      ];
+      status = "moved";
     }
 
     for (const roomId of new Set(changedRooms)) {
@@ -158,9 +225,9 @@ export async function staffMoveTraveler(
       tripId,
       actorUserId,
       "organizer_move",
-      [{ userId, fromRoomId: currentRoomId, toRoomId: targetRoomId }],
+      historyChanges,
     );
-    return { status: "moved" as const };
+    return { status };
   });
 }
 

@@ -18,9 +18,17 @@ export function useSaveTravelerProfileMutation(tripId: string) {
         queryKeys.traveler(tripId),
         (current) => (current ? applyProfileValues(current, values) : current),
       );
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.rooming(tripId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.rooming(tripId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.roomRequests(tripId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.participantDirectory(tripId),
+        }),
+      ]);
     },
   });
 }

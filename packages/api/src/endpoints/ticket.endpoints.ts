@@ -84,19 +84,42 @@ export function registerTicketEndpoints(
         addRandomSuffix: false,
       });
       blobCreated = true;
-      await services.database.insert(schema.transportTickets).values({
-        id,
-        tripId,
-        userId: targetUserId,
-        kind,
-        blobPath,
-        originalName: file.name.replace(/[\r\n\\/]/g, "_").slice(0, 180),
-        contentType: file.type,
-        size: file.size,
-        uploadedBy: session.user.id,
+      await services.database.transaction(async (transaction) => {
+        const [membership] = await transaction
+          .select({ id: schema.tripMemberships.id })
+          .from(schema.tripMemberships)
+          .where(
+            and(
+              eq(schema.tripMemberships.tripId, tripId),
+              eq(schema.tripMemberships.userId, targetUserId),
+            ),
+          )
+          .limit(1);
+        if (!membership)
+          throw new Error("Ticket recipient is no longer in the trip.");
+        await transaction.insert(schema.transportTickets).values({
+          id,
+          tripId,
+          userId: targetUserId,
+          kind,
+          blobPath,
+          originalName: file.name.replace(/[\r\n\\/]/g, "_").slice(0, 180),
+          contentType: file.type,
+          size: file.size,
+          uploadedBy: session.user.id,
+        });
       });
     } catch {
-      if (blobCreated) await ticketStorage.del(blobPath).catch(() => undefined);
+      if (blobCreated) {
+        try {
+          await ticketStorage.del(blobPath);
+        } catch {
+          await services.database
+            .insert(schema.pendingTicketBlobDeletions)
+            .values({ blobPath })
+            .onConflictDoNothing();
+        }
+      }
       return context.json({ error: "ticket_upload_failed" }, 503);
     }
     return context.json({ status: "uploaded", ticketId: id }, 201);

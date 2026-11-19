@@ -43,6 +43,7 @@ export function TravelerProfileSection({
           emergencyContactFirstName: profile.emergencyContactFirstName ?? "",
           emergencyContactLastName: profile.emergencyContactLastName ?? "",
           emergencyContactPhone: profile.emergencyContactPhone ?? "",
+          personalPhone: profile.personalPhone ?? "",
           completed: profile.completed,
         }}
         onSaved={onSaved}

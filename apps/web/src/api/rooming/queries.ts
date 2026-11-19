@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@traveler/api/client";
-import type { StaffTraveler } from "@traveler/api/participants/participant.types";
 import { queryKeys } from "@traveler/api/query-keys";
 import type {
   RoomHistoryEntry,
@@ -9,24 +8,29 @@ import type {
   RoomSummary,
 } from "./rooming.types";
 
-export function useRoomingQuery(tripId: string, isStaff: boolean) {
+export function useRoomPlanQuery(tripId: string, organizerView: boolean) {
   return useQuery({
-    queryKey: queryKeys.rooming(tripId, isStaff),
-    refetchInterval: 30_000,
-    queryFn: async ({ signal }) => {
-      const base = `/api/trips/${encodeURIComponent(tripId)}`;
-      const [roomData, requestData, travelerData] = await Promise.all([
-        apiGet<{ rooms: RoomSummary[] }>(`${base}/rooms`, signal),
-        apiGet<{ requests: RoomRequestSummary[] }>(
-          `${base}/room-requests`,
+    queryKey: queryKeys.rooming(tripId, organizerView),
+    queryFn: async ({ signal }) =>
+      (
+        await apiGet<{ rooms: RoomSummary[] }>(
+          `/api/trips/${encodeURIComponent(tripId)}/rooms${organizerView ? "?view=organizer" : ""}`,
           signal,
-        ),
-        isStaff
-          ? apiGet<{ travelers: StaffTraveler[] }>(`${base}/travelers`, signal)
-          : Promise.resolve(null),
-      ]);
-      return { roomData, requestData, travelerData };
-    },
+        )
+      ).rooms,
+  });
+}
+
+export function useRoomRequestsQuery(tripId: string) {
+  return useQuery({
+    queryKey: queryKeys.roomRequests(tripId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiGet<{ requests: RoomRequestSummary[] }>(
+          `/api/trips/${encodeURIComponent(tripId)}/room-requests`,
+          signal,
+        )
+      ).requests,
   });
 }
 

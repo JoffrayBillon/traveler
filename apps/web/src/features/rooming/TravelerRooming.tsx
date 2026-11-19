@@ -2,9 +2,7 @@ import { useRoomingMutations } from "@traveler/api/rooming/mutations";
 import type { RoomSummary } from "@traveler/api/rooming/rooming.types";
 import { Button, Card } from "@traveler/components/ui";
 import { Lock, LockOpen } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { RoomCompositionBadge } from "./RoomCompositionBadge";
 import { roomErrorLabel } from "./rooming-errors";
 import { TravelerRoomPlanDialog } from "./TravelerRoomPlanDialog";
 
@@ -23,7 +21,6 @@ export function TravelerRooming({
 }) {
   const { t } = useTranslation();
   const mutations = useRoomingMutations(tripId);
-  const [isPlanOpen, setIsPlanOpen] = useState(false);
 
   async function toggleLock() {
     if (!ownRoom) return;
@@ -57,7 +54,6 @@ export function TravelerRooming({
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <RoomCompositionBadge room={ownRoom} />
               <Button
                 appearance="quiet"
                 size="sm"
@@ -86,26 +82,27 @@ export function TravelerRooming({
               </li>
             ))}
           </ul>
-          <div>
-            <Button appearance="secondary" onPress={() => setIsPlanOpen(true)}>
-              {t("viewRoomPlan")}
-            </Button>
-          </div>
+          {ownRoom.isLocked ? (
+            <p className="text-sm text-content-muted">
+              {t("yourRoomIsLockedNoExchangeRequests")}
+            </p>
+          ) : (
+            <div>
+              <TravelerRoomPlanDialog
+                tripId={tripId}
+                rooms={rooms}
+                ownRoom={ownRoom}
+                userId={userId}
+                onMessage={onMessage}
+              />
+            </div>
+          )}
         </Card>
       ) : (
         <p className="rounded-card border border-dashed border-border p-4 text-sm text-content-muted">
           {t("youHaveNotBeenAssignedARoomYet")}
         </p>
       )}
-      <TravelerRoomPlanDialog
-        tripId={tripId}
-        isOpen={isPlanOpen}
-        onOpenChange={setIsPlanOpen}
-        rooms={rooms}
-        ownRoom={ownRoom}
-        userId={userId}
-        onMessage={onMessage}
-      />
     </>
   );
 }

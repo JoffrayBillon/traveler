@@ -103,6 +103,285 @@ afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
+it("requires a manager and the exact email to erase trip data and revoke the last account", async () => {
+  const sendEmail = vi
+    .fn<(email: string, url: string) => Promise<void>>()
+    .mockResolvedValue(undefined);
+  const services = await createTestServices(sendEmail);
+  const { database } = services;
+  const tripStore = createTripsStore(database);
+  const firstTrip = await tripStore.create("First");
+  const secondTrip = await tripStore.create("Second");
+  const managerData = {
+    firstName: "Mina",
+    lastName: "Manager",
+    email: "mina@example.com",
+  };
+  const manager = await createManagersStore(database).create({
+    tripId: firstTrip.id,
+    ...managerData,
+  });
+  await createManagersStore(database).create({
+    tripId: secondTrip.id,
+    ...managerData,
+  });
+  const userId = "alex";
+  const email = "alex@example.com";
+  const now = new Date();
+  await database.insert(schema.users).values({
+    id: userId,
+    name: "Alex Traveler",
+    email,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await database.insert(schema.tripMemberships).values(
+    [firstTrip, secondTrip].map((trip) => ({
+      id: `alex-${trip.id}`,
+      tripId: trip.id,
+      userId,
+      role: "traveler" as const,
+      firstName: "Alex",
+      lastName: "Traveler",
+      gender: "F" as const,
+      genderConfirmed: true,
+    })),
+  );
+  await database.insert(schema.tripRegistrations).values([
+    {
+      id: "booking1",
+      tripId: firstTrip.id,
+      userId,
+      reference: "BOOK1",
+      sourceEmail: email,
+      firstName: "Alex",
+      lastName: "Traveler",
+    },
+    {
+      id: "booking2",
+      tripId: secondTrip.id,
+      userId,
+      reference: "BOOK2",
+      sourceEmail: email,
+      firstName: "Alex",
+      lastName: "Traveler",
+    },
+  ]);
+  await database.insert(schema.rooms).values({
+    id: "room",
+    tripId: firstTrip.id,
+    name: "01",
+    capacity: 2,
+    isLocked: true,
+    genderPolicy: "single_gender",
+  });
+  await database.insert(schema.roomAssignments).values([
+    { id: "assignment-alex", tripId: firstTrip.id, roomId: "room", userId },
+    {
+      id: "assignment-manager",
+      tripId: firstTrip.id,
+      roomId: "room",
+      userId: manager.userId,
+    },
+  ]);
+  await database.insert(schema.roomChangeRequests).values({
+    id: "room-request",
+    tripId: firstTrip.id,
+    requesterUserId: manager.userId,
+    changesJson: JSON.stringify({ moves: [], roomVersions: {} }),
+    requiredConsentsJson: JSON.stringify([userId]),
+    approvedConsentsJson: "[]",
+    expiresAt: now,
+  });
+  await database.insert(schema.roomAssignmentHistory).values({
+    id: "room-history",
+    tripId: firstTrip.id,
+    actorUserId: manager.userId,
+    actorName: "Mina Manager",
+    actionType: "organizer_move",
+    changesJson: JSON.stringify([
+      { userId, personName: "Alex Traveler" },
+      { userId: manager.userId, personName: "Mina Manager" },
+    ]),
+  });
+  await database.insert(schema.travelerDetails).values([
+    {
+      tripId: firstTrip.id,
+      userId,
+      transportChoice: "none",
+      carpoolRole: "driver",
+    },
+    {
+      tripId: firstTrip.id,
+      userId: manager.userId,
+      transportChoice: "none",
+      carpoolRole: "passenger",
+      carpoolDriverUserId: userId,
+    },
+  ]);
+  await database.insert(schema.transportTickets).values([
+    {
+      id: "alex-ticket",
+      tripId: firstTrip.id,
+      userId,
+      blobPath: "local/alex-ticket",
+      kind: "outbound",
+      originalName: "ticket.pdf",
+      contentType: "application/pdf",
+      size: 1,
+      uploadedBy: manager.userId,
+    },
+    {
+      id: "manager-ticket",
+      tripId: firstTrip.id,
+      userId: manager.userId,
+      blobPath: "local/manager-ticket",
+      kind: "outbound",
+      originalName: "ticket.pdf",
+      contentType: "application/pdf",
+      size: 1,
+      uploadedBy: userId,
+    },
+  ]);
+
+  const deleteBlob = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("storage unavailable"))
+    .mockResolvedValue(undefined);
+  const app = createApp(
+    () => services.client,
+    () => services,
+    {
+      authEnvironment: { ...authEnv, CRON_SECRET: "test-cron-secret" },
+      ticketStorage: { put: vi.fn(), get: vi.fn(), del: deleteBlob },
+    },
+  );
+  async function signIn(address: string) {
+    const response = await app.request("/api/auth/sign-in/magic-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: String(authEnv.BETTER_AUTH_URL),
+      },
+      body: JSON.stringify({ email: address, callbackURL: "/" }),
+    });
+    expect(response.status).toBe(200);
+    await flushBackgroundTasks(services.backgroundTasks);
+    const link = sendEmail.mock.calls.at(-1)?.[1];
+    expect(link).toBeTruthy();
+    const verification = await confirmLink(app, String(link));
+    const cookie = verification.headers.get("set-cookie")?.split(";")[0];
+    expect(cookie).toBeTruthy();
+    return cookie ?? "";
+  }
+  const managerCookie = await signIn(managerData.email);
+  const travelerCookie = await signIn(email);
+  await database.insert(schema.verifications).values({
+    id: "unused-link",
+    identifier: "magic-link:unused",
+    value: JSON.stringify({ type: "magic-link", email }),
+    expiresAt: new Date(now.getTime() + 3600000),
+    createdAt: now,
+    updatedAt: now,
+  });
+  function remove(
+    tripId: string,
+    cookie: string,
+    confirmation = email,
+    target = userId,
+  ) {
+    return app.request(`/api/trips/${tripId}/participants/${target}`, {
+      method: "DELETE",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: confirmation }),
+    });
+  }
+
+  expect((await remove(firstTrip.id, travelerCookie)).status).toBe(403);
+  expect(
+    (
+      await remove(
+        firstTrip.id,
+        managerCookie,
+        managerData.email,
+        manager.userId,
+      )
+    ).status,
+  ).toBe(403);
+  expect(
+    (await remove(firstTrip.id, managerCookie, "other@example.com")).status,
+  ).toBe(409);
+
+  const removed = await remove(firstTrip.id, managerCookie, "ALEX@example.com");
+  expect(removed.status).toBe(200);
+  expect(await removed.json()).toEqual({ status: "deleted" });
+  expect(await database.select().from(schema.tripRegistrations)).toEqual([
+    expect.objectContaining({ id: "booking2", userId }),
+  ]);
+  expect(await database.select().from(schema.roomChangeRequests)).toEqual([]);
+  expect(
+    (await database.select().from(schema.roomAssignmentHistory)).map(
+      ({ changesJson }) => JSON.parse(changesJson),
+    ),
+  ).toEqual([[{ userId: manager.userId, personName: "Mina Manager" }]]);
+  expect(await database.select().from(schema.rooms)).toEqual([
+    expect.objectContaining({ isLocked: false }),
+  ]);
+  expect(await database.select().from(schema.roomAssignments)).toEqual([
+    expect.objectContaining({ userId: manager.userId }),
+  ]);
+  expect(await database.select().from(schema.travelerDetails)).toEqual([
+    expect.objectContaining({
+      userId: manager.userId,
+      carpoolRole: "undecided",
+      carpoolDriverUserId: null,
+    }),
+  ]);
+  expect(await database.select().from(schema.transportTickets)).toEqual([
+    expect.objectContaining({ id: "manager-ticket", uploadedBy: null }),
+  ]);
+
+  await flushBackgroundTasks(services.backgroundTasks);
+  expect(
+    await database.select().from(schema.pendingTicketBlobDeletions),
+  ).toEqual([{ blobPath: "local/alex-ticket" }]);
+  const retry = await app.request("/api/cron/delete-expired-tickets", {
+    headers: { Authorization: "Bearer test-cron-secret" },
+  });
+  expect(await retry.json()).toMatchObject({ deleted: 1, failed: 0 });
+  expect(
+    await database.select().from(schema.pendingTicketBlobDeletions),
+  ).toEqual([]);
+
+  expect(
+    (await app.request("/api/me", { headers: { Cookie: travelerCookie } }))
+      .status,
+  ).toBe(200);
+  expect((await remove(secondTrip.id, managerCookie)).status).toBe(200);
+  expect(
+    await database
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, userId)),
+  ).toEqual([]);
+  expect(
+    await database
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.userId, userId)),
+  ).toEqual([]);
+  expect(
+    await database
+      .select()
+      .from(schema.verifications)
+      .where(eq(schema.verifications.id, "unused-link")),
+  ).toEqual([]);
+  expect(
+    (await app.request("/api/me", { headers: { Cookie: travelerCookie } }))
+      .status,
+  ).toBe(401);
+});
+
 describe("invite-only magic-link authentication", () => {
   it("reports every missing API setting once when services initialize", () => {
     const report = vi.spyOn(console, "error").mockImplementation(() => {});

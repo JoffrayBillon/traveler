@@ -2,6 +2,7 @@ import { and, eq, lte } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
 import type { TicketBlobStorage } from "../../ports/ticket-storage";
 import * as schema from "../../schema";
+import { deleteQueuedTicketBlobs } from "./delete-queued-ticket-blobs";
 
 const RETENTION_DAYS = 90;
 
@@ -37,5 +38,16 @@ export async function deleteExpiredTickets(
       // Keep the row so tomorrow's scheduled run can safely retry the deletion.
     }
   }
-  return { deleted, failed: expired.length - deleted };
+  const queued = await database
+    .select()
+    .from(schema.pendingTicketBlobDeletions);
+  const cleanup = await deleteQueuedTicketBlobs(
+    database,
+    storage,
+    queued.map(({ blobPath }) => blobPath),
+  );
+  return {
+    deleted: deleted + cleanup.deleted,
+    failed: expired.length - deleted + cleanup.failed,
+  };
 }

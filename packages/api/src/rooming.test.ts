@@ -2,17 +2,23 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import ExcelJS from "exceljs";
 import { afterEach, describe, expect, it } from "vitest";
+import { listAgencyRoomingMembers } from "./datamodel/agency-rooming.repository";
+import { getRoomingView } from "./datamodel/rooming.repository";
+import { listTripTravelerRows } from "./datamodel/staff-directory.repository";
 import { createRoomingStore, type RoomingError } from "./rooming";
 import * as schema from "./schema";
 import { prepareAgencyRoomingTemplate } from "./services/imports/prepare-agency-rooming-template";
+import { saveParticipantFromOrganizer } from "./services/participant-editor-service";
+import { staffMoveTraveler } from "./services/rooming/room-management-service";
 import {
   applyRoomAssignmentPlan,
   previewRoomAssignments,
 } from "./services/rooming/room-plan-service";
+import { completeTravelerProfile } from "./services/traveler-details";
 import { createTripsStore } from "./trips";
 
 const clients: ReturnType<typeof createClient>[] = [];
@@ -146,6 +152,163 @@ it("uses prefilled genders for new placements and leaves missing genders unassig
     assigned: 1,
     missingGender: 1,
   });
+});
+
+it("shows prefilled room composition to organizers and redacts it from traveler views", async () => {
+  const { database, trip } = await createFixture();
+  await database.update(schema.tripMemberships).set({ genderConfirmed: false });
+  await database
+    .update(schema.tripMemberships)
+    .set({ role: "companion" })
+    .where(eq(schema.tripMemberships.userId, "alice"));
+  const readRooms = async (userId: string, organizerView: boolean) =>
+    (await getRoomingView(database, trip.id, userId, organizerView))?.rooms ??
+    [];
+  expect(
+    (await readRooms("alice", true)).map((room) => room.composition),
+  ).toEqual(["male", "female"]);
+
+  await database
+    .update(schema.roomAssignments)
+    .set({ roomId: "room-one" })
+    .where(eq(schema.roomAssignments.userId, "cara"));
+  const staffRooms = await readRooms("alice", true);
+  expect(staffRooms.map((room) => room.composition)).toEqual([
+    "mixed",
+    "unset",
+  ]);
+  for (const rooms of [
+    await readRooms("alice", false),
+    await readRooms("ben", true),
+  ]) {
+    expect(rooms[0]?.occupants).toHaveLength(2);
+    for (const room of rooms) {
+      expect(room).not.toHaveProperty("composition");
+      expect(room).not.toHaveProperty("genderPolicy");
+      for (const person of room.occupants)
+        expect(person).not.toHaveProperty("gender");
+    }
+  }
+});
+
+it("keeps locked rooms out of the personal exchange plan and available to organizers", async () => {
+  const { database, trip } = await createFixture();
+  await database
+    .update(schema.tripMemberships)
+    .set({ role: "companion" })
+    .where(eq(schema.tripMemberships.userId, "cara"));
+  await database
+    .update(schema.rooms)
+    .set({ capacity: 1, isLocked: true })
+    .where(eq(schema.rooms.id, "room-one"));
+
+  async function visibleRoomIds(userId: string, organizerView = false) {
+    const view = await getRoomingView(database, trip.id, userId, organizerView);
+    expect(view).not.toBeNull();
+    return view?.rooms.map((room) => room.id);
+  }
+
+  expect(await visibleRoomIds("cara")).toEqual(["room-two"]);
+  expect(await visibleRoomIds("cara", true)).toEqual(["room-one", "room-two"]);
+  expect(await visibleRoomIds("alice", true)).toEqual(["room-two"]);
+  expect(await visibleRoomIds("ben")).toEqual(["room-one"]);
+  expect(
+    (await getRoomingView(database, trip.id, "ben"))?.rooms[0],
+  ).toMatchObject({
+    isLocked: true,
+    occupants: [expect.objectContaining({ userId: "ben" })],
+  });
+
+  await database
+    .update(schema.rooms)
+    .set({ isLocked: false })
+    .where(eq(schema.rooms.id, "room-one"));
+  expect(await visibleRoomIds("cara")).toEqual(["room-one", "room-two"]);
+});
+
+it("reads imported phone numbers and preserves manual updates and clearings", async () => {
+  const { database, trip } = await createFixture();
+  await database
+    .update(schema.tripMemberships)
+    .set({ role: "manager" })
+    .where(eq(schema.tripMemberships.userId, "alice"));
+  await database.insert(schema.tripRegistrations).values([
+    {
+      id: "ben-registration",
+      tripId: trip.id,
+      reference: "book-ben",
+      userId: "ben",
+      status: "validated",
+      sourceEmail: "ben@example.com",
+      firstName: "Ben",
+      lastName: "Boreal",
+      sourcePhone: "06 12 34 56 78",
+    },
+    {
+      id: "cara-cancelled",
+      tripId: trip.id,
+      reference: "book-cara",
+      userId: "cara",
+      status: "cancelled",
+      sourceEmail: "cara@example.com",
+      firstName: "Cara",
+      lastName: "Cime",
+      sourcePhone: "+33612345679",
+    },
+  ]);
+  const readPhone = async (userId: string) =>
+    (await listTripTravelerRows(database, trip.id)).find(
+      (row) => row.userId === userId,
+    )?.personalPhone;
+  expect(await readPhone("ben")).toBe("06 12 34 56 78");
+  expect(await readPhone("cara")).toBeNull();
+  const profile = {
+    firstName: "Ben",
+    lastName: "Boreal",
+    gender: "M",
+    emergencyContactFirstName: "Mina",
+    emergencyContactLastName: "Boreal",
+    emergencyContactPhone: "+33623456789",
+  };
+  expect(
+    await completeTravelerProfile(database, trip.id, "ben", {
+      ...profile,
+      personalPhone: "invalid",
+    }),
+  ).toMatchObject({ ok: false });
+  expect(
+    await completeTravelerProfile(database, trip.id, "ben", {
+      ...profile,
+      personalPhone: "06 45 67 89 01",
+    }),
+  ).toMatchObject({ ok: true });
+  await database
+    .update(schema.tripRegistrations)
+    .set({ sourcePhone: "+33634567890" })
+    .where(eq(schema.tripRegistrations.id, "ben-registration"));
+  expect(
+    await completeTravelerProfile(database, trip.id, "ben", profile),
+  ).toMatchObject({ ok: true });
+  expect(await readPhone("ben")).toBe("+33645678901");
+  expect(await listAgencyRoomingMembers(database, trip.id)).toContainEqual(
+    expect.objectContaining({ userId: "ben", personalPhone: "+33645678901" }),
+  );
+  expect(
+    await saveParticipantFromOrganizer(database, trip.id, "ben", "alice", {
+      email: "ben@example.com",
+      role: "traveler",
+      profile: { ...profile, personalPhone: "" },
+      details: {
+        activityProfile: null,
+        skiDayThree: false,
+        transportChoice: "unconfirmed",
+        groupId: null,
+        carpoolRole: "none",
+        carpoolDriverUserId: null,
+      },
+    }),
+  ).toEqual({ status: "saved" });
+  expect(await readPhone("ben")).toBe("");
 });
 
 it("exports numbered rooms into matching agency slots without changing the plan", async () => {
@@ -385,5 +548,172 @@ describe("room change consent", () => {
         },
       ]),
     ).resolves.toMatchObject({ status: "pending" });
+  });
+});
+
+describe("organizer room exchange", () => {
+  it("atomically exchanges occupants with a full room and records both moves", async () => {
+    const { database, trip } = await createFixture();
+    await database.insert(schema.roomAssignments).values({
+      id: "assignment-alice",
+      tripId: trip.id,
+      roomId: "room-one",
+      userId: "alice",
+    });
+    await database
+      .update(schema.rooms)
+      .set({ isLocked: true })
+      .where(eq(schema.rooms.id, "room-one"));
+    const initialVersions = new Map(
+      (
+        await database
+          .select({
+            id: schema.rooms.id,
+            compositionVersion: schema.rooms.compositionVersion,
+          })
+          .from(schema.rooms)
+      ).map(({ id, compositionVersion }) => [id, compositionVersion]),
+    );
+
+    const result = await staffMoveTraveler(
+      database,
+      trip.id,
+      "cara",
+      "room-two",
+      "room-one",
+      "ben",
+      "ben",
+    );
+
+    expect(result).toEqual({ status: "exchanged" });
+    const assignments = await database
+      .select({
+        userId: schema.roomAssignments.userId,
+        roomId: schema.roomAssignments.roomId,
+      })
+      .from(schema.roomAssignments)
+      .orderBy(schema.roomAssignments.userId);
+    expect(assignments).toEqual([
+      { userId: "alice", roomId: "room-one" },
+      { userId: "ben", roomId: "room-two" },
+      { userId: "cara", roomId: "room-one" },
+    ]);
+    const rooms = await database
+      .select({
+        id: schema.rooms.id,
+        compositionVersion: schema.rooms.compositionVersion,
+        isLocked: schema.rooms.isLocked,
+      })
+      .from(schema.rooms)
+      .orderBy(schema.rooms.id);
+    expect(rooms).toEqual([
+      {
+        id: "room-one",
+        compositionVersion: (initialVersions.get("room-one") ?? 0) + 1,
+        isLocked: true,
+      },
+      {
+        id: "room-two",
+        compositionVersion: (initialVersions.get("room-two") ?? 0) + 1,
+        isLocked: false,
+      },
+    ]);
+    const [history] = await database
+      .select({ changesJson: schema.roomAssignmentHistory.changesJson })
+      .from(schema.roomAssignmentHistory);
+    expect(JSON.parse(history?.changesJson ?? "[]")).toHaveLength(2);
+  });
+
+  it("rejects a stale exchange without changing assignments, versions, or history", async () => {
+    const { database, trip } = await createFixture();
+    const now = new Date();
+    await database.insert(schema.users).values({
+      id: "dave",
+      name: "Dave",
+      email: "dave@example.com",
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await database.insert(schema.tripMemberships).values({
+      id: "membership-dave",
+      tripId: trip.id,
+      userId: "dave",
+      role: "traveler",
+      firstName: "Dave",
+      lastName: "Drift",
+      gender: "M",
+      genderConfirmed: true,
+    });
+    await database.insert(schema.roomAssignments).values({
+      id: "assignment-alice",
+      tripId: trip.id,
+      roomId: "room-one",
+      userId: "alice",
+    });
+    await database.insert(schema.roomAssignments).values({
+      id: "assignment-dave",
+      tripId: trip.id,
+      roomId: "room-one",
+      userId: "dave",
+    });
+    await database
+      .update(schema.roomAssignments)
+      .set({ roomId: "room-two" })
+      .where(
+        and(
+          eq(schema.roomAssignments.tripId, trip.id),
+          eq(schema.roomAssignments.userId, "alice"),
+        ),
+      );
+    const beforeAssignments = await database
+      .select({
+        userId: schema.roomAssignments.userId,
+        roomId: schema.roomAssignments.roomId,
+      })
+      .from(schema.roomAssignments)
+      .orderBy(schema.roomAssignments.userId);
+    const beforeRooms = await database
+      .select({
+        id: schema.rooms.id,
+        compositionVersion: schema.rooms.compositionVersion,
+        genderPolicy: schema.rooms.genderPolicy,
+      })
+      .from(schema.rooms)
+      .orderBy(schema.rooms.id);
+
+    const result = await staffMoveTraveler(
+      database,
+      trip.id,
+      "cara",
+      "room-two",
+      "room-one",
+      "ben",
+      "alice",
+    );
+
+    expect(result).toEqual({ error: "room_composition_changed" });
+    expect(
+      await database
+        .select({
+          userId: schema.roomAssignments.userId,
+          roomId: schema.roomAssignments.roomId,
+        })
+        .from(schema.roomAssignments)
+        .orderBy(schema.roomAssignments.userId),
+    ).toEqual(beforeAssignments);
+    expect(
+      await database
+        .select({
+          id: schema.rooms.id,
+          compositionVersion: schema.rooms.compositionVersion,
+          genderPolicy: schema.rooms.genderPolicy,
+        })
+        .from(schema.rooms)
+        .orderBy(schema.rooms.id),
+    ).toEqual(beforeRooms);
+    expect(
+      await database.select().from(schema.roomAssignmentHistory),
+    ).toHaveLength(0);
   });
 });

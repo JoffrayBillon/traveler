@@ -211,9 +211,22 @@ export function registerRoomManagementEndpoints(
         body && typeof body === "object" && !Array.isArray(body)
           ? (body as Record<string, unknown>).expectedRoomId
           : undefined;
+      const exchangeWithUserId =
+        body && typeof body === "object" && !Array.isArray(body)
+          ? (body as Record<string, unknown>).exchangeWithUserId
+          : undefined;
       if (
         expectedRoomId !== null &&
         (typeof expectedRoomId !== "string" || !expectedRoomId)
+      )
+        return context.json({ error: "invalid_room_move" }, 400);
+      if (
+        exchangeWithUserId !== undefined &&
+        (typeof exchangeWithUserId !== "string" ||
+          !exchangeWithUserId ||
+          exchangeWithUserId === context.req.param("userId") ||
+          typeof expectedRoomId !== "string" ||
+          expectedRoomId === context.req.param("roomId"))
       )
         return context.json({ error: "invalid_room_move" }, 400);
       const result = await staffMoveTraveler(
@@ -223,6 +236,7 @@ export function registerRoomManagementEndpoints(
         expectedRoomId,
         context.req.param("roomId"),
         session.user.id,
+        exchangeWithUserId,
       );
       if (result.error === "not_found")
         return context.json({ error: result.error }, 404);

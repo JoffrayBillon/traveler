@@ -1,10 +1,13 @@
 import type { StaffTraveler } from "@traveler/api/participants/participant.types";
 import { useRoomingMutations } from "@traveler/api/rooming/mutations";
 import type { RoomSummary } from "@traveler/api/rooming/rooming.types";
+import { ParticipantSearchField } from "@traveler/components/ParticipantSearchField";
 import { Button, Card } from "@traveler/components/ui";
-import { Lock, LockOpen } from "lucide-react";
+import { normalizeSearchText } from "@traveler/lib/normalize-search-text";
+import { ArrowLeftRight, GripVertical, Lock, LockOpen } from "lucide-react";
 import { type DragEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { RoomCompositionBadge } from "./RoomCompositionBadge";
 import { roomErrorLabel } from "./rooming-errors";
 
 const UNASSIGNED_DROP_TARGET_ID = "__unassigned_drop_target__";
@@ -16,6 +19,7 @@ export function RoomOverview({
   ownRoom,
   userId,
   isStaff,
+  onSelectTraveler,
   onMessage,
 }: {
   tripId: string;
@@ -24,6 +28,7 @@ export function RoomOverview({
   ownRoom: RoomSummary | undefined;
   userId: string;
   isStaff: boolean;
+  onSelectTraveler: (userId: string) => void;
   onMessage: (message: string) => void;
 }) {
   const { t } = useTranslation();
@@ -33,6 +38,7 @@ export function RoomOverview({
     roomId: string | null;
   } | null>(null);
   const [dragOverTargetId, setDragOverTargetId] = useState<string | null>(null);
+  const [unassignedSearch, setUnassignedSearch] = useState("");
 
   function clearDragState() {
     setDraggedOccupant(null);
@@ -86,7 +92,11 @@ export function RoomOverview({
     setDragOverTargetId((current) => (current === targetId ? null : current));
   }
 
-  async function handleDrop(event: DragEvent<HTMLElement>, roomId: string) {
+  async function handleDrop(
+    event: DragEvent<HTMLElement>,
+    roomId: string,
+    exchangeWithUserId?: string,
+  ) {
     event.preventDefault();
     const moved = draggedOccupant;
     clearDragState();
@@ -116,6 +126,7 @@ export function RoomOverview({
         roomId,
         userId: moved.userId,
         expectedRoomId: moved.roomId,
+        ...(exchangeWithUserId ? { exchangeWithUserId } : {}),
       });
       onMessage(t("roomAssignmentsHaveBeenUpdated"));
     } catch (error) {
@@ -124,6 +135,14 @@ export function RoomOverview({
         t(roomErrorLabel[code ?? ""] ?? "roomAssignmentsCouldNotBeUpdated"),
       );
     }
+  }
+
+  function canExchangeWith(room: RoomSummary) {
+    return Boolean(
+      draggedOccupant?.roomId &&
+        draggedOccupant.roomId !== room.id &&
+        room.occupiedCount >= room.capacity,
+    );
   }
 
   async function handleDropOnUnassigned(event: DragEvent<HTMLElement>) {
@@ -149,6 +168,12 @@ export function RoomOverview({
   );
   const unassignedTravelers = travelers.filter(
     (traveler) => !assignedUserIds.has(traveler.userId),
+  );
+  const search = normalizeSearchText(unassignedSearch);
+  const visibleUnassignedTravelers = unassignedTravelers.filter((person) =>
+    normalizeSearchText(
+      `${person.firstName} ${person.lastName} ${person.email ?? ""}`,
+    ).includes(search),
   );
   return (
     <>
@@ -210,7 +235,7 @@ export function RoomOverview({
         </p>
       ) : null}
       {isStaff && (
-        <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(13rem,17rem)_minmax(0,1fr)]">
           <Card
             spacing="compact"
             arrangement="stack"
@@ -226,17 +251,19 @@ export function RoomOverview({
             onDrop={(event: DragEvent<HTMLElement>) =>
               void handleDropOnUnassigned(event)
             }
-            {...(dragOverTargetId === UNASSIGNED_DROP_TARGET_ID
-              ? { className: "border-accent bg-surface-raised" }
-              : {})}
+            className={`lg:sticky lg:top-6 ${dragOverTargetId === UNASSIGNED_DROP_TARGET_ID ? "border-accent bg-surface-raised" : ""}`}
           >
             <strong>{t("unassignedParticipants")}</strong>
-            <p className="text-sm text-content-muted">
+            <p className="hidden text-sm text-content-muted lg:block">
               {t("dropTravelerHereToUnassign")}
             </p>
-            {unassignedTravelers.length > 0 ? (
-              <ul className="max-h-72 list-inside list-disc space-y-1 overflow-y-auto overscroll-contain leading-relaxed text-content-muted">
-                {unassignedTravelers.map((person) => (
+            <ParticipantSearchField
+              value={unassignedSearch}
+              onChange={setUnassignedSearch}
+            />
+            {visibleUnassignedTravelers.length > 0 ? (
+              <ul className="grid max-h-56 gap-1 overflow-y-auto overscroll-contain p-1 lg:max-h-[min(60dvh,36rem)]">
+                {visibleUnassignedTravelers.map((person) => (
                   <li
                     key={person.userId}
                     draggable
@@ -244,131 +271,163 @@ export function RoomOverview({
                       handleDragStart(event, person, null)
                     }
                     onDragEnd={clearDragState}
-                    className="cursor-grab active:cursor-grabbing"
                   >
-                    {person.firstName} {person.lastName}
-                    {person.userId === userId ? ` · ${t("you")}` : ""}
+                    <Button
+                      appearance="quiet"
+                      size="sm"
+                      className="h-auto min-h-10 w-full justify-start px-2 text-left"
+                      onPress={() => onSelectTraveler(person.userId)}
+                      aria-haspopup="dialog"
+                    >
+                      <GripVertical
+                        aria-hidden="true"
+                        size={15}
+                        className="hidden shrink-0 cursor-grab text-content-subtle lg:block"
+                      />
+                      <span className="min-w-0 flex-1 wrap-anywhere">
+                        {person.firstName} {person.lastName}
+                        {person.userId === userId ? ` · ${t("you")}` : ""}
+                      </span>
+                      <ArrowLeftRight
+                        aria-hidden="true"
+                        size={14}
+                        className="shrink-0"
+                      />
+                    </Button>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="text-sm text-content-subtle">
-                {t("noUnassignedParticipants")}
+                {t(
+                  unassignedTravelers.length
+                    ? "noSearchResults"
+                    : "noUnassignedParticipants",
+                )}
               </p>
             )}
           </Card>
-          {rooms.map((room) => (
-            <Card
-              as="article"
-              spacing="compact"
-              arrangement="stack"
-              key={room.id}
-              onDragOver={(event: DragEvent<HTMLElement>) =>
-                handleRoomDragOver(
-                  event,
-                  room.id,
-                  room.capacity,
-                  room.occupiedCount,
-                )
-              }
-              onDragLeave={(event: DragEvent<HTMLElement>) =>
-                handleDragLeave(event, room.id)
-              }
-              onDrop={(event: DragEvent<HTMLElement>) =>
-                void handleDrop(event, room.id)
-              }
-              {...(dragOverTargetId === room.id
-                ? { className: "border-accent bg-surface-raised" }
-                : {})}
-            >
-              <div className="grid gap-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <strong className="text-lg">{room.name}</strong>
-                  <div className="flex items-center gap-2">
-                    <span
-                      role="img"
-                      aria-label={
-                        room.genderPolicy === "mixed"
-                          ? t("mixedRoomCode")
-                          : room.occupants[0]?.gender === "M"
-                            ? t("maleRoomCode")
-                            : room.occupants[0]?.gender === "F"
-                              ? t("femaleRoomCode")
-                              : t("roomCompositionNotSet")
-                      }
-                      className={
-                        room.genderPolicy === "mixed"
-                          ? "inline-flex h-9 items-center gap-1.5 rounded-full border-2 border-warning bg-[color-mix(in_srgb,var(--theme-color-warning),transparent_82%)] px-3 text-sm font-extrabold text-warning shadow-sm ring-2 ring-[color-mix(in_srgb,var(--theme-color-warning),transparent_84%)]"
-                          : "inline-flex size-7 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--theme-color-success),transparent_92%)] text-xs font-semibold text-content-subtle"
-                      }
-                    >
-                      {room.genderPolicy === "mixed" ? (
-                        <>
-                          <span aria-hidden="true">M</span>
-                          <span>{t("mixedRoom")}</span>
-                        </>
-                      ) : room.occupants[0]?.gender === "M" ? (
-                        "H"
-                      ) : room.occupants[0]?.gender === "F" ? (
-                        "F"
-                      ) : (
-                        "—"
-                      )}
-                    </span>
-                    <Button
-                      appearance="quiet"
-                      size="sm"
-                      className="size-10 min-h-10 shrink-0 p-0"
-                      aria-label={t(room.isLocked ? "unlockRoom" : "lockRoom")}
-                      onPress={() => void toggleLock(room)}
-                      isDisabled={
-                        mutations.setRoomLock.isPending ||
-                        (!room.isLocked && room.occupiedCount < room.capacity)
-                      }
-                    >
-                      {room.isLocked ? (
-                        <Lock aria-hidden="true" size={18} />
-                      ) : (
-                        <LockOpen aria-hidden="true" size={18} />
-                      )}
-                    </Button>
+          <div className="grid min-w-0 items-start gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+            {rooms.map((room) => (
+              <Card
+                as="article"
+                spacing="compact"
+                arrangement="stack"
+                key={room.id}
+                onDragOver={(event: DragEvent<HTMLElement>) =>
+                  handleRoomDragOver(
+                    event,
+                    room.id,
+                    room.capacity,
+                    room.occupiedCount,
+                  )
+                }
+                onDragLeave={(event: DragEvent<HTMLElement>) =>
+                  handleDragLeave(event, room.id)
+                }
+                onDrop={(event: DragEvent<HTMLElement>) => {
+                  if (room.occupiedCount < room.capacity)
+                    void handleDrop(event, room.id);
+                }}
+                {...(dragOverTargetId === room.id
+                  ? { className: "border-accent bg-surface-raised" }
+                  : {})}
+              >
+                <div className="grid gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong className="text-lg">{room.name}</strong>
+                    <div className="flex items-center gap-2">
+                      <RoomCompositionBadge room={room} />
+                      <Button
+                        appearance="quiet"
+                        size="sm"
+                        className="size-10 min-h-10 shrink-0 p-0"
+                        aria-label={t(
+                          room.isLocked ? "unlockRoom" : "lockRoom",
+                        )}
+                        onPress={() => void toggleLock(room)}
+                        isDisabled={
+                          mutations.setRoomLock.isPending ||
+                          (!room.isLocked && room.occupiedCount < room.capacity)
+                        }
+                      >
+                        {room.isLocked ? (
+                          <Lock aria-hidden="true" size={18} />
+                        ) : (
+                          <LockOpen aria-hidden="true" size={18} />
+                        )}
+                      </Button>
+                    </div>
                   </div>
+                  <span className="text-xs text-content-subtle">
+                    {t("occupiedCapacityBeds", {
+                      occupied: room.occupiedCount,
+                      capacity: room.capacity,
+                    })}
+                  </span>
                 </div>
-                <span className="text-xs text-content-subtle">
-                  {t("occupiedCapacityBeds", {
-                    occupied: room.occupiedCount,
-                    capacity: room.capacity,
-                  })}
-                  {room.genderPolicy === "mixed"
-                    ? ` · ${t("approvedMixedRoom")}`
-                    : ""}
-                </span>
-              </div>
-              {room.occupants.length ? (
-                <ul className="list-inside list-disc space-y-1 leading-relaxed text-content-muted">
-                  {room.occupants.map((person) => (
-                    <li
-                      key={person.userId}
-                      draggable={isStaff || person.userId === userId}
-                      onDragStart={(event) =>
-                        handleDragStart(event, person, room.id)
-                      }
-                      onDragEnd={clearDragState}
-                      className={
-                        isStaff
-                          ? "cursor-grab active:cursor-grabbing"
-                          : undefined
-                      }
-                    >
-                      {person.firstName} {person.lastName}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-content-subtle">{t("emptyRoom")}</p>
-              )}
-            </Card>
-          ))}
+                {room.occupants.length ? (
+                  <ul className="grid gap-1">
+                    {room.occupants.map((person) => (
+                      <li
+                        key={person.userId}
+                        draggable={isStaff || person.userId === userId}
+                        onDragStart={(event) =>
+                          handleDragStart(event, person, room.id)
+                        }
+                        onDragEnd={clearDragState}
+                        onDragOver={(event) => {
+                          if (!canExchangeWith(room)) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          event.dataTransfer.dropEffect = "move";
+                          setDragOverTargetId(`exchange:${person.userId}`);
+                        }}
+                        onDragLeave={(event) =>
+                          handleDragLeave(event, `exchange:${person.userId}`)
+                        }
+                        onDrop={(event) => {
+                          if (!canExchangeWith(room)) return;
+                          event.stopPropagation();
+                          void handleDrop(event, room.id, person.userId);
+                        }}
+                      >
+                        <Button
+                          appearance="quiet"
+                          size="sm"
+                          className={`h-auto min-h-10 w-full justify-start px-2 text-left ${dragOverTargetId === `exchange:${person.userId}` ? "bg-accent/15 text-accent ring-2 ring-inset ring-accent" : ""}`}
+                          data-exchange-target={
+                            dragOverTargetId === `exchange:${person.userId}` ||
+                            undefined
+                          }
+                          onPress={() => onSelectTraveler(person.userId)}
+                          aria-haspopup="dialog"
+                        >
+                          <GripVertical
+                            aria-hidden="true"
+                            size={15}
+                            className="hidden shrink-0 cursor-grab text-content-subtle lg:block"
+                          />
+                          <span className="min-w-0 flex-1 wrap-anywhere">
+                            {person.firstName} {person.lastName}
+                          </span>
+                          <ArrowLeftRight
+                            aria-hidden="true"
+                            size={14}
+                            className="shrink-0"
+                          />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-content-subtle">
+                    {t("emptyRoom")}
+                  </p>
+                )}
+              </Card>
+            ))}
+          </div>
         </div>
       )}
       {!isStaff && rooms.length > 0 && (

@@ -7,6 +7,7 @@ export const emptyTravelerProfile = {
   emergencyContactFirstName: null,
   emergencyContactLastName: null,
   emergencyContactPhone: null,
+  personalPhone: null,
   completed: false,
 };
 
@@ -29,6 +30,7 @@ export function applyProfileValues(
       emergencyContactFirstName: values.emergencyContactFirstName,
       emergencyContactLastName: values.emergencyContactLastName,
       emergencyContactPhone: values.emergencyContactPhone,
+      personalPhone: values.personalPhone ?? null,
       completed: values.completed,
     },
   };

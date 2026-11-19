@@ -1,5 +1,55 @@
 # Technical changelog
 
+## 2026-11-19 — Room plan — Hide locked rooms from exchanges
+
+- Details/impact: omit other locked rooms from the personal plan. While a traveler's own room is locked, keep the room card and unlock control available and hide the exchange dialog. The organizer plan retains all rooms.
+- Test status: API coverage checks visibility by role and room lock state. Web coverage checks accessible dialog dismissal, hidden room occupants and reopening the plan after unlock.
+
+## 2026-11-19 — Room plan — Refresh on demand
+
+- Details/impact: separate cached reads for the room plan, pending requests and the staff directory. Assignments refresh the plan independently of requests and reuse the cached directory. Remove the 30-second polling interval and add a keyboard-accessible manual refresh with the time since the plan was last fetched.
+- Test status: web tests cover updating a room while requests are still pending, zero periodic calls while idle, and manual refresh with a keyboard-accessible tooltip.
+
+## 2026-11-19 — Participants — Delete travelers from a trip
+
+- Details/impact: managers confirm permanent deletion with the traveler's current email in an accessible dialog. Remove trip data in one transaction, revoke the account on its final membership, and retry failed private ticket deletions through the retention job. Local demo accounts are now opt-in.
+- Test status: the API verifies authorization, email confirmation, trip isolation, room and transport cleanup, storage retries, and session revocation. The web test covers focus, cancellation and explicit confirmation.
+
+## 2026-11-19 — Room plan — Swap occupants of full rooms
+
+- Details/impact: organizers can drop an assigned traveler onto an occupant of a full room or select the occupant in the assignment dialog. Both assignments update in one transaction and history records both moves. The dialog excludes the current room and truncates long selected names.
+- Test status: web interaction checks cover target highlighting, both swap entry points and destination selection.
+
+
+## 2026-11-19 — Room plan — Make distant assignments easier
+
+- Details/impact: keep the unassigned drop area visible on desktop as the room grid scrolls. Open the assignment dialog from any person on the plan, with room-number search and occupancy in the destination list. The unassigned list shares the directory search field and its case- and accent-insensitive matching.
+- Test status: keyboard interaction finds Léa with LEA and assigns her to room 47. Chrome verified that the source and destination are visible together after scrolling to the last room.
+
+
+## 2026-11-19 — Room plan — Limit composition to organizers
+
+- Details/impact: calculate organizer composition badges from recorded occupant values, including prefilled values. Omit room composition and occupant sex from personal room views.
+- Test status: API regression covers prefilled same-sex and mixed rooms, the personal view of an organizer, and an organizer-view request from a traveler.
+
+
+## 2026-11-19 — Organizer directory — Filter participants
+
+- Details/impact: combine search with role, package, group transport and manager-only payment filters. Distinguish no transport from unconfirmed assignments.
+- Test status: directory interaction test covers group selection, combined filters, search and reset. Web typecheck and translation checks pass.
+
+
+## 2026-11-19 — Traveler profiles — Show and edit personal phone numbers
+
+- Details/impact: show the optional personal phone to the traveler and organizers. Use existing validated import data as the default and preserve profile corrections and clearings across imports. Agency exports use the same effective phone.
+- Test status: the API suite covers imported fallback, canceled registrations, invalid input, normalized edits, legacy writes and organizer clearing.
+
+
+## 2026-11-19 — Traveler profiles — Display and edit personal phone numbers
+
+- Details/impact: add the optional international personal phone field to traveler and organizer profiles; preserve imported legacy values when untouched and allow organizers to clear the field.
+- Test status: focused web checks could not run because this shell uses Node 24 while the repository requires Node 26.
+
 ## 2026-11-19 — Agency export — Keep Excel validation ranges compact
 
 - Details/impact: patch ExcelJS to preserve dropdown validation ranges without expanding them into individual cells. The agency workbook keeps its validation rules on export.

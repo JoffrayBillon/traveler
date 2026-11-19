@@ -46,6 +46,7 @@ export async function saveTravelerProfile(
     emergencyContactFirstName: string;
     emergencyContactLastName: string;
     emergencyContactPhone: string;
+    personalPhone: string | undefined;
   },
 ) {
   const now = new Date();
@@ -102,6 +103,7 @@ export async function saveTravelerProfile(
         emergencyContactFirstName: profile.emergencyContactFirstName,
         emergencyContactLastName: profile.emergencyContactLastName,
         emergencyContactPhone: profile.emergencyContactPhone,
+        personalPhone: profile.personalPhone,
         completedAt: now,
         updatedAt: now,
       })
@@ -118,6 +120,7 @@ export async function saveTravelerProfile(
           emergencyContactFirstName: profile.emergencyContactFirstName,
           emergencyContactLastName: profile.emergencyContactLastName,
           emergencyContactPhone: profile.emergencyContactPhone,
+          personalPhone: profile.personalPhone,
           completedAt: now,
           updatedAt: now,
         },
