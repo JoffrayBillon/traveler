@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, vi } from "vitest";
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -20,4 +20,10 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+afterAll(() => {
+  // React Aria's live region lives outside the React root. Detach it before
+  // jsdom tears down so a delayed announcement skips the disposed document.
+  document.querySelector("[data-live-announcer]")?.remove();
 });
