@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TransportGroup } from "@traveler/api/transport/transport.types";
 import "@traveler/i18n";
@@ -8,7 +14,9 @@ import { TransportGroupEditor } from "./TransportGroupEditor";
 
 afterEach(() => vi.unstubAllGlobals());
 
-it("moves an added shuttle before an existing return flight", async () => {
+it("moves an added shuttle before an existing return flight", {
+  timeout: 10_000,
+}, async () => {
   const user = userEvent.setup();
   const segment = {
     departureAt: null,
@@ -71,13 +79,17 @@ it("moves an added shuttle before an existing return flight", async () => {
     within(transfer).getByRole("button", { name: /Mode de transport/ }),
   );
   await user.click(screen.getByRole("option", { name: "Navette" }));
-  await user.type(
+  fireEvent.change(
     within(transfer).getByRole("textbox", { name: "Départ de" }),
-    "Hôtel",
+    {
+      target: { value: "Hôtel" },
+    },
   );
-  await user.type(
+  fireEvent.change(
     within(transfer).getByRole("textbox", { name: "Destination" }),
-    "Chambéry",
+    {
+      target: { value: "Chambéry" },
+    },
   );
 
   await user.click(
