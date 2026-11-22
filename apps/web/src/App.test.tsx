@@ -70,9 +70,14 @@ describe("application shell", () => {
     expect(
       screen.getByText(/droit d’introduire une réclamation auprès de la CNIL/i),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /CNIL/i }),
-    ).not.toBeInTheDocument();
+    const linkDestinations = screen
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+    expect(linkDestinations).not.toContainEqual(
+      expect.stringMatching(
+        /cnil\.fr\/fr\/(?:adresser-une-plainte|plaintes)\b/,
+      ),
+    );
   });
 
   it("previews a sign-in link without redeeming it or sending mail", async () => {
