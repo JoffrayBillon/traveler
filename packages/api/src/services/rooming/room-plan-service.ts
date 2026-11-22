@@ -5,6 +5,7 @@ import { recordRoomAssignmentHistory } from "../../datamodel/room-assignment-his
 import { getRoomInventory } from "../../datamodel/room-inventory.repository";
 import { staleRoomRequestsForRooms } from "../../datamodel/room-request.repository";
 import * as schema from "../../schema";
+import { reconcileTrainTicketSeats } from "../tickets/train-ticket-pool";
 
 type AssignmentPlan = {
   snapshot: string;
@@ -81,8 +82,10 @@ export async function applyRoomAssignmentPlan(
           and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)),
         );
     }
-    if (touched.size)
+    if (touched.size) {
       await staleRoomRequestsForRooms(transaction, tripId, [...touched.keys()]);
+      await reconcileTrainTicketSeats(transaction, tripId);
+    }
 
     return {
       status: "applied" as const,

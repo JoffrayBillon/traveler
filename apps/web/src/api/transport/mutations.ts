@@ -48,7 +48,12 @@ export function useTransportMutations(tripId: string) {
           body: JSON.stringify({ choice, groupId }),
         },
       ),
-    onSuccess: invalidate,
+    onSuccess: () =>
+      Promise.all([
+        invalidate(),
+        client.invalidateQueries({ queryKey: queryKeys.trainTickets(tripId) }),
+        client.invalidateQueries({ queryKey: queryKeys.traveler(tripId) }),
+      ]),
   });
   const saveCarpoolRole = useMutation({
     mutationFn: ({

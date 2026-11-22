@@ -46,8 +46,65 @@ export const en = {
   pageContent: "Page content",
   preparingYourSpace: "Preparing your space…",
   loadingYourSpace: "Loading your space…",
-  tripsAreBetterWhenEverythingIsClear:
-    "Trips are better when everything is clear.",
+  legalAndPrivacyTitle: "Legal notice and privacy",
+  trainTicketPool: "Group train tickets",
+  trainTicketSegment: "Train",
+  trainTicketPdf: "Group ticket (PDF)",
+  trainTicketPdfHint: "Drop the PDF ticket for this train. Maximum size 4 MB.",
+  trainTicketSeats: "Seats on the ticket",
+  trainTicketSeatsHint:
+    "Enter one seat per line in the adjacent-seat order provided by the agency. Include the carriage and seat to distinguish each place.",
+  trainTicketDuplicateSeat: "A seat is already in stock for this train.",
+  trainTicketUploadFailed:
+    "The ticket could not be added. Check the PDF and seat list.",
+  trainTicketAddDocument: "Add to stock",
+  trainTicketRemoveNamed: "Remove {{name}}",
+  trainTicketRemove: "Delete ticket",
+  trainTicketRemoveHint:
+    "The document {{name}} and all its seats will be removed. Travelers assigned to those seats will lose access to the ticket.",
+  trainTicketRemoveFailed: "The ticket could not be deleted.",
+  trainTicketPoolUnavailable: "Tickets for this train could not be loaded.",
+  trainTicketPreview: "Allocation preview",
+  trainTicketUnassigned:
+    "Travelers without a train seat in this preview · {{value}}",
+  trainTicketFreeSeat: "Available seat",
+  trainTicketRoom: "Room {{room}}",
+  trainTicketProposed: "Ready to publish",
+  trainTicketPreviewChanged:
+    "The plan changed. Check the new preview before publishing.",
+  trainTicketPublishFailed: "The allocation could not be published.",
+  trainTicketPublish: "Publish assignments",
+  trainTicketSeatLabel: "Train seat · {{seat}}",
+  transportGroupHasTrainTickets:
+    "Remove this train’s tickets before deleting the leg or changing its direction or mode.",
+  legalIntro: "Traveler is a private space provided by your trip organizers.",
+  legalDataUseTitle: "Data used to organize your trip",
+  legalDataUseDescription:
+    "Registration lists provide your name, contact details, trip options and payment information. The organizing team uses these details to manage registrations, activities, transport and rooms.",
+  legalProfileDataDescription:
+    "Your profile can contain your sex, used for room assignments, dietary needs, allergens and emergency contact details. These details help the team prepare for your stay and reach your contact if needed.",
+  legalSessionDescription:
+    "Traveler uses a session cookie to keep you signed in and saves your language and appearance preferences in your browser.",
+  legalDataAccessTitle: "Who can access your data",
+  legalDataAccessDescription:
+    "Managers and companions access trip data according to their roles. Travelers can see names in the room plan and, where applicable, the list of carpool drivers. The travel agency receives the details needed to arrange rooms and transport.",
+  legalProvidersDescription:
+    "Vercel hosts the site and transport tickets, Turso hosts the database, and Brevo delivers sign-in emails.",
+  legalRetentionTitle: "Data retention",
+  legalTripRetentionDescription:
+    "Starting 90 days after the recorded trip end date, Traveler's daily cleanup deletes the trip’s personal data. This includes registrations, traveler profiles, emergency contacts, assignments, room history and transport tickets.",
+  legalAccountRetentionDescription:
+    "Your account, sessions and sign-in links are also deleted if your account is no longer associated with another trip. Copies of documents already downloaded or shared outside Traveler follow their recipients’ retention rules.",
+  legalRightsTitle: "Exercise your rights and request account deletion",
+  legalRightsDescription:
+    "You can request access to your data, correction, erasure or restriction of its use. To request erasure or exercise another right, contact your trip managers through the channel used for registration and include your account email address. You can contact them at any time, including before your trip ends.",
+  legalAccountRemovalDescription:
+    "Traveler has no self-service account deletion button. Trip managers handle requests and can remove your trip data from the app. If you are registered for another trip, your account remains available for that trip.",
+  legalCnilComplaint:
+    "File a complaint with the French data protection authority",
+  legalHostingTitle: "Hosting",
+  legalHostingDescription:
+    "Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, United States.",
   allMyTrips: "All my trips",
   organizerTools: "Organizer tools",
   pageNotFound: "PAGE NOT FOUND",
@@ -322,6 +379,9 @@ export const en = {
     "No matching account was found. Check the exact spelling.",
   otherDocument: "Other document",
   plane: "Plane",
+  bus: "Bus",
+  shuttle: "Shuttle",
+  segmentInstructions: "Practical information for travelers",
   loadingTripInformation: "Loading trip information…",
   chooseAnExcelSpreadsheetToImport: "Choose an Excel spreadsheet to import.",
   chooseATicketFileToUpload: "Choose a ticket file to upload.",
@@ -433,6 +493,8 @@ export const en = {
   detailedOrderList: "Detailed order list",
   tripName: "Trip name",
   tripEndDate: "Trip end date",
+  tripEndDateRetentionHint:
+    "Personal data from this trip will be deleted 90 days after this date.",
   seat: "Seat",
   severalAccountsHaveThisNameCheckTheNamesInTheSpreadsheet:
     "Several accounts have this name. Check the names in the spreadsheet.",
@@ -580,6 +642,8 @@ export const en = {
   passengersCount_other: "{{count}} passengers",
   participantCarpoolRole: "Carpool role",
   removeSegment: "Remove this segment",
+  moveTransportSegmentEarlier: "Move this leg up",
+  moveTransportSegmentLater: "Move this leg down",
   returnMeeting: "Return meeting",
   serviceReference: "Service reference",
   transportAssignment: "Transport assignment",

@@ -364,7 +364,9 @@ it("requires a manager and the exact email to erase trip data and revoke the las
     await database.select().from(schema.pendingTicketBlobDeletions),
   ).toEqual([{ blobPath: "local/alex-ticket", availableAt: 0 }]);
   expect(deleteBlob).toHaveBeenNthCalledWith(1, "local/alex-ticket");
-  const retry = await app.request("/api/cron/delete-expired-tickets", {
+  const denied = await app.request("/api/cron/purge-expired-trips");
+  expect(denied.status).toBe(401);
+  const retry = await app.request("/api/cron/purge-expired-trips", {
     headers: { Authorization: "Bearer test-cron-secret" },
   });
   expect(await retry.json()).toMatchObject({ deleted: 1, failed: 0 });
@@ -1463,7 +1465,11 @@ describe("invite-only magic-link authentication", () => {
         expect(intent?.blobPath).toBe(blobPath);
         expect(intent?.availableAt).toBeGreaterThan(Date.now());
         const during = await runRetention();
-        expect(await during.json()).toEqual({ deleted: 0, failed: 0 });
+        expect(await during.json()).toEqual({
+          purgedTrips: 0,
+          deleted: 0,
+          failed: 0,
+        });
         const memberships = schema.tripMemberships;
         if (changed === "role") {
           await services.database
@@ -1492,7 +1498,7 @@ describe("invite-only magic-link authentication", () => {
         },
       );
       function runRetention() {
-        return app.request("/api/cron/delete-expired-tickets", {
+        return app.request("/api/cron/purge-expired-trips", {
           headers: { Authorization: "Bearer test-cron-secret" },
         });
       }
@@ -1535,7 +1541,11 @@ describe("invite-only magic-link authentication", () => {
       expect(put).toHaveBeenCalledOnce();
       expect(del).toHaveBeenNthCalledWith(1, intent?.blobPath);
       const retry = await runRetention();
-      expect(await retry.json()).toEqual({ deleted: 1, failed: 0 });
+      expect(await retry.json()).toEqual({
+        purgedTrips: 0,
+        deleted: 1,
+        failed: 0,
+      });
       expect(del).toHaveBeenNthCalledWith(2, intent?.blobPath);
     },
   );

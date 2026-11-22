@@ -1,3 +1,4 @@
+import type { TransportSegment } from "@traveler/api/transport/transport.types";
 import type { TranslationKey } from "@traveler/i18n/resources";
 import type { TripRole } from "@traveler/types/profile";
 
@@ -7,10 +8,14 @@ export const roleLabel: Record<TripRole, TranslationKey> = {
   manager: "manager",
 };
 
-export const transportLabel: Record<string, TranslationKey> = {
+export const transportSegmentLabel: Record<
+  TransportSegment["mode"],
+  TranslationKey
+> = {
   train: "train",
   flight: "plane",
-  none: "noTransportBooked",
+  bus: "bus",
+  shuttle: "shuttle",
 };
 
 export const ticketLabel: Record<

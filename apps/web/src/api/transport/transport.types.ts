@@ -2,12 +2,13 @@ export type TransportSegment = {
   id?: string;
   direction: "outbound" | "return";
   position?: number;
-  mode: "train" | "flight";
+  mode: "train" | "flight" | "bus" | "shuttle";
   origin: string;
   destination: string;
   departureAt: string | null;
   arrivalAt: string | null;
   serviceReference: string | null;
+  instructions?: string | null;
 };
 
 export type TransportGroup = {

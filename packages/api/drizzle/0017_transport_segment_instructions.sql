@@ -1,0 +1,1 @@
+ALTER TABLE `transport_group_segments` ADD `instructions` text;

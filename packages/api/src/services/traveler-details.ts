@@ -154,22 +154,18 @@ export async function renameTrip(
 ) {
   if (typeof value !== "string" || !value.trim() || value.trim().length > 120)
     return { ok: false as const, error: "invalid_trip_name" };
-  let endsOn: string | null | undefined;
+  let endsOn: string | undefined;
   if (endsOnValue !== undefined) {
-    if (endsOnValue !== null && typeof endsOnValue !== "string")
+    if (typeof endsOnValue !== "string")
       return { ok: false as const, error: "invalid_trip_end_date" };
-    if (typeof endsOnValue === "string") {
-      const date = new Date(`${endsOnValue}T00:00:00.000Z`);
-      if (
-        !/^\d{4}-\d{2}-\d{2}$/.test(endsOnValue) ||
-        Number.isNaN(date.getTime()) ||
-        date.toISOString().slice(0, 10) !== endsOnValue
-      )
-        return { ok: false as const, error: "invalid_trip_end_date" };
-      endsOn = endsOnValue;
-    } else {
-      endsOn = null;
-    }
+    const date = new Date(`${endsOnValue}T00:00:00.000Z`);
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(endsOnValue) ||
+      Number.isNaN(date.getTime()) ||
+      date.toISOString().slice(0, 10) !== endsOnValue
+    )
+      return { ok: false as const, error: "invalid_trip_end_date" };
+    endsOn = endsOnValue;
   }
   const name = value.trim();
   await persistTripName(database, tripId, name, endsOn);

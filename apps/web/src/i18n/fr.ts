@@ -46,8 +46,67 @@ export const fr = {
   pageContent: "Contenu de la page",
   preparingYourSpace: "Préparation de votre espace…",
   loadingYourSpace: "Chargement de votre espace…",
-  tripsAreBetterWhenEverythingIsClear:
-    "Les voyages se vivent mieux quand tout est clair.",
+  legalAndPrivacyTitle: "Mentions légales et confidentialité",
+  trainTicketPool: "Billets de train groupés",
+  trainTicketSegment: "Train",
+  trainTicketPdf: "Billet de groupe (PDF)",
+  trainTicketPdfHint:
+    "Déposez le billet PDF correspondant à ce train. 4 Mo maximum.",
+  trainTicketSeats: "Places du billet",
+  trainTicketSeatsHint:
+    "Une place par ligne, dans l’ordre des places voisines indiqué par l’agence. Indiquez la voiture et le siège pour distinguer les places.",
+  trainTicketDuplicateSeat: "Une place figure déjà dans le stock de ce train.",
+  trainTicketUploadFailed:
+    "Impossible d’ajouter ce billet. Vérifiez le PDF et la liste des places.",
+  trainTicketAddDocument: "Ajouter au stock",
+  trainTicketRemoveNamed: "Retirer {{name}}",
+  trainTicketRemove: "Supprimer le billet",
+  trainTicketRemoveHint:
+    "Le document {{name}} et toutes les places de ce billet seront retirés. Les voyageurs concernés perdront leur accès au billet.",
+  trainTicketRemoveFailed: "Impossible de supprimer ce billet.",
+  trainTicketPoolUnavailable: "Impossible de charger les billets de ce train.",
+  trainTicketPreview: "Aperçu de la répartition",
+  trainTicketUnassigned:
+    "Voyageurs sans place de train dans cet aperçu · {{value}}",
+  trainTicketFreeSeat: "Place libre",
+  trainTicketRoom: "Chambre {{room}}",
+  trainTicketProposed: "À publier",
+  trainTicketPreviewChanged:
+    "Le plan a changé. Vérifiez le nouvel aperçu avant de publier.",
+  trainTicketPublishFailed: "Impossible de publier la répartition.",
+  trainTicketPublish: "Publier les attributions",
+  trainTicketSeatLabel: "Place de train · {{seat}}",
+  transportGroupHasTrainTickets:
+    "Retirez les billets du train avant de supprimer cette étape ou de changer son sens ou son mode.",
+  legalIntro:
+    "Traveler est un espace privé mis à disposition par les organisateurs de votre séjour.",
+  legalDataUseTitle: "Les données utilisées pour votre séjour",
+  legalDataUseDescription:
+    "Les listes d’inscription fournissent votre identité, vos coordonnées, vos options et les informations de suivi du paiement. L’équipe d’organisation utilise ces données pour gérer les inscriptions, les activités, le transport et les chambres.",
+  legalProfileDataDescription:
+    "Votre fiche peut contenir votre sexe, utilisé pour la composition des chambres, vos besoins alimentaires, vos allergènes et les coordonnées de votre contact d’urgence. Ces informations servent à préparer votre séjour et, si nécessaire, à joindre votre contact.",
+  legalSessionDescription:
+    "Traveler utilise un cookie de session pour maintenir votre connexion et mémorise vos préférences de langue et d’apparence dans votre navigateur.",
+  legalDataAccessTitle: "Qui peut accéder à vos données",
+  legalDataAccessDescription:
+    "Les gestionnaires et accompagnateurs accèdent aux données du séjour selon leurs rôles. Les voyageurs peuvent voir les noms dans le plan de chambres et, le cas échéant, dans la liste des conducteurs de covoiturage. L’agence de voyages reçoit les informations nécessaires à la répartition des chambres et du transport.",
+  legalProvidersDescription:
+    "Vercel héberge le site et les titres de transport, Turso héberge la base de données et Brevo transmet les e-mails de connexion.",
+  legalRetentionTitle: "Conservation des données",
+  legalTripRetentionDescription:
+    "À partir de 90 jours après la date de fin enregistrée, la purge quotidienne de Traveler supprime les données personnelles du séjour. Cela comprend les inscriptions, les fiches voyageurs, les contacts d’urgence, les affectations, l’historique des chambres et les titres de transport.",
+  legalAccountRetentionDescription:
+    "Votre compte, vos sessions et vos liens de connexion sont également supprimés si votre compte n’est plus rattaché à un autre séjour. Les copies de documents déjà téléchargées ou transmises hors de Traveler suivent les règles de conservation de leurs destinataires.",
+  legalRightsTitle:
+    "Exercer vos droits et demander la suppression de votre compte",
+  legalRightsDescription:
+    "Vous pouvez demander l’accès à vos données, leur rectification, leur effacement ou la limitation de leur utilisation. Pour demander l’effacement ou exercer un autre droit, contactez les gestionnaires par le canal utilisé pour votre inscription, en indiquant l’adresse e-mail de votre compte. Vous pouvez les contacter dès maintenant, sans attendre la fin du séjour.",
+  legalAccountRemovalDescription:
+    "Traveler ne propose pas de bouton de suppression du compte. Les gestionnaires traitent les demandes et peuvent retirer vos données du séjour dans l’application. Si vous êtes inscrit à un autre séjour, votre compte reste accessible pour cet autre séjour.",
+  legalCnilComplaint: "Adresser une réclamation à la CNIL",
+  legalHostingTitle: "Hébergement",
+  legalHostingDescription:
+    "Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis.",
   allMyTrips: "Tous mes voyages",
   organizerTools: "Outils d’organisation",
   pageNotFound: "PAGE INTROUVABLE",
@@ -333,6 +392,9 @@ export const fr = {
     "Aucun compte trouvé : vérifiez l’orthographe exacte.",
   otherDocument: "Autre document",
   plane: "Avion",
+  bus: "Bus",
+  shuttle: "Navette",
+  segmentInstructions: "Informations pratiques pour les voyageurs",
   loadingTripInformation: "Chargement des informations du voyage…",
   chooseAnExcelSpreadsheetToImport: "Choisissez un classeur Excel à importer.",
   chooseATicketFileToUpload: "Choisissez un fichier de billet à téléverser.",
@@ -449,6 +511,8 @@ export const fr = {
   detailedOrderList: "Liste détaillée des commandes",
   tripName: "Nom du voyage",
   tripEndDate: "Date de fin du voyage",
+  tripEndDateRetentionHint:
+    "Les données personnelles de ce séjour seront supprimées 90 jours après cette date.",
   seat: "Place",
   severalAccountsHaveThisNameCheckTheNamesInTheSpreadsheet:
     "Plusieurs comptes ont ce nom : vérifiez les noms dans le fichier.",
@@ -596,6 +660,8 @@ export const fr = {
   passengersCount_other: "{{count}} passagers",
   participantCarpoolRole: "Rôle en covoiturage",
   removeSegment: "Supprimer ce segment",
+  moveTransportSegmentEarlier: "Monter cette étape",
+  moveTransportSegmentLater: "Descendre cette étape",
   returnMeeting: "Rendez-vous au retour",
   serviceReference: "Référence du trajet",
   transportAssignment: "Affectation du transport",

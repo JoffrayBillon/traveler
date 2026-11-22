@@ -40,7 +40,7 @@ export function TripSettingsPanel({ tripId }: { tripId: string }) {
   async function saveTripName(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      await mutation.mutateAsync({ name: name.trim(), endsOn: endsOn || null });
+      await mutation.mutateAsync({ name: name.trim(), endsOn });
       setMessage(t("theTripNameHasBeenUpdated"));
     } catch {
       setMessage(t("theTripNameCouldNotBeUpdated"));
@@ -74,6 +74,7 @@ export function TripSettingsPanel({ tripId }: { tripId: string }) {
         </TextField>
         <ProfileDate
           label={t("tripEndDate")}
+          description={t("tripEndDateRetentionHint")}
           value={endsOn}
           onChange={setEndsOn}
         />

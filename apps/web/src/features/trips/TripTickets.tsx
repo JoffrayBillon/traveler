@@ -36,6 +36,11 @@ export function TripTickets({
             >
               <span className="grid min-w-0 gap-1">
                 <strong>{t(ticketLabel[ticket.kind])}</strong>
+                {ticket.seatLabel && (
+                  <span className="text-sm">
+                    {t("trainTicketSeatLabel", { seat: ticket.seatLabel })}
+                  </span>
+                )}
                 <small className="break-words text-content-muted">
                   {ticket.originalName} ·{" "}
                   {formatBytes(ticket.size, getLocale())}

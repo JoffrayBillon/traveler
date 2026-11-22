@@ -2,15 +2,15 @@ import { timingSafeEqual } from "node:crypto";
 import type { Hono } from "hono";
 import type { AuthServices } from "../auth";
 import type { TicketBlobStorage } from "../ports/ticket-storage";
-import { deleteExpiredTickets } from "../services/tickets/delete-expired-tickets";
+import { purgeExpiredTrips } from "../services/purge-expired-trips";
 
-export function registerTicketRetentionEndpoint(
+export function registerTripRetentionEndpoint(
   app: Hono,
   getAuthServices: () => AuthServices | undefined,
   storage: TicketBlobStorage,
   environment: NodeJS.ProcessEnv = process.env,
 ) {
-  app.get("/api/cron/delete-expired-tickets", async (context) => {
+  app.get("/api/cron/purge-expired-trips", async (context) => {
     context.header("Cache-Control", "no-store");
     const secret = environment.CRON_SECRET;
     const authorization = context.req.header("Authorization") ?? "";
@@ -19,8 +19,13 @@ export function registerTicketRetentionEndpoint(
     }
     const services = getAuthServices();
     if (!services) return context.json({ error: "service_unavailable" }, 503);
-    const result = await deleteExpiredTickets(services.database, storage);
-    return context.json(result);
+    try {
+      const result = await purgeExpiredTrips(services.database, storage);
+      return context.json(result, result.failed ? 503 : 200);
+    } catch {
+      console.error("Trip retention job failed.");
+      return context.json({ error: "retention_unavailable" }, 503);
+    }
   });
 }
 

@@ -33,3 +33,7 @@ export function createTicketBlobPath(
 ) {
   return `${blobNamespace(environment)}/trips/${tripId}/travelers/${userId}/${ticketId}`;
 }
+
+export function createTrainTicketBlobPath(tripId: string, documentId: string) {
+  return `${blobNamespace(process.env)}/trips/${tripId}/train-tickets/${documentId}`;
+}

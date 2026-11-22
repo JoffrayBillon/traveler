@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
+import { magicLinkRateLimitKey } from "../../datamodel/magic-link.repository";
 import { signInRateLimits } from "../../schema";
 
 export async function reserveMagicLinkRequest(
@@ -10,7 +10,7 @@ export async function reserveMagicLinkRequest(
   seconds: number,
   max: number,
 ) {
-  const key = `${scope}:${createHash("sha256").update(subject).digest("hex")}`;
+  const key = magicLinkRateLimitKey(scope, subject);
   const now = Date.now();
   const expiresAt = now + seconds * 1000;
   const expired = sql`${signInRateLimits.expiresAt} <= ${now}`;

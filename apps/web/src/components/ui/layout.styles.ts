@@ -85,5 +85,7 @@ export const appFrameStyles = tv({
       "grid size-[3.6rem] animate-[mark-breathe_1.8s_ease-in-out_infinite] place-items-center rounded-card bg-surface-muted text-accent",
     footer:
       "mx-auto flex min-h-[74px] w-[min(100%-3rem,1440px)] items-center justify-between gap-4 border-t border-border py-5 text-xs text-content-subtle max-[760px]:w-[min(100%-2rem,1440px)] max-[480px]:flex-col max-[480px]:items-start max-[480px]:justify-center max-[480px]:gap-1",
+    footerLink:
+      "inline-flex min-h-11 items-center rounded-control text-sm text-content-muted underline underline-offset-4 hover:text-content aria-[current=page]:text-content",
   },
 });

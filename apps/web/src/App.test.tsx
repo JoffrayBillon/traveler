@@ -42,6 +42,31 @@ afterEach(() => {
 });
 
 describe("application shell", () => {
+  it("links to privacy information and focuses its heading without signing in", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const legalLink = screen.getByRole("link", {
+      name: "Mentions légales et confidentialité",
+    });
+    legalLink.focus();
+    await user.keyboard("{Enter}");
+
+    const heading = await screen.findByRole("heading", {
+      name: "Mentions légales et confidentialité",
+      level: 1,
+    });
+    expect(window.location.pathname).toBe("/mentions-legales");
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(document.title).toBe(
+      "Mentions légales et confidentialité · Traveler",
+    );
+    expect(
+      screen.getByText(/90 jours.+supprime les données personnelles/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/demander l’effacement/i)).toBeInTheDocument();
+  });
+
   it("previews a sign-in link without redeeming it or sending mail", async () => {
     window.history.pushState(
       {},
@@ -641,6 +666,26 @@ describe("application shell", () => {
                       arrivalAt: null,
                       serviceReference: "ABC123",
                     },
+                    {
+                      id: "segment-2",
+                      direction: "outbound",
+                      mode: "bus",
+                      origin: "Moûtiers",
+                      destination: "Hôtel",
+                      departureAt: "2027-02-15T11:00:00",
+                      arrivalAt: "2027-02-15T11:45:00",
+                      instructions:
+                        "Rejoignez le bus devant la sortie de la gare.",
+                    },
+                    {
+                      id: "segment-3",
+                      direction: "return",
+                      mode: "shuttle",
+                      origin: "Hôtel",
+                      destination: "Moûtiers",
+                      departureAt: "2027-02-17T16:00:00",
+                      arrivalAt: null,
+                    },
                   ],
                   travelers: [],
                 },
@@ -669,6 +714,11 @@ describe("application shell", () => {
     expect(await screen.findByText("Paris Ski")).toBeInTheDocument();
     expect(
       await screen.findByText(/Train · Paris → Moûtiers/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Bus · Moûtiers → Hôtel")).toBeInTheDocument();
+    expect(screen.getByText("Navette · Hôtel → Moûtiers")).toBeInTheDocument();
+    expect(
+      screen.getByText("Rejoignez le bus devant la sortie de la gare."),
     ).toBeInTheDocument();
     expect(screen.getByText(/Gare de Lyon/)).toBeInTheDocument();
     expect(screen.getByText("billet-aller.pdf · 50 Ko")).toBeInTheDocument();
