@@ -100,10 +100,11 @@ export const fr = {
   legalRightsTitle:
     "Exercer vos droits et demander la suppression de votre compte",
   legalRightsDescription:
-    "Vous pouvez demander l’accès à vos données, leur rectification, leur effacement ou la limitation de leur utilisation. Pour demander l’effacement ou exercer un autre droit, contactez les gestionnaires par le canal utilisé pour votre inscription, en indiquant l’adresse e-mail de votre compte. Vous pouvez les contacter dès maintenant, sans attendre la fin du séjour.",
+    "Pour toute question sur vos données ou pour exercer vos droits, contactez l’organisateur de votre voyage par le canal utilisé pour votre inscription et indiquez l’adresse e-mail de votre compte. Vous pouvez lui demander l’accès à vos données, leur rectification, leur effacement ou la limitation de leur utilisation à tout moment, y compris avant la fin du séjour.",
   legalAccountRemovalDescription:
     "Traveler ne propose pas de bouton de suppression du compte. Les gestionnaires traitent les demandes et peuvent retirer vos données du séjour dans l’application. Si vous êtes inscrit à un autre séjour, votre compte reste accessible pour cet autre séjour.",
-  legalCnilComplaint: "Adresser une réclamation à la CNIL",
+  legalComplaintRight:
+    "Vous avez le droit d’introduire une réclamation auprès de la CNIL.",
   legalHostingTitle: "Hébergement",
   legalHostingDescription:
     "Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis.",

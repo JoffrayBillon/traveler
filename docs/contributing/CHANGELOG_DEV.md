@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-22 — Privacy — Put organizer contact first
+
+- Details/impact: direct travelers to the trip organizer for privacy requests in French and English. State the right to lodge a complaint in plain text and remove the direct link to the complaint form.
+- Test status: 36 web tests passed under Node 26, including the public notice check. The translation catalog and web type checks passed.
+
 ## 2026-11-22 — Participant imports — Preserve gender when Matricule has no marker
 
 - Details/impact: preserve a booking's stored gender through validated-roster previews and commits when no gender marker is supplied. Restore the last booking value as a prefill when a cancelled membership is recreated.
