@@ -56,14 +56,7 @@ export function LegalAndPrivacyRoute() {
           </h2>
           <p>{t("legalRightsDescription")}</p>
           <p>{t("legalAccountRemovalDescription")}</p>
-          <p>
-            <a
-              className="underline underline-offset-4 hover:text-content"
-              href="https://www.cnil.fr/fr/adresser-une-plainte"
-            >
-              {t("legalCnilComplaint")}
-            </a>
-          </p>
+          <p>{t("legalComplaintRight")}</p>
         </section>
         <section className="grid gap-2">
           <h2 className="text-lg font-semibold text-content">

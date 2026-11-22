@@ -64,7 +64,15 @@ describe("application shell", () => {
     expect(
       screen.getByText(/90 jours.+supprime les données personnelles/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/demander l’effacement/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/contactez l’organisateur de votre voyage/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/droit d’introduire une réclamation auprès de la CNIL/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /CNIL/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("previews a sign-in link without redeeming it or sending mail", async () => {
