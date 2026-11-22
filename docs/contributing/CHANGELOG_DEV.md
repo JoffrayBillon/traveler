@@ -35,6 +35,11 @@
 - Details/impact: reorder steps within the same direction from the group editor, including putting a newly added transfer before an existing train or flight.
 - Test status: a web test moves a return shuttle before an existing flight and checks the saved sequence.
 
+## 2026-11-22 — Transport — Harden train-ticket publication and cleanup
+
+- Details/impact: keep a changed draft after an earlier upload succeeds, reject a publication preview when the shortage changes, and recreate cleanup intents for late unpublished blobs.
+- Test status: regression tests cover those cases and verify that retention preserves the ticket metadata of a different trip.
+
 ## 2026-11-20 — Release review — Harden sign-in, tickets, and room changes
 
 - Details/impact: separate sign-in quotas from Better Auth pruning and check the network quota before the email cooldown. Verify magic links and create sessions atomically. Revoke old links when changing an email. Track ticket uploads before storage, recheck trip roles and memberships before publication, and retry abandoned uploads through the retention queue.

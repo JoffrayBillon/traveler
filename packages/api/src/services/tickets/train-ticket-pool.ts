@@ -54,17 +54,18 @@ async function previewPool(
       isNew: next.userId !== null && next.userId !== seat.userId,
     };
   });
+  const unassigned =
+    passengers.length -
+    preview.filter((seat) => seat.assignedName !== null).length;
   const snapshot = createHash("sha256")
-    .update(JSON.stringify({ seats, updates, preview }))
+    .update(JSON.stringify({ seats, updates, preview, unassigned }))
     .digest("hex");
   return {
     view: {
       documents,
       seats: preview,
       snapshot,
-      unassigned:
-        passengers.length -
-        preview.filter((seat) => seat.assignedName !== null).length,
+      unassigned,
       hasChanges: updates.length > 0,
     },
     updates,

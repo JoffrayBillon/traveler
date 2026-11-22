@@ -11,6 +11,11 @@ import { type FormEvent, useState } from "react";
 import { Form, Label, Text, TextArea, TextField } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 
+const emptyDraft: { file: File | null; seats: string } = {
+  file: null,
+  seats: "",
+};
+
 export function TrainTicketBatchUpload({
   tripId,
   segmentId,
@@ -20,8 +25,8 @@ export function TrainTicketBatchUpload({
 }) {
   const { t } = useTranslation();
   const upload = useUploadTrainTicketMutation(tripId, segmentId);
-  const [file, setFile] = useState<File | null>(null);
-  const [seats, setSeats] = useState("");
+  const [draft, setDraft] = useState(emptyDraft);
+  const { file, seats } = draft;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,10 +34,8 @@ export function TrainTicketBatchUpload({
     upload.mutate(
       { file, seats },
       {
-        onSuccess: () => {
-          setFile(null);
-          setSeats("");
-        },
+        onSuccess: () =>
+          setDraft((current) => (current === draft ? emptyDraft : current)),
       },
     );
   }
@@ -45,12 +48,12 @@ export function TrainTicketBatchUpload({
         acceptedFileTypes={["application/pdf"]}
         extensions={[".pdf"]}
         file={file}
-        onFileChange={setFile}
+        onFileChange={(file) => setDraft((current) => ({ ...current, file }))}
       />
       <TextField
         isRequired
         value={seats}
-        onChange={setSeats}
+        onChange={(seats) => setDraft((current) => ({ ...current, seats }))}
         className="grid gap-2"
       >
         <Label className={textFieldStyles().label()}>

@@ -18,6 +18,7 @@ export async function uploadPrivateTicket(
     blobPath,
     availableAt: Date.now() + uploadGraceMs,
   });
+  let publicationMayHaveCommitted = false;
   try {
     await storage.put(blobPath, file, {
       access: "private",
@@ -36,18 +37,38 @@ export async function uploadPrivateTicket(
         .returning({ blobPath: pending.blobPath });
       if (!intent) throw new Error("The ticket upload intent has expired.");
       await publish(transaction);
+      publicationMayHaveCommitted = true;
     });
   } catch (error) {
     try {
-      const [abandoned] = await database
-        .update(pending)
-        .set({ availableAt: 0 })
-        .where(eq(pending.blobPath, blobPath))
-        .returning({ blobPath: pending.blobPath });
+      // A commit with a lost acknowledgement may have published the ticket.
+      // Recreate a missing intent only when the transaction could not publish it.
+      const [abandoned] = publicationMayHaveCommitted
+        ? await database
+            .update(pending)
+            .set({ availableAt: 0 })
+            .where(eq(pending.blobPath, blobPath))
+            .returning({ blobPath: pending.blobPath })
+        : await database
+            .insert(pending)
+            .values({ blobPath, availableAt: 0 })
+            .onConflictDoUpdate({
+              target: pending.blobPath,
+              set: { availableAt: 0 },
+            })
+            .returning({ blobPath: pending.blobPath });
       if (abandoned)
         await deleteQueuedTicketBlobs(database, storage, [blobPath]);
     } catch {
-      // The durable intent becomes eligible when its grace period expires.
+      if (!publicationMayHaveCommitted) {
+        try {
+          await storage.del(blobPath);
+        } catch {
+          console.error(
+            "Could not queue or remove an unpublished ticket blob.",
+          );
+        }
+      }
     }
     throw error;
   }

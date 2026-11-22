@@ -230,6 +230,15 @@ it.each([true, false])(
       ).toMatchObject([
         { tripId: "current", userId: "shared", allergens: "current-profile" },
       ]);
+      expect(
+        await database
+          .select({
+            tripId: schema.transportTickets.tripId,
+            blobPath: schema.transportTickets.blobPath,
+          })
+          .from(schema.transportTickets)
+          .where(eq(schema.transportTickets.tripId, "current")),
+      ).toEqual([{ tripId: "current", blobPath: "local/current/ticket" }]);
       for (const table of [
         schema.users,
         schema.accounts,

@@ -196,7 +196,27 @@ it("publishes group seats and transfers a cancelled traveler's seat to a compati
     const preview = await app.request(pool, {
       headers: { Cookie: managerCookie },
     });
-    const { snapshot } = (await preview.json()) as { snapshot: string };
+    const initialPool = (await preview.json()) as {
+      snapshot: string;
+      unassigned: number;
+    };
+    expect(initialPool.unassigned).toBe(0);
+    await setTransport(manager.userId, "ski-paris");
+    const stale = await app.request(`${pool}/publish`, {
+      method: "POST",
+      headers: managerHeaders,
+      body: JSON.stringify({ snapshot: initialPool.snapshot }),
+    });
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toEqual({ error: "train_ticket_pool_changed" });
+    const refreshed = await app.request(pool, {
+      headers: { Cookie: managerCookie },
+    });
+    const { snapshot, unassigned } = (await refreshed.json()) as {
+      snapshot: string;
+      unassigned: number;
+    };
+    expect(unassigned).toBe(1);
     expect(
       (
         await app.request(`${pool}/publish`, {
