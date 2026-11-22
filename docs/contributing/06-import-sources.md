@@ -14,7 +14,7 @@ This guide documents the workbook formats reviewed for the ski trip and the agre
 ### Format observations that affect parsing
 
 - `Référence` is numeric in Excel but must be normalized to a string. It joins the validated-registration sheet to the order sheet and is repeated for product and option rows in `Par ligne de commande`.
-- The detailed workbook's `Matricule` column is empty. In the validated-registration workbook, that column may contain a manually supplied `H`/`F` marker, but future exports may not. Neither column is a stable employee identifier.
+- The detailed workbook's `Matricule` column is empty. The validated roster can carry a manually supplied `H`, `M` or `F` marker. A missing column, blank cell or ordinary matricule preserves the gender already saved for that booking and any existing membership. An explicit marker updates the booking and can change an unconfirmed profile prefill. Corrections to a confirmed profile go through the organizer's participant editor. Neither column is a stable employee identifier.
 - The detailed workbook separates order-level fields from product-option rows. Counting rows in `Par ligne de commande` as people would double-count attendees.
 - The detail export distinguishes `Validée` from `En attente de validation`; payment state is separate. Do not use payment state as a substitute for validated-roster membership.
 - The owner corrected the staff/VIP workbook's reversed `Nom` and `Prenom` values. Use the corrected headings and validate them against the reviewed workbook; do not retain the former swap as parser behavior.

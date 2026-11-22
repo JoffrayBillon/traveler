@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-22 — Participant imports — Preserve gender when Matricule has no marker
+
+- Details/impact: preserve a booking's stored gender through validated-roster previews and commits when no gender marker is supplied. Restore the last booking value as a prefill when a cancelled membership is recreated.
+- Test status: an integration test covers blank values, explicit corrections, confirmed profiles and reinstated memberships.
+
 ## 2026-11-20 — Release review — Harden sign-in, tickets, and room changes
 
 - Details/impact: separate sign-in quotas from Better Auth pruning and check the network quota before the email cooldown. Verify magic links and create sessions atomically. Revoke old links when changing an email. Track ticket uploads before storage, recheck trip roles and memberships before publication, and retry abandoned uploads through the retention queue.
