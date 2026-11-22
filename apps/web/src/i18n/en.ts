@@ -97,11 +97,11 @@ export const en = {
     "Your account, sessions and sign-in links are also deleted if your account is no longer associated with another trip. Copies of documents already downloaded or shared outside Traveler follow their recipients’ retention rules.",
   legalRightsTitle: "Exercise your rights and request account deletion",
   legalRightsDescription:
-    "You can request access to your data, correction, erasure or restriction of its use. To request erasure or exercise another right, contact your trip managers through the channel used for registration and include your account email address. You can contact them at any time, including before your trip ends.",
+    "For questions about your data or to exercise your rights, contact your trip organizer through the channel you used to register and include your account email address. You can request access to your data, correction, erasure or restriction of its use at any time, including before your trip ends.",
   legalAccountRemovalDescription:
     "Traveler has no self-service account deletion button. Trip managers handle requests and can remove your trip data from the app. If you are registered for another trip, your account remains available for that trip.",
-  legalCnilComplaint:
-    "File a complaint with the French data protection authority",
+  legalComplaintRight:
+    "You have the right to lodge a complaint with the French data protection authority (CNIL).",
   legalHostingTitle: "Hosting",
   legalHostingDescription:
     "Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, United States.",
