@@ -5,6 +5,8 @@ import {
   SelectTrigger,
   textFieldStyles,
 } from "@traveler/components/ui";
+import { transportSegmentLabel } from "@traveler/lib/trip-format";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import {
   Label,
   ListBox,
@@ -12,6 +14,8 @@ import {
   Popover,
   Select,
   SelectValue,
+  TextArea,
+  TextField,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { ProfileDateTime } from "./ProfileDateTime";
@@ -20,10 +24,14 @@ import { ProfileText } from "./ProfileText";
 export function TransportSegmentEditor({
   segment,
   onChange,
+  onMoveEarlier,
+  onMoveLater,
   onRemove,
 }: {
   segment: TransportSegment;
   onChange: (segment: TransportSegment) => void;
+  onMoveEarlier: (() => void) | undefined;
+  onMoveLater: (() => void) | undefined;
   onRemove: () => void;
 }) {
   const { t } = useTranslation();
@@ -60,7 +68,12 @@ export function TransportSegmentEditor({
           className="grid min-w-0 gap-2"
           selectedKey={segment.mode}
           onSelectionChange={(key) => {
-            if (key === "train" || key === "flight")
+            if (
+              key === "train" ||
+              key === "flight" ||
+              key === "bus" ||
+              key === "shuttle"
+            )
               onChange({ ...segment, mode: key });
           }}
         >
@@ -72,12 +85,15 @@ export function TransportSegmentEditor({
           </SelectTrigger>
           <Popover>
             <ListBox className={listBoxStyles().list()}>
-              <ListBoxItem id="train" className={listBoxStyles().item()}>
-                {t("train")}
-              </ListBoxItem>
-              <ListBoxItem id="flight" className={listBoxStyles().item()}>
-                {t("plane")}
-              </ListBoxItem>
+              {Object.entries(transportSegmentLabel).map(([mode, label]) => (
+                <ListBoxItem
+                  key={mode}
+                  id={mode}
+                  className={listBoxStyles().item()}
+                >
+                  {t(label)}
+                </ListBoxItem>
+              ))}
             </ListBox>
           </Popover>
         </Select>
@@ -117,9 +133,43 @@ export function TransportSegmentEditor({
           onChange({ ...segment, serviceReference: serviceReference || null })
         }
       />
-      <Button appearance="quietDanger" onPress={onRemove}>
-        {t("removeSegment")}
-      </Button>
+      <TextField
+        className="grid gap-2"
+        value={segment.instructions ?? ""}
+        onChange={(instructions) => onChange({ ...segment, instructions })}
+      >
+        <Label className={textFieldStyles().label()}>
+          {t("segmentInstructions")}
+        </Label>
+        <TextArea
+          className={textFieldStyles().input()}
+          rows={3}
+          maxLength={500}
+        />
+      </TextField>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          appearance="secondary"
+          aria-label={t("moveTransportSegmentEarlier")}
+          isDisabled={!onMoveEarlier}
+          onPress={() => onMoveEarlier?.()}
+        >
+          <ArrowUp aria-hidden="true" size={16} />
+        </Button>
+        <Button
+          type="button"
+          appearance="secondary"
+          aria-label={t("moveTransportSegmentLater")}
+          isDisabled={!onMoveLater}
+          onPress={() => onMoveLater?.()}
+        >
+          <ArrowDown aria-hidden="true" size={16} />
+        </Button>
+        <Button appearance="quietDanger" onPress={onRemove}>
+          {t("removeSegment")}
+        </Button>
+      </div>
     </fieldset>
   );
 }

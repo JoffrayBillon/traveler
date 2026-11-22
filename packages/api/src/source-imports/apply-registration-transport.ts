@@ -1,5 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "../schema";
+import { reconcileTrainTicketSeats } from "../services/tickets/train-ticket-pool";
 import { batchRows } from "./batch-rows";
 import type { DatabaseTransaction } from "./database.types";
 
@@ -93,4 +94,5 @@ export async function applyRegistrationTransport(
           },
         });
   }
+  await reconcileTrainTicketSeats(transaction, tripId);
 }

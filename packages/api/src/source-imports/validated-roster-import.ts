@@ -173,7 +173,7 @@ export async function importValidatedRoster(
           role: "traveler" as const,
           firstName: row.firstName,
           lastName: row.lastName,
-          gender: row.gender,
+          gender: row.gender ?? existingRegistration?.gender ?? null,
           genderConfirmed: false,
         };
         membershipsToInsert.push(inserted);
@@ -247,7 +247,7 @@ export async function importValidatedRoster(
             sourceEmail: sql`excluded.source_email`,
             firstName: sql`excluded.first_name`,
             lastName: sql`excluded.last_name`,
-            gender: sql`excluded.gender`,
+            gender: sql`coalesce(excluded.gender, ${schema.tripRegistrations.gender})`,
             activityProfile: sql`excluded.activity_profile`,
             paymentStatus: sql`excluded.payment_status`,
             amountPaidMinor: sql`excluded.amount_paid_minor`,

@@ -13,7 +13,12 @@ import { ProfileDateTime } from "./ProfileDateTime";
 import { ProfileText } from "./ProfileText";
 import { TransportSegmentEditor } from "./TransportSegmentEditor";
 
-const emptyGroup: TransportGroupInput = {
+type DraftSegment = TransportSegment & { draftKey: string };
+type GroupDraft = Omit<TransportGroupInput, "segments"> & {
+  segments: DraftSegment[];
+};
+
+const emptyGroup: GroupDraft = {
   name: "",
   sourceCity: "",
   outboundMeetingAt: null,
@@ -36,14 +41,11 @@ export function TransportGroupEditor({
 }) {
   const { t } = useTranslation();
   const mutations = useTransportMutations(tripId);
-  const [draft, setDraft] = useState<TransportGroupInput>(toInput(group));
+  const [draft, setDraft] = useState(() => toDraft(group));
 
-  useEffect(() => setDraft(toInput(group)), [group]);
+  useEffect(() => setDraft(toDraft(group)), [group]);
 
-  function update<K extends keyof TransportGroupInput>(
-    key: K,
-    value: TransportGroupInput[K],
-  ) {
+  function update<K extends keyof GroupDraft>(key: K, value: GroupDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
@@ -51,20 +53,43 @@ export function TransportGroupEditor({
     setDraft((current) => ({
       ...current,
       segments: current.segments.map((value, valueIndex) =>
-        valueIndex === index ? segment : value,
+        valueIndex === index ? { ...segment, draftKey: value.draftKey } : value,
       ),
     }));
   }
 
+  function moveSegment(index: number, destination: number) {
+    setDraft((current) => {
+      const segments = [...current.segments];
+      const [segment] = segments.splice(index, 1);
+      if (!segment) return current;
+      segments.splice(destination, 0, segment);
+      return { ...current, segments };
+    });
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const input: TransportGroupInput = {
+      ...draft,
+      segments: draft.segments.map(
+        ({ draftKey: _draftKey, ...segment }) => segment,
+      ),
+    };
     try {
       if (group)
-        await mutations.updateGroup.mutateAsync({ id: group.id, input: draft });
-      else await mutations.createGroup.mutateAsync(draft);
+        await mutations.updateGroup.mutateAsync({ id: group.id, input });
+      else await mutations.createGroup.mutateAsync(input);
       onMessage(t("transportGroupSaved"));
       onClose();
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.code === "transport_group_has_train_tickets"
+      ) {
+        onMessage(t("transportGroupHasTrainTickets"));
+        return;
+      }
       onMessage(
         error instanceof ApiError && error.code === "invalid_group"
           ? t("transportGroupInvalid")
@@ -79,8 +104,13 @@ export function TransportGroupEditor({
       await mutations.deleteGroup.mutateAsync(group.id);
       onMessage(t("transportGroupDeleted"));
       onClose();
-    } catch {
-      onMessage(t("transportGroupCouldNotBeDeletedWithTravelersAssigned"));
+    } catch (error) {
+      onMessage(
+        error instanceof ApiError &&
+          error.code === "transport_group_has_train_tickets"
+          ? t("transportGroupHasTrainTickets")
+          : t("transportGroupCouldNotBeDeletedWithTravelersAssigned"),
+      );
     }
   }
 
@@ -146,19 +176,39 @@ export function TransportGroupEditor({
         </div>
         <div className="grid gap-3">
           <h5 className="text-sm font-semibold">{t("transportSegments")}</h5>
-          {draft.segments.map((segment, index) => (
-            <TransportSegmentEditor
-              key={segment.id ?? `new-${index}`}
-              segment={segment}
-              onChange={(value) => updateSegment(index, value)}
-              onRemove={() =>
-                update(
-                  "segments",
-                  draft.segments.filter((_, itemIndex) => itemIndex !== index),
-                )
-              }
-            />
-          ))}
+          {draft.segments.map((segment, index) => {
+            const previous = draft.segments.findLastIndex(
+              (item, itemIndex) =>
+                itemIndex < index && item.direction === segment.direction,
+            );
+            const next = draft.segments.findIndex(
+              (item, itemIndex) =>
+                itemIndex > index && item.direction === segment.direction,
+            );
+            return (
+              <TransportSegmentEditor
+                key={segment.draftKey}
+                segment={segment}
+                onChange={(value) => updateSegment(index, value)}
+                onMoveEarlier={
+                  previous === -1
+                    ? undefined
+                    : () => moveSegment(index, previous)
+                }
+                onMoveLater={
+                  next === -1 ? undefined : () => moveSegment(index, next)
+                }
+                onRemove={() =>
+                  update(
+                    "segments",
+                    draft.segments.filter(
+                      (_, itemIndex) => itemIndex !== index,
+                    ),
+                  )
+                }
+              />
+            );
+          })}
           <div className="flex flex-wrap gap-2">
             <Button
               appearance="secondary"
@@ -205,7 +255,7 @@ export function TransportGroupEditor({
   );
 }
 
-function toInput(group?: TransportGroup): TransportGroupInput {
+function toDraft(group?: TransportGroup): GroupDraft {
   if (!group) return emptyGroup;
   return {
     name: group.name,
@@ -214,16 +264,16 @@ function toInput(group?: TransportGroup): TransportGroupInput {
     outboundMeetingPlace: group.outboundMeetingPlace,
     returnMeetingAt: group.returnMeetingAt,
     returnMeetingPlace: group.returnMeetingPlace,
-    segments: group.segments.map(
-      ({ position: _position, ...segment }) => segment,
-    ),
+    segments: group.segments.map(({ position: _position, ...segment }) => ({
+      ...segment,
+      draftKey: segment.id ?? crypto.randomUUID(),
+    })),
   };
 }
 
-function blankSegment(
-  direction: TransportSegment["direction"],
-): TransportSegment {
+function blankSegment(direction: TransportSegment["direction"]): DraftSegment {
   return {
+    draftKey: crypto.randomUUID(),
     direction,
     mode: "train",
     origin: "",

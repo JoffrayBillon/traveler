@@ -45,5 +45,6 @@ export type TravelerTripData = {
     originalName: string;
     size: number;
     createdAt: string;
+    seatLabel?: string;
   }[];
 };

@@ -26,7 +26,11 @@ Public code does not imply an open-source license grant; no license has been cho
 
 ## 2026-11-02 — Configurable room inventory and retention
 
-Room inventory is configurable per trip until the first room is created. The initial room plan is previewed against a stable database snapshot and applied only if that snapshot is unchanged. Pending requests expire after seven days; the room-request screen updates them without sending email. Transport tickets and their metadata are removed by a production-only Vercel Cron job 90 days after the trip end date. The endpoint requires `CRON_SECRET`, and the API retains a ticket row when Blob deletion fails so a later run can retry.
+Room inventory is configurable per trip. The initial room plan is previewed against a stable database snapshot and applied only if that snapshot is unchanged. Pending requests expire after seven days; the room-request screen updates them without sending email.
+
+## 2026-11-22 — Trip data retention
+
+A daily production Vercel Cron job deletes trips and their personal data from the active database once the recorded end date is at least 90 days past. Queue published private ticket paths within the same transaction and delete the files after commit; failures keep a path in the durable queue for the next run. Delete a global account and its authentication records only when a purged trip held the last associated data. Archive no personal identifiers, names, booking counts by person, or per-trip activity histories.
 
 ## 2026-10-31 — Routed traveler interface — Change
 

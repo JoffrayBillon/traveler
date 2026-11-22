@@ -34,6 +34,7 @@ export async function previewValidatedRoster(
       ...row,
       status: "validated",
       sourceEmail: normalizeEmail(row.email),
+      gender: row.gender ?? current?.gender ?? null,
       paymentStatus: row.paymentStatus ?? current?.paymentStatus ?? null,
       amountPaidMinor: row.amountPaidMinor ?? current?.amountPaidMinor ?? null,
       amountDueMinor: row.amountDueMinor ?? current?.amountDueMinor ?? null,

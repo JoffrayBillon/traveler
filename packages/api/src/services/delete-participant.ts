@@ -7,6 +7,7 @@ import {
 import { getTripMembershipRole } from "../datamodel/trip-membership.repository";
 import { normalizeEmail } from "../email";
 import * as schema from "../schema";
+import { reconcileTrainTicketSeats } from "./tickets/train-ticket-pool";
 
 export function deleteParticipant(
   database: AppDatabase,
@@ -47,6 +48,7 @@ export function deleteParticipant(
       userId,
       email,
     );
+    await reconcileTrainTicketSeats(transaction, tripId);
     const remainingBlobPaths = await deleteAccountWithoutMemberships(
       transaction,
       userId,

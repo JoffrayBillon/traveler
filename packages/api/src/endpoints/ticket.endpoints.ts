@@ -1,14 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import type { AuthServices } from "../auth";
 import { createTicketBlobPath } from "../blob-path";
+import {
+  findTrainTicketDocument,
+  listTravelerTrainTickets,
+} from "../datamodel/train-tickets.repository";
 import type { TicketBlobStorage } from "../ports/ticket-storage";
 import * as schema from "../schema";
 import { getSession } from "../services/auth/get-session";
-import { deleteQueuedTicketBlobs } from "../services/tickets/delete-queued-ticket-blobs";
-
-const ticketUploadGraceMs = 30 * 60 * 1000;
+import { uploadPrivateTicket } from "../services/tickets/upload-private-ticket";
 
 export function registerTicketEndpoints(
   app: Hono,
@@ -79,85 +81,51 @@ export function registerTicketEndpoints(
 
     const id = randomUUID();
     const blobPath = createTicketBlobPath(tripId, targetUserId, id);
-    const pending = schema.pendingTicketBlobDeletions;
     try {
-      await services.database.insert(pending).values({
+      await uploadPrivateTicket(
+        services.database,
+        ticketStorage,
         blobPath,
-        availableAt: Date.now() + ticketUploadGraceMs,
-      });
-    } catch {
-      return context.json({ error: "ticket_upload_failed" }, 503);
-    }
-
-    try {
-      await ticketStorage.put(blobPath, file, {
-        access: "private",
-        contentType: file.type,
-        addRandomSuffix: false,
-      });
-      await services.database.transaction(async (transaction) => {
-        const members = schema.tripMemberships;
-        const currentMemberships = await transaction
-          .select({
-            id: members.id,
-            userId: members.userId,
-            role: members.role,
-          })
-          .from(members)
-          .where(
-            and(
-              eq(members.tripId, tripId),
-              inArray(members.userId, [session.user.id, targetUserId]),
-            ),
+        file,
+        async (transaction) => {
+          const members = schema.tripMemberships;
+          const currentMemberships = await transaction
+            .select({
+              id: members.id,
+              userId: members.userId,
+              role: members.role,
+            })
+            .from(members)
+            .where(
+              and(
+                eq(members.tripId, tripId),
+                inArray(members.userId, [session.user.id, targetUserId]),
+              ),
+            );
+          const uploader = currentMemberships.find(
+            ({ userId }) => userId === session.user.id,
           );
-        const uploader = currentMemberships.find(
-          ({ userId }) => userId === session.user.id,
-        );
-        if (
-          !uploader ||
-          uploader.role === "traveler" ||
-          !currentMemberships.some(({ id }) => id === target.id)
-        ) {
-          throw new Error("Ticket authorization changed during upload.");
-        }
-        const [published] = await transaction
-          .delete(pending)
-          .where(
-            and(
-              eq(pending.blobPath, blobPath),
-              gt(pending.availableAt, Date.now()),
-            ),
-          )
-          .returning({ blobPath: pending.blobPath });
-        if (!published)
-          throw new Error("The ticket upload intent has expired.");
-        await transaction.insert(schema.transportTickets).values({
-          id,
-          tripId,
-          userId: targetUserId,
-          kind,
-          blobPath,
-          originalName: file.name.replace(/[\r\n\\/]/g, "_").slice(0, 180),
-          contentType: file.type,
-          size: file.size,
-          uploadedBy: session.user.id,
-        });
-      });
-    } catch {
-      try {
-        const [abandoned] = await services.database
-          .update(pending)
-          .set({ availableAt: 0 })
-          .where(eq(pending.blobPath, blobPath))
-          .returning({ blobPath: pending.blobPath });
-        if (abandoned) {
-          await deleteQueuedTicketBlobs(services.database, ticketStorage, [
+          if (
+            !uploader ||
+            uploader.role === "traveler" ||
+            !currentMemberships.some(({ id }) => id === target.id)
+          ) {
+            throw new Error("Ticket authorization changed during upload.");
+          }
+          await transaction.insert(schema.transportTickets).values({
+            id,
+            tripId,
+            userId: targetUserId,
+            kind,
             blobPath,
-          ]);
-        }
-      } catch {
-        // The durable intent stays eligible for cleanup when its grace period expires.
-      }
+            originalName: file.name.replace(/[\r\n\\/]/g, "_").slice(0, 180),
+            contentType: file.type,
+            size: file.size,
+            uploadedBy: session.user.id,
+          });
+        },
+      );
+    } catch {
       return context.json({ error: "ticket_upload_failed" }, 503);
     }
     return context.json({ status: "uploaded", ticketId: id }, 201);
@@ -181,20 +149,38 @@ export function registerTicketEndpoints(
       )
       .limit(1);
     if (!membership) return context.json({ error: "not_found" }, 404);
-    const [ticket] = await services.database
+    const ticketId = context.req.param("ticketId");
+    const [individual] = await services.database
       .select()
       .from(schema.transportTickets)
       .where(
         and(
           eq(schema.transportTickets.tripId, tripId),
-          eq(schema.transportTickets.id, context.req.param("ticketId")),
+          eq(schema.transportTickets.id, ticketId),
         ),
       )
       .limit(1);
-    if (!ticket) return context.json({ error: "not_found" }, 404);
-    if (ticket.userId !== session.user.id && membership.role === "traveler") {
+    if (
+      individual &&
+      individual.userId !== session.user.id &&
+      membership.role === "traveler"
+    ) {
       return context.json({ error: "not_found" }, 404);
     }
+    const [groupDocument] = individual
+      ? []
+      : membership.role === "traveler"
+        ? await listTravelerTrainTickets(
+            services.database,
+            tripId,
+            session.user.id,
+            ticketId,
+          )
+        : await findTrainTicketDocument(services.database, tripId, ticketId);
+    const ticket =
+      individual ??
+      (groupDocument && { ...groupDocument, contentType: "application/pdf" });
+    if (!ticket) return context.json({ error: "not_found" }, 404);
     try {
       const blob = await ticketStorage.get(ticket.blobPath, {
         access: "private",

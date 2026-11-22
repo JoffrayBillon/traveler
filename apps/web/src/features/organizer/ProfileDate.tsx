@@ -18,15 +18,18 @@ import {
   I18nProvider,
   Label,
   Popover,
+  Text,
 } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 
 export function ProfileDate({
   label,
+  description,
   value,
   onChange,
 }: {
   label: string;
+  description: string;
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -38,6 +41,7 @@ export function ProfileDate({
       <DatePicker
         className="grid min-w-0 gap-2"
         granularity="day"
+        isRequired
         value={parsedValue}
         onChange={(date) => onChange(date?.toString() ?? "")}
       >
@@ -59,6 +63,12 @@ export function ProfileDate({
             <CalendarDays aria-hidden="true" size={17} />
           </Button>
         </Group>
+        <Text
+          slot="description"
+          className="text-xs leading-relaxed text-content-muted"
+        >
+          {description}
+        </Text>
         <Popover className="rounded-card border border-border bg-surface p-3 text-content shadow-panel">
           <Dialog className="outline-none">
             <Calendar className="grid gap-3">

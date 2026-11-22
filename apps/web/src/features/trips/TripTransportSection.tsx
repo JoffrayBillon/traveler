@@ -1,7 +1,10 @@
 import { useTripTransportQuery } from "@traveler/api/transport/queries";
 import { Card } from "@traveler/components/ui";
 import { getLocale } from "@traveler/i18n";
-import { formatJourneyDate } from "@traveler/lib/trip-format";
+import {
+  formatJourneyDate,
+  transportSegmentLabel,
+} from "@traveler/lib/trip-format";
 import { useTranslation } from "react-i18next";
 import { CarpoolPreferences } from "./CarpoolPreferences";
 
@@ -89,8 +92,8 @@ function JourneySummary({
               key={segment.id}
             >
               <strong>
-                {t(segment.mode === "train" ? "train" : "plane")} ·{" "}
-                {segment.origin} → {segment.destination}
+                {t(transportSegmentLabel[segment.mode])} · {segment.origin} →{" "}
+                {segment.destination}
               </strong>
               <span className="text-sm text-content-muted">
                 {t("departure")}:{" "}
@@ -106,6 +109,11 @@ function JourneySummary({
                 <span className="text-sm text-content-muted">
                   {t("reference")}: {segment.serviceReference}
                 </span>
+              )}
+              {segment.instructions && (
+                <p className="whitespace-pre-wrap break-words text-sm text-content-muted">
+                  {segment.instructions}
+                </p>
               )}
             </li>
           ))}

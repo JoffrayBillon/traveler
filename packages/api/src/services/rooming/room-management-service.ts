@@ -4,6 +4,7 @@ import type { AppDatabase } from "../../auth";
 import { recordRoomAssignmentHistory } from "../../datamodel/room-assignment-history.repository";
 import { staleRoomRequestsForRooms } from "../../datamodel/room-request.repository";
 import * as schema from "../../schema";
+import { reconcileTrainTicketSeats } from "../tickets/train-ticket-pool";
 
 export async function staffMoveTraveler(
   database: AppDatabase,
@@ -220,6 +221,7 @@ export async function staffMoveTraveler(
         );
     }
     await staleRoomRequestsForRooms(transaction, tripId, changedRooms);
+    await reconcileTrainTicketSeats(transaction, tripId);
     await recordRoomAssignmentHistory(
       transaction,
       tripId,

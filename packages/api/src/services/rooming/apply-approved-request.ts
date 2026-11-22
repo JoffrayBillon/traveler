@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
 import { staleRoomRequestsForRooms } from "../../datamodel/room-request.repository";
 import * as schema from "../../schema";
+import { reconcileTrainTicketSeats } from "../tickets/train-ticket-pool";
 import { type RoomChangePayload, RoomingError } from "./model";
 
 export async function applyApprovedRequest(
@@ -140,6 +141,7 @@ export async function applyApprovedRequest(
       .where(and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)));
   }
   await staleRoomRequestsForRooms(transaction, tripId, roomIds, requestId);
+  await reconcileTrainTicketSeats(transaction, tripId);
   await transaction
     .update(schema.roomChangeRequests)
     .set({ status: "applied", updatedAt: new Date() })

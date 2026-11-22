@@ -1,6 +1,7 @@
 import { useTripTransportQuery } from "@traveler/api/transport/queries";
 import { Card } from "@traveler/components/ui";
 import { useTranslation } from "react-i18next";
+import { TrainTicketPools } from "./TrainTicketPools";
 
 export function TransportOverviewPanel({ tripId }: { tripId: string }) {
   const { t } = useTranslation();
@@ -96,6 +97,7 @@ export function TransportOverviewPanel({ tripId }: { tripId: string }) {
           {t("noTransportGroupsYet")}
         </p>
       )}
+      <TrainTicketPools tripId={tripId} groups={groups} />
     </section>
   );
 }

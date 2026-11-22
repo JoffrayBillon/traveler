@@ -3,8 +3,8 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { expect, it } from "vitest";
-import { setParticipantTransport } from "../datamodel/transport.repository";
 import * as schema from "../schema";
+import { setParticipantTransportService } from "../services/transport/transport-service";
 import { createTripsStore } from "../trips";
 import { importDetailedOrders, previewDetailedOrders } from "./detailed-orders";
 import { importValidatedRoster } from "./validated-roster-import";
@@ -114,13 +114,12 @@ it.each([true, false])(
       ).toHaveLength(1);
       const assignedUserId = assignments[0]?.userId;
       if (!assignedUserId) throw new Error("Missing test assignment");
-      await setParticipantTransport(
+      await setParticipantTransportService(
         database,
         trip.id,
         assignedUserId,
-        "none",
-        null,
         "actor",
+        { choice: "none", groupId: null },
       );
       await importDetailedOrders(database, trip.id, [details], {}, "actor");
       expect(

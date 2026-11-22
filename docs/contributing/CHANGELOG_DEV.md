@@ -1,5 +1,45 @@
 # Technical changelog
 
+## 2026-11-22 — Participant imports — Preserve gender when Matricule has no marker
+
+- Details/impact: preserve a booking's stored gender through validated-roster previews and commits when no gender marker is supplied. Restore the last booking value as a prefill when a cancelled membership is recreated.
+- Test status: an integration test covers blank values, explicit corrections, confirmed profiles and reinstated memberships.
+
+## 2026-11-22 — Privacy — Add a public legal and privacy notice
+
+- Details/impact: add a bilingual notice to the shared footer with data use, access, host details, 90-day trip retention and contact instructions for erasure requests. Keep it accessible without a session.
+- Test status: the web suite covers keyboard navigation, heading focus and the notice content. The production web build and a narrow browser viewport were verified locally.
+
+## 2026-11-22 — Privacy — Erase expired trip data
+
+- Details/impact: use the daily production job to delete expired trips, their personal data and accounts whose last trip was purged. Keep failed private ticket deletions queued. Require a valid end date when saving trip settings.
+- Test status: in-memory integration tests cover the 90-day boundary, other trip data, cancelled bookings, authentication records and a Blob deletion retry with and without foreign key enforcement.
+
+## 2026-11-22 — Retention — Remove expired sessions and import previews
+
+- Details/impact: prune expired sessions and import previews in the daily retention job, independently of trip eligibility. Document read-only counts for technical records eligible for cleanup.
+- Test status: an in-memory integration test covers expiration at the cutoff, preservation of active records and a run without an expired trip.
+
+## 2026-11-22 — Transport — Add group train ticket inventory
+
+- Details/impact: store private group PDFs and seat inventory per train leg. Preview and publish seats in room order. Reassign a cancelled traveler's seat to an eligible occupant of the same room and transport group. Include group PDFs in the existing trip purge.
+- Test status: allocation and API integration tests verify room order, passage of the seat to a compatible replacement, restricted downloads, and retention. A web test verifies reviewing and publishing the allocation.
+
+## 2026-11-22 — Transport — Add bus and shuttle transfers
+
+- Details/impact: add bus and shuttle modes to outbound and return group segments. Store optional practical instructions for each segment and display them in the traveler itinerary.
+- Test status: API integration covers migration, persistence and ordering alongside a train segment. The web suite covers the new labels and instructions in the trip view.
+
+## 2026-11-22 — Transport — Reorder itinerary legs
+
+- Details/impact: reorder steps within the same direction from the group editor, including putting a newly added transfer before an existing train or flight.
+- Test status: a web test moves a return shuttle before an existing flight and checks the saved sequence.
+
+## 2026-11-22 — Transport — Harden train-ticket publication and cleanup
+
+- Details/impact: keep a changed draft after an earlier upload succeeds, reject a publication preview when the shortage changes, and recreate cleanup intents for late unpublished blobs.
+- Test status: regression tests cover those cases and verify that retention preserves the ticket metadata of a different trip.
+
 ## 2026-11-20 — Release review — Harden sign-in, tickets, and room changes
 
 - Details/impact: separate sign-in quotas from Better Auth pruning and check the network quota before the email cooldown. Verify magic links and create sessions atomically. Revoke old links when changing an email. Track ticket uploads before storage, recheck trip roles and memberships before publication, and retry abandoned uploads through the retention queue.
