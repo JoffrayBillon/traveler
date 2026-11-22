@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import type { AuthServices } from "../auth";
 import { personalPhone } from "../datamodel/personal-phone.query";
+import { listTravelerTrainTickets } from "../datamodel/train-tickets.repository";
 import * as schema from "../schema";
 import { getSession } from "../services/auth/get-session";
 export function registerTravelerReadEndpoints(
@@ -107,6 +108,11 @@ export function registerTravelerReadEndpoints(
         ),
       )
       .orderBy(schema.transportTickets.createdAt);
+    const trainTickets = await listTravelerTrainTickets(
+      services.database,
+      tripId,
+      session.user.id,
+    );
 
     return context.json({
       trip: { id: membership.tripId, name: membership.tripName },
@@ -128,7 +134,10 @@ export function registerTravelerReadEndpoints(
           membership.genderConfirmed && Boolean(membership.profileCompletedAt),
       },
       details: details ?? null,
-      tickets,
+      tickets: [
+        ...tickets,
+        ...trainTickets.map(({ blobPath: _blobPath, ...ticket }) => ticket),
+      ],
     });
   });
 }

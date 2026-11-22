@@ -26,11 +26,18 @@ export function useRoomingMutations(tripId: string) {
     queryClient.invalidateQueries({
       queryKey: queryKeys.roomingHistory(tripId),
     });
+  const invalidateTrainTickets = () =>
+    Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.trainTickets(tripId),
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.traveler(tripId) }),
+    ]);
 
   function refreshAssignments() {
     void invalidateRequests();
     void invalidateHistory();
-    return invalidatePlan();
+    return Promise.all([invalidatePlan(), invalidateTrainTickets()]);
   }
 
   function refreshRequest({ status }: { status: string }) {
@@ -39,6 +46,7 @@ export function useRoomingMutations(tripId: string) {
         invalidateRequests(),
         invalidatePlan(),
         invalidateHistory(),
+        invalidateTrainTickets(),
       ]);
     }
     if (status === "stale")
@@ -59,6 +67,7 @@ export function useRoomingMutations(tripId: string) {
       if (removed) void invalidateRequests();
       await Promise.all([
         invalidatePlan(),
+        removed ? invalidateTrainTickets() : undefined,
         queryClient.invalidateQueries({
           queryKey: queryKeys.roomInventory(tripId),
         }),

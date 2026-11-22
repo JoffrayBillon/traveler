@@ -89,7 +89,9 @@ export function AppFrame({
             Traveler<span className="text-accent-warm">.</span>
           </strong>
         </span>
-        <span>{t("tripsAreBetterWhenEverythingIsClear")}</span>
+        <NavLink className={styles.footerLink()} to="/mentions-legales">
+          {t("legalAndPrivacyTitle")}
+        </NavLink>
       </footer>
     </div>
   );

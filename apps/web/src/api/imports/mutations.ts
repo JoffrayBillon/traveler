@@ -38,6 +38,10 @@ export function useCommitParticipantImportMutation(tripId: string) {
           queryKey: queryKeys.transport(tripId),
         }),
         queryClient.invalidateQueries({
+          queryKey: queryKeys.trainTickets(tripId),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.traveler(tripId) }),
+        queryClient.invalidateQueries({
           queryKey: queryKeys.participantDirectory(tripId),
         }),
       ]);

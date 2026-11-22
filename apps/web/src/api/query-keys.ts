@@ -11,6 +11,10 @@ export const queryKeys = {
   roomingHistory: (tripId: string) =>
     ["trips", tripId, "rooming-history"] as const,
   transport: (tripId: string) => ["trips", tripId, "transport"] as const,
+  trainTickets: (tripId: string, segmentId?: string) =>
+    segmentId === undefined
+      ? (["trips", tripId, "train-tickets"] as const)
+      : (["trips", tripId, "train-tickets", segmentId] as const),
   participantDirectory: (tripId: string) =>
     ["trips", tripId, "participants"] as const,
 } as const;

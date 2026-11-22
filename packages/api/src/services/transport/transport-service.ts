@@ -4,8 +4,10 @@ import {
   deleteTransportGroup,
   saveCarpoolRole,
   saveTransportGroup,
-  setParticipantTransport,
+  setParticipantTransportInTransaction,
 } from "../../datamodel/transport.repository";
+import { transportSegmentModes } from "../../schema";
+import { reconcileTrainTicketSeats } from "../tickets/train-ticket-pool";
 
 const optionalLine = z
   .string()
@@ -17,12 +19,19 @@ const optionalLine = z
 const segmentSchema = z.object({
   id: z.string().uuid().optional(),
   direction: z.enum(["outbound", "return"]),
-  mode: z.enum(["train", "flight"]),
+  mode: z.enum(transportSegmentModes),
   origin: z.string().trim().min(1).max(120),
   destination: z.string().trim().min(1).max(120),
   departureAt: optionalLine,
   arrivalAt: optionalLine,
   serviceReference: optionalLine,
+  instructions: z
+    .string()
+    .trim()
+    .max(500)
+    .transform((value) => value || null)
+    .nullable()
+    .optional(),
 });
 
 const groupSchema = z.object({
@@ -53,8 +62,12 @@ export async function saveTransportGroupService(
     tripId,
     {
       ...parsed.data,
-      segments: parsed.data.segments.map(({ id, ...segment }) =>
-        id ? { ...segment, id } : segment,
+      segments: parsed.data.segments.map(
+        ({ id, instructions, ...segment }) => ({
+          ...segment,
+          ...(id ? { id } : {}),
+          ...(instructions === undefined ? {} : { instructions }),
+        }),
       ),
     },
     groupId,
@@ -85,14 +98,21 @@ export async function setParticipantTransportService(
     typeof input.groupId !== "string"
   )
     return { error: "invalid_transport_assignment" as const };
-  return setParticipantTransport(
-    database,
-    tripId,
-    userId,
-    input.choice,
-    typeof input.groupId === "string" ? input.groupId : null,
-    actorUserId,
-  );
+  const choice = input.choice;
+  const groupId = typeof input.groupId === "string" ? input.groupId : null;
+  return database.transaction(async (transaction) => {
+    const result = await setParticipantTransportInTransaction(
+      transaction,
+      tripId,
+      userId,
+      choice,
+      groupId,
+      actorUserId,
+    );
+    if (!("error" in result))
+      await reconcileTrainTicketSeats(transaction, tripId);
+    return result;
+  });
 }
 
 export async function saveCarpoolRoleService(

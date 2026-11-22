@@ -14,6 +14,8 @@ async function invalidateParticipants(
     queryClient.invalidateQueries({ queryKey: queryKeys.rooming(tripId) }),
     queryClient.invalidateQueries({ queryKey: queryKeys.roomRequests(tripId) }),
     queryClient.invalidateQueries({ queryKey: queryKeys.transport(tripId) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.trainTickets(tripId) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.traveler(tripId) }),
   ]);
 }
 

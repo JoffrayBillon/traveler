@@ -13,6 +13,7 @@ import {
   updateParticipantRoleInTransaction,
 } from "./participant-management";
 import { parsePersonalPhone } from "./personal-phone";
+import { reconcileTrainTicketSeats } from "./tickets/train-ticket-pool";
 
 type ParticipantEditorTransaction = Parameters<
   Parameters<AppDatabase["transaction"]>[0]
@@ -325,6 +326,7 @@ async function applyParticipantEditorUpdate(
       actorUserId,
     );
     if ("error" in result) throw new ParticipantEditorError(result.error);
+    await reconcileTrainTicketSeats(transaction, tripId);
   }
 
   if (input.details.transportChoice === "none") {

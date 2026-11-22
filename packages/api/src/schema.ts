@@ -612,6 +612,13 @@ export const transportGroups = sqliteTable(
   ],
 );
 
+export const transportSegmentModes = [
+  "train",
+  "flight",
+  "bus",
+  "shuttle",
+] as const;
+
 export const transportGroupSegments = sqliteTable(
   "transport_group_segments",
   {
@@ -620,12 +627,13 @@ export const transportGroupSegments = sqliteTable(
     groupId: text("group_id").notNull(),
     direction: text("direction", { enum: ["outbound", "return"] }).notNull(),
     position: integer("position").notNull(),
-    mode: text("mode", { enum: ["train", "flight"] }).notNull(),
+    mode: text("mode", { enum: transportSegmentModes }).notNull(),
     origin: text("origin").notNull(),
     destination: text("destination").notNull(),
     departureAt: text("departure_at"),
     arrivalAt: text("arrival_at"),
     serviceReference: text("service_reference"),
+    instructions: text("instructions"),
   },
   (table) => [
     uniqueIndex("transport_group_segments_order_unique").on(
@@ -677,6 +685,81 @@ export const transportGroupAssignments = sqliteTable(
       name: "transport_group_assignments_member_trip_fk",
       columns: [table.tripId, table.userId],
       foreignColumns: [tripMemberships.tripId, tripMemberships.userId],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const trainTicketDocuments = sqliteTable(
+  "train_ticket_documents",
+  {
+    id: text("id").primaryKey().notNull(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    segmentId: text("segment_id")
+      .notNull()
+      .references(() => transportGroupSegments.id, { onDelete: "restrict" }),
+    blobPath: text("blob_path").notNull(),
+    originalName: text("original_name").notNull(),
+    size: integer("size").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("train_ticket_documents_scope_unique").on(
+      table.tripId,
+      table.segmentId,
+      table.id,
+    ),
+  ],
+);
+
+export const trainTicketSeats = sqliteTable(
+  "train_ticket_seats",
+  {
+    id: text("id").primaryKey().notNull(),
+    tripId: text("trip_id").notNull(),
+    segmentId: text("segment_id").notNull(),
+    documentId: text("document_id").notNull(),
+    label: text("label").notNull(),
+    position: integer("position").notNull(),
+    roomId: text("room_id").references(() => rooms.id, {
+      onDelete: "set null",
+    }),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    uniqueIndex("train_ticket_seats_label_unique").on(
+      table.tripId,
+      table.segmentId,
+      table.label,
+    ),
+    uniqueIndex("train_ticket_seats_position_unique").on(
+      table.tripId,
+      table.segmentId,
+      table.position,
+    ),
+    uniqueIndex("train_ticket_seats_user_unique").on(
+      table.tripId,
+      table.userId,
+      table.segmentId,
+    ),
+    index("train_ticket_seats_document_index").on(
+      table.tripId,
+      table.segmentId,
+      table.documentId,
+    ),
+    foreignKey({
+      name: "train_ticket_seats_document_fk",
+      columns: [table.tripId, table.segmentId, table.documentId],
+      foreignColumns: [
+        trainTicketDocuments.tripId,
+        trainTicketDocuments.segmentId,
+        trainTicketDocuments.id,
+      ],
     }).onDelete("cascade"),
   ],
 );

@@ -221,6 +221,10 @@ export async function deleteAccountWithoutMemberships(
   await transaction
     .delete(schema.accounts)
     .where(eq(schema.accounts.userId, userId));
+  await transaction
+    .update(schema.trainTicketSeats)
+    .set({ userId: null })
+    .where(eq(schema.trainTicketSeats.userId, userId));
   await transaction.delete(schema.users).where(eq(schema.users.id, userId));
   await revokeMagicLinksForAddress(transaction, email);
   return blobPaths;

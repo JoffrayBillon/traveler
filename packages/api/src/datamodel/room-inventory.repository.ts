@@ -92,6 +92,15 @@ export async function replaceRoomInventory(
     if (removedRoomIds.length) {
       await staleRoomRequestsForRooms(transaction, tripId, removedRoomIds);
       await transaction
+        .update(schema.trainTicketSeats)
+        .set({ roomId: null })
+        .where(
+          and(
+            eq(schema.trainTicketSeats.tripId, tripId),
+            inArray(schema.trainTicketSeats.roomId, removedRoomIds),
+          ),
+        );
+      await transaction
         .delete(schema.roomAssignments)
         .where(
           and(

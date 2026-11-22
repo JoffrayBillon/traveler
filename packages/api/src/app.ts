@@ -12,11 +12,12 @@ import { registerRoomingReadEndpoints } from "./endpoints/rooming-read.endpoints
 import { registerStaffEndpoints } from "./endpoints/staff.endpoints";
 import { registerSystemEndpoints } from "./endpoints/system.endpoints";
 import { registerTicketEndpoints } from "./endpoints/ticket.endpoints";
-import { registerTicketRetentionEndpoint } from "./endpoints/ticket-retention.endpoint";
+import { registerTrainTicketEndpoints } from "./endpoints/train-ticket.endpoints";
 import { registerTransportManagementEndpoints } from "./endpoints/transport-management.endpoints";
 import { registerTransportReadEndpoints } from "./endpoints/transport-read.endpoints";
 import { registerTravelerEndpoints } from "./endpoints/traveler.endpoints";
 import { registerTravelerDetailsEndpoints } from "./endpoints/traveler-details.endpoints";
+import { registerTripRetentionEndpoint } from "./endpoints/trip-retention.endpoint";
 import type { TicketBlobStorage } from "./ports/ticket-storage";
 
 export type { TicketBlobStorage } from "./ports/ticket-storage";
@@ -60,7 +61,13 @@ export function createApp(
     ticketStorage,
     ticketStorageAvailable,
   );
-  registerTicketRetentionEndpoint(
+  registerTrainTicketEndpoints(
+    app,
+    getAuthServices,
+    ticketStorage,
+    ticketStorageAvailable,
+  );
+  registerTripRetentionEndpoint(
     app,
     getAuthServices,
     ticketStorage,

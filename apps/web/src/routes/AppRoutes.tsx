@@ -4,6 +4,7 @@ import type { TravelerProfile } from "@traveler/types/profile";
 import { lazy, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes, useLocation } from "react-router";
+import { LegalAndPrivacyRoute } from "./LegalAndPrivacyRoute";
 import { NotFoundRoute } from "./NotFoundRoute";
 import { TravelerLayout } from "./TravelerLayout";
 
@@ -78,6 +79,7 @@ export function AppRoutes({
           path="sign-in/confirm"
           element={<SignInConfirmationRoute key={location.key} />}
         />
+        <Route path="mentions-legales" element={<LegalAndPrivacyRoute />} />
         <Route
           index
           element={profile ? <Navigate to="/trips" replace /> : signInPage}

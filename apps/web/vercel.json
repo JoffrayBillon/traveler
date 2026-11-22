@@ -7,7 +7,7 @@
   "regions": ["cdg1"],
   "crons": [
     {
-      "path": "/api/cron/delete-expired-tickets",
+      "path": "/api/cron/purge-expired-trips",
       "schedule": "0 4 * * *"
     }
   ],

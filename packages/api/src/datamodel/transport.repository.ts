@@ -191,12 +191,13 @@ export type TransportGroupSaveInput = {
   segments: {
     id?: string;
     direction: "outbound" | "return";
-    mode: "train" | "flight";
+    mode: (typeof schema.transportGroupSegments.$inferSelect)["mode"];
     origin: string;
     destination: string;
     departureAt: string | null;
     arrivalAt: string | null;
     serviceReference: string | null;
+    instructions?: string | null;
   }[];
 };
 
@@ -223,7 +224,10 @@ export async function saveTransportGroup(
     }
 
     const existingSegments = await transaction
-      .select({ id: schema.transportGroupSegments.id })
+      .select({
+        id: schema.transportGroupSegments.id,
+        direction: schema.transportGroupSegments.direction,
+      })
       .from(schema.transportGroupSegments)
       .where(
         and(
@@ -238,6 +242,28 @@ export async function saveTransportGroup(
       )
     )
       return { error: "invalid_segment" as const };
+    const trainSegments = new Map(
+      input.segments
+        .filter((segment) => segment.mode === "train")
+        .map((segment) => [segment.id, segment.direction]),
+    );
+    const changedSegments = existingSegments
+      .filter((segment) => trainSegments.get(segment.id) !== segment.direction)
+      .map((segment) => segment.id);
+    if (changedSegments.length) {
+      const [ticket] = await transaction
+        .select({ id: schema.trainTicketDocuments.id })
+        .from(schema.trainTicketDocuments)
+        .where(
+          and(
+            eq(schema.trainTicketDocuments.tripId, tripId),
+            inArray(schema.trainTicketDocuments.segmentId, changedSegments),
+          ),
+        )
+        .limit(1);
+      if (ticket)
+        return { error: "transport_group_has_train_tickets" as const };
+    }
     const groupValues = {
       name: input.name,
       sourceCity: input.sourceCity,
@@ -328,26 +354,6 @@ export async function saveTransportGroup(
 
 export function normalizeTransportCity(value: string) {
   return value.trim().toLocaleLowerCase("fr-FR");
-}
-
-export async function setParticipantTransport(
-  database: AppDatabase,
-  tripId: string,
-  userId: string,
-  choice: "group" | "none" | "unconfirmed",
-  groupId: string | null,
-  assignedBy: string,
-) {
-  return database.transaction((transaction) =>
-    setParticipantTransportInTransaction(
-      transaction,
-      tripId,
-      userId,
-      choice,
-      groupId,
-      assignedBy,
-    ),
-  );
 }
 
 export async function setParticipantTransportInTransaction(
@@ -605,37 +611,54 @@ export async function deleteTransportGroup(
   tripId: string,
   groupId: string,
 ) {
-  const [group] = await database
-    .select({ id: schema.transportGroups.id })
-    .from(schema.transportGroups)
-    .where(
-      and(
-        eq(schema.transportGroups.tripId, tripId),
-        eq(schema.transportGroups.id, groupId),
-      ),
-    )
-    .limit(1);
-  if (!group) return { error: "not_found" as const };
-  const [assignment] = await database
-    .select({ userId: schema.transportGroupAssignments.userId })
-    .from(schema.transportGroupAssignments)
-    .where(
-      and(
-        eq(schema.transportGroupAssignments.tripId, tripId),
-        eq(schema.transportGroupAssignments.groupId, groupId),
-      ),
-    )
-    .limit(1);
-  if (assignment) return { error: "transport_group_has_travelers" as const };
-  await database
-    .delete(schema.transportGroups)
-    .where(
-      and(
-        eq(schema.transportGroups.tripId, tripId),
-        eq(schema.transportGroups.id, groupId),
-      ),
-    );
-  return { status: "deleted" as const };
+  return database.transaction(async (transaction) => {
+    const ticketDocs = schema.trainTicketDocuments;
+    const segments = schema.transportGroupSegments;
+    const [ticket] = await transaction
+      .select({ id: ticketDocs.id })
+      .from(ticketDocs)
+      .innerJoin(
+        segments,
+        and(
+          eq(segments.tripId, ticketDocs.tripId),
+          eq(segments.id, ticketDocs.segmentId),
+        ),
+      )
+      .where(and(eq(ticketDocs.tripId, tripId), eq(segments.groupId, groupId)))
+      .limit(1);
+    if (ticket) return { error: "transport_group_has_train_tickets" as const };
+    const [group] = await transaction
+      .select({ id: schema.transportGroups.id })
+      .from(schema.transportGroups)
+      .where(
+        and(
+          eq(schema.transportGroups.tripId, tripId),
+          eq(schema.transportGroups.id, groupId),
+        ),
+      )
+      .limit(1);
+    if (!group) return { error: "not_found" as const };
+    const [assignment] = await transaction
+      .select({ userId: schema.transportGroupAssignments.userId })
+      .from(schema.transportGroupAssignments)
+      .where(
+        and(
+          eq(schema.transportGroupAssignments.tripId, tripId),
+          eq(schema.transportGroupAssignments.groupId, groupId),
+        ),
+      )
+      .limit(1);
+    if (assignment) return { error: "transport_group_has_travelers" as const };
+    await transaction
+      .delete(schema.transportGroups)
+      .where(
+        and(
+          eq(schema.transportGroups.tripId, tripId),
+          eq(schema.transportGroups.id, groupId),
+        ),
+      );
+    return { status: "deleted" as const };
+  });
 }
 
 function isDraftGroup(input: TransportGroupSaveInput) {

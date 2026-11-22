@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq, gt, like, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, like, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
 
@@ -7,15 +7,31 @@ export function revokeMagicLinksForAddress(
   database: Pick<AppDatabase, "delete">,
   email: string,
 ) {
+  return revokeMagicLinksForAddresses(database, [email]);
+}
+
+export function revokeMagicLinksForAddresses(
+  database: Pick<AppDatabase, "delete">,
+  emails: string[],
+) {
   const { identifier, value } = schema.verifications;
   return database.delete(schema.verifications).where(
     and(
       like(identifier, "magic-link:%"),
-      sql`CASE WHEN json_valid(${value})
-        THEN lower(json_extract(${value}, '$.email')) = ${email}
-        ELSE 0 END`,
+      inArray(
+        sql`CASE WHEN json_valid(${value})
+        THEN lower(json_extract(${value}, '$.email')) END`,
+        emails,
+      ),
     ),
   );
+}
+
+export function magicLinkRateLimitKey(
+  scope: "address" | "network" | "manager" | "verification",
+  subject: string,
+) {
+  return `${scope}:${createHash("sha256").update(subject).digest("hex")}`;
 }
 
 export async function findPendingMagicLink(
