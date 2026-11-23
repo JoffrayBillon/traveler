@@ -1,8 +1,8 @@
+import { useTripTransportQuery } from "@traveler/api/transport/queries";
 import type { TravelerTripData } from "@traveler/api/trips/trip.types";
-import { buttonStyles } from "@traveler/components/ui";
-import { getLocale } from "@traveler/i18n";
-import { formatBytes, ticketLabel } from "@traveler/lib/trip-format";
+import { ticketLabel } from "@traveler/lib/trip-format";
 import type { TFunction } from "i18next";
+import { TripTicketDownload } from "./TripTicketDownload";
 
 export function TripTickets({
   tripId,
@@ -13,6 +13,15 @@ export function TripTickets({
   tickets: TravelerTripData["tickets"];
   t: TFunction;
 }) {
+  const { data: transport } = useTripTransportQuery(tripId);
+  const group = transport?.groups.find(
+    ({ id }) => id === transport.self?.groupId,
+  );
+  const segments = group?.segments.filter(({ mode }) => mode === "train") ?? [];
+  const legacyTickets = tickets.filter(
+    (ticket) => !segments.some(({ id }) => id && id === ticket.segmentId),
+  );
+
   return (
     <section className="grid gap-4" aria-labelledby="tickets-title">
       <header className="grid gap-1">
@@ -23,39 +32,60 @@ export function TripTickets({
           {t("yourDocumentsAreAvailableOnlyAfterSigningIn")}
         </p>
       </header>
-      {tickets.length === 0 ? (
+      {tickets.length === 0 && segments.length === 0 && (
         <p className="rounded-card border border-dashed border-border p-4 text-sm text-content-muted">
           {t("noTicketsHaveBeenAddedYet")}
         </p>
-      ) : (
+      )}
+      {(["outbound", "return"] as const).map((direction) => {
+        const legs = segments.filter(
+          (segment) => segment.direction === direction,
+        );
+        if (!legs.length) return null;
+        return (
+          <section className="grid gap-2" key={direction}>
+            <h4 className="font-semibold">{t(direction)}</h4>
+            <ul className="grid list-none gap-2 p-0">
+              {legs.map((segment) => {
+                const ticket = tickets.find(
+                  ({ segmentId }) => segmentId === segment.id,
+                );
+                return (
+                  <li
+                    className="grid gap-2 rounded-card border border-border p-3"
+                    key={segment.id}
+                  >
+                    <strong>
+                      {segment.origin} → {segment.destination}
+                    </strong>
+                    {ticket ? (
+                      <TripTicketDownload
+                        ticket={ticket}
+                        tripId={tripId}
+                        segmentLabel={`${t(direction)} · ${segment.origin} → ${segment.destination}${segment.serviceReference ? ` · ${segment.serviceReference}` : ""}`}
+                        t={t}
+                      />
+                    ) : (
+                      <p className="text-sm text-content-muted">
+                        {t("trainTicketNotYetAvailable")}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
+      {legacyTickets.length > 0 && (
         <ul className="grid list-none gap-2 p-0">
-          {tickets.map((ticket) => (
+          {legacyTickets.map((ticket) => (
             <li
-              className="flex items-center justify-between gap-4 rounded-card border border-border p-3 max-[420px]:flex-col max-[420px]:items-start"
+              className="grid gap-2 rounded-card border border-border p-3"
               key={ticket.id}
             >
-              <span className="grid min-w-0 gap-1">
-                <strong>{t(ticketLabel[ticket.kind])}</strong>
-                {ticket.seatLabel && (
-                  <span className="text-sm">
-                    {t("trainTicketSeatLabel", { seat: ticket.seatLabel })}
-                  </span>
-                )}
-                <small className="break-words text-content-muted">
-                  {ticket.originalName} ·{" "}
-                  {formatBytes(ticket.size, getLocale())}
-                </small>
-              </span>
-              <a
-                className={buttonStyles({
-                  appearance: "secondary",
-                  class: "shrink-0",
-                })}
-                href={`/api/trips/${encodeURIComponent(tripId)}/tickets/${encodeURIComponent(ticket.id)}`}
-                aria-label={`${t("download")} ${t(ticketLabel[ticket.kind])} : ${ticket.originalName}`}
-              >
-                {t("download")}
-              </a>
+              <strong>{t(ticketLabel[ticket.kind])}</strong>
+              <TripTicketDownload ticket={ticket} tripId={tripId} t={t} />
             </li>
           ))}
         </ul>

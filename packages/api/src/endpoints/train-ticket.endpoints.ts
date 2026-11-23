@@ -16,6 +16,7 @@ import {
   TrainTicketPoolError,
 } from "../services/tickets/train-ticket-pool";
 import { uploadPrivateTicket } from "../services/tickets/upload-private-ticket";
+import { registerTrainTicketImportEndpoints } from "./train-ticket-import.endpoints";
 
 const basePath = "/api/trips/:tripId/train-tickets/:segmentId";
 const seatLabels = z.array(z.string().trim().min(1).max(80)).min(1).max(500);
@@ -47,6 +48,8 @@ export function registerTrainTicketEndpoints(
       actorId: session.user.id,
     };
   }
+
+  registerTrainTicketImportEndpoints(app, authorize, storage, storageAvailable);
 
   app.get(basePath, async (context) => {
     const access = await authorize(context);

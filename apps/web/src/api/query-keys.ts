@@ -15,6 +15,8 @@ export const queryKeys = {
     segmentId === undefined
       ? (["trips", tripId, "train-tickets"] as const)
       : (["trips", tripId, "train-tickets", segmentId] as const),
+  trainTicketImports: (tripId: string, segmentId: string) =>
+    ["trips", tripId, "train-ticket-imports", segmentId] as const,
   participantDirectory: (tripId: string) =>
     ["trips", tripId, "participants"] as const,
 } as const;

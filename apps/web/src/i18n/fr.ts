@@ -76,6 +76,123 @@ export const fr = {
   trainTicketPublishFailed: "Impossible de publier la répartition.",
   trainTicketPublish: "Publier les attributions",
   trainTicketSeatLabel: "Place de train · {{seat}}",
+  trainTicketManagedByStaff:
+    "Le billet de transport est géré par l’équipe du voyage.",
+  trainTicketNotYetAvailable:
+    "Votre billet de transport sera disponible ici lorsqu’il sera publié.",
+  trainTicketManualPool: "Stock manuel de places (outil de secours)",
+  trainTicketImportTitle: "Importer des billets PDF",
+  trainTicketImportDescription:
+    "Ajoutez un ou plusieurs PDF pour ce segment. Les billets détectés restent en aperçu jusqu’à leur publication par un organisateur.",
+  trainTicketImportCoverage: "Couverture des billets",
+  trainTicketImportExpected: "Voyageurs attendus",
+  trainTicketImportPublished: "Billets publiés",
+  trainTicketImportReady: "Prêts à publier",
+  trainTicketImportMissing: "Billets manquants",
+  trainTicketImportMissingList: "Voyageurs encore sans billet",
+  trainTicketImportDropLabel: "Déposer les PDF des billets",
+  trainTicketImportDropHint:
+    "Ajoutez plusieurs fichiers PDF pour ce train. Taille maximale : 4 Mo par fichier.",
+  trainTicketImportQueue: "Fichiers prêts à importer",
+  trainTicketImportQueued: "En attente",
+  trainTicketImportFileUploading: "Analyse en cours",
+  trainTicketImportFileFailedStatus: "Échec — nouvelle tentative possible",
+  trainTicketImportUpload: "Analyser les fichiers",
+  trainTicketImportUploadProgress: "Analyse du fichier {{done}} sur {{total}}…",
+  trainTicketImportInvalidPdf: "Seuls les fichiers PDF peuvent être importés.",
+  trainTicketImportFileTooLarge:
+    "Le fichier dépasse la taille maximale autorisée de 4 Mo.",
+  trainTicketImportFailed:
+    "Impossible d’analyser ce fichier. Réessayez ou choisissez un autre PDF.",
+  trainTicketImportChanged:
+    "Les données ont changé. Actualisez l’aperçu avant de continuer.",
+  trainTicketImportConflict:
+    "Ce fichier contient des billets déjà importés ou incompatibles avec ce segment.",
+  trainTicketImportUnavailable: "Impossible de charger les imports de billets.",
+  trainTicketImportRemoveDraft: "Supprimer le brouillon",
+  trainTicketImportDocument: "Document {{name}}",
+  trainTicketImportItemCount: "{{count}} billets détectés",
+  trainTicketImportNoItems: "Aucun billet n’a été détecté dans ce document.",
+  trainTicketImportPages: "Pages {{pages}}",
+  trainTicketImportPreviewPdf: "Voir les pages du billet",
+  trainTicketImportUnrecognizedItem: "Billet à vérifier",
+  trainTicketImportClassification: "Type de billet",
+  trainTicketImportKindNamed: "Billet nominatif",
+  trainTicketImportKindTransferable: "Place transférable",
+  trainTicketImportKindCollective: "Billet collectif",
+  trainTicketImportKindIgnored: "Ignorer ce document",
+  trainTicketImportKindDetected: "Détection automatique",
+  trainTicketImportAssignTraveler: "Voyageur concerné",
+  trainTicketImportCollectiveTravelers:
+    "Voyageurs couverts par le billet collectif",
+  trainTicketImportCollectiveCapacity: "Nombre de places couvertes",
+  trainTicketImportSaveCollective: "Enregistrer les voyageurs et la capacité",
+  trainTicketImportTransferableHint:
+    "La place sera attribuée automatiquement selon l’ordre des chambres au moment de la publication.",
+  trainTicketImportNeedsReview: "Vérifiez ce billet avant publication.",
+  trainTicketImportIssueDuplicateTicket:
+    "Ce numéro de billet apparaît plusieurs fois.",
+  trainTicketImportIssueSegmentMismatch:
+    "Ce billet semble correspondre à un autre trajet.",
+  trainTicketImportIssueTravelerUnavailable:
+    "Le voyageur détecté n’est pas disponible sur ce segment.",
+  trainTicketImportIssueUnassigned:
+    "Aucun voyageur admissible n’a été attribué à ce billet.",
+  trainTicketImportIssueUnrecognized:
+    "Le billet n’a pas pu être identifié automatiquement.",
+  trainTicketImportIssueMultipleTickets:
+    "Plusieurs billets semblent correspondre au même voyageur.",
+  trainTicketImportIssueCollectiveUnconfirmed:
+    "Confirmez les voyageurs et le nombre de places couverts.",
+  trainTicketImportPublish: "Publier les billets prêts",
+  trainTicketImportPublishTitle: "Publier les billets prêts ?",
+  trainTicketImportPublishConfirmation:
+    "{{ready}} billet(s) prêt(s) seront publiés. {{missing}} voyageur(s) resteront sans billet publié. Les éléments en vérification seront conservés dans l’aperçu.",
+  trainTicketImportPublishReady: "Confirmer la publication",
+  trainTicketImportPartialAllowed:
+    "La publication partielle est possible ; les éléments à vérifier resteront en brouillon.",
+  trainTicketImportCarrier: "Compagnie",
+  trainTicketCarrierInoui: "TGV INOUI",
+  trainTicketCarrierLyria: "TGV Lyria",
+  trainTicketCarrierOuigo: "OUIGO",
+  trainTicketCarrierTrenitalia: "Trenitalia",
+  trainTicketCarrierTer: "TER",
+  trainTicketImportReservation: "Réservation",
+  trainTicketImportService: "Train",
+  trainTicketImportCarriage: "Voiture",
+  trainTicketImportSeat: "Place",
+  trainTicketImportStatus: "État",
+  trainTicketImportStatusReady: "Prêt à publier",
+  trainTicketImportStatusReview: "À vérifier",
+  trainTicketImportStatusPublished: "Publié",
+  trainTicketImportStatusIgnored: "Ignoré",
+  trainTicketImportTicketNumber: "Numéro du billet",
+  trainTicketImportDocumentPublished:
+    "Tous les billets du document sont publiés",
+  trainTicketImportDocumentReview: "Document à vérifier",
+  trainTicketImportDocumentReady: "Document prêt à publier",
+  trainTicketImportDocumentIgnored: "Document ignoré",
+  trainTicketImportDownloadSource: "Télécharger le PDF d’origine",
+  trainTicketImportUpdateFailed:
+    "Impossible d’enregistrer cette correction. Réessayez.",
+  trainTicketImportRemoveTitle: "Supprimer le brouillon ?",
+  trainTicketImportRemoveConfirmation:
+    "Le document {{name}} et ses billets non publiés seront définitivement supprimés.",
+  trainTicketImportRemoveFailed: "Impossible de supprimer ce brouillon.",
+  trainTicketImportWithdraw: "Retirer le document",
+  trainTicketImportWithdrawTitle: "Retirer ce document publié ?",
+  trainTicketImportWithdrawConfirmation:
+    "Le document {{name}} sera retiré et les billets déjà publiés qu’il contient ne seront plus accessibles aux voyageurs.",
+  trainTicketImportWithdrawalChanged:
+    "L’état du document a changé. Actualisez la page et vérifiez ses billets avant de confirmer le retrait.",
+  trainTicketImportRetryFailed: "Réessayer les fichiers en échec",
+  trainTicketImportDuplicateFile:
+    "{{name}} a déjà été importé. Le fichier existant est conservé.",
+  trainTicketImportExpandItems: "Afficher les {{count}} billets",
+  trainTicketImportCollapseItems: "Réduire la liste des billets",
+  trainTicketGroup: "Transport groupé",
+  trainTicketDirection: "Trajet",
+  chooseFiles: "Choisir des fichiers",
   transportGroupHasTrainTickets:
     "Retirez les billets du train avant de supprimer cette étape ou de changer son sens ou son mode.",
   legalIntro:

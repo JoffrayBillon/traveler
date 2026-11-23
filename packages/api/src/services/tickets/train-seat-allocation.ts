@@ -2,6 +2,7 @@ type SeatAssignment = {
   id: string;
   roomId: string | null;
   userId: string | null;
+  allocation?: "pool" | "named" | "collective";
 };
 
 export type TrainPassenger = {
@@ -40,6 +41,9 @@ export function planTrainSeats(
 
   const planned = seats.map((seat) => {
     const occupant = seat.userId ? passengerById.get(seat.userId) : undefined;
+    if (seat.allocation === "named") {
+      return { ...seat, userId: occupant?.userId ?? null, roomId: null };
+    }
     if (occupant) return { ...seat, roomId: occupant.roomId ?? seat.roomId };
     const replacement = seat.roomId
       ? unassigned.find(
@@ -56,7 +60,13 @@ export function planTrainSeats(
       (person) => !assigned.has(person.userId),
     );
     for (const seat of planned) {
-      if (seat.userId || seat.roomId) continue;
+      if (
+        seat.allocation === "named" ||
+        seat.allocation === "collective" ||
+        seat.userId ||
+        seat.roomId
+      )
+        continue;
       const passenger = remaining.shift();
       if (!passenger) break;
       seat.userId = passenger.userId;

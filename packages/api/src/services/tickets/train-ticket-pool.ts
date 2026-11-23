@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { AppDatabase } from "../../auth";
 import {
   findTrainSegment,
@@ -43,7 +43,7 @@ async function previewPool(
   const passengersById = new Map(
     passengers.map((person) => [person.userId, person]),
   );
-  const preview = seats.map((seat) => {
+  const assignments = seats.map((seat) => {
     const next = updateById.get(seat.id) ?? seat;
     const person = next.userId ? passengersById.get(next.userId) : undefined;
     return {
@@ -52,11 +52,15 @@ async function previewPool(
       assignedName: person ? `${person.firstName} ${person.lastName}` : null,
       roomNumber: person?.roomNumber ?? null,
       isNew: next.userId !== null && next.userId !== seat.userId,
+      imported: Boolean(seat.importItemId),
     };
   });
+  const preview = assignments
+    .filter(({ imported }) => !imported)
+    .map(({ imported: _imported, ...seat }) => seat);
   const unassigned =
     passengers.length -
-    preview.filter((seat) => seat.assignedName !== null).length;
+    assignments.filter((seat) => seat.assignedName !== null).length;
   const snapshot = createHash("sha256")
     .update(JSON.stringify({ seats, updates, preview, unassigned }))
     .digest("hex");
@@ -110,8 +114,27 @@ export async function reconcileTrainTicketSeats(
       false,
     ),
   );
-  if (updates.length)
-    await saveTrainSeatAssignments(transaction, tripId, updates);
+  const named = new Set(
+    reserved
+      .filter(({ allocation }) => allocation === "named")
+      .map(({ id }) => id),
+  );
+  const canceled = updates.filter(({ id, userId }) => !userId && named.has(id));
+  for (const batch of batchRows(canceled.map(({ id }) => id))) {
+    await transaction
+      .delete(schema.trainTicketSeats)
+      .where(
+        and(
+          eq(schema.trainTicketSeats.tripId, tripId),
+          inArray(schema.trainTicketSeats.id, batch),
+        ),
+      );
+  }
+  const remaining = updates.filter(
+    ({ id, userId }) => userId || !named.has(id),
+  );
+  if (remaining.length)
+    await saveTrainSeatAssignments(transaction, tripId, remaining);
 }
 
 export async function addTrainTicketDocument(
@@ -165,6 +188,7 @@ export async function removeTrainTicketDocument(
   segmentId: string,
   documentId: string,
   actorId: string,
+  origin: "manual" | "importDraft" | "importConfirmed" = "manual",
 ) {
   return database.transaction(async (transaction) => {
     if (!(await canManageTrainTickets(transaction, tripId, actorId)))
@@ -178,10 +202,24 @@ export async function removeTrainTicketDocument(
           eq(documents.tripId, tripId),
           eq(documents.segmentId, segmentId),
           eq(documents.id, documentId),
+          origin === "manual"
+            ? isNull(documents.importHash)
+            : isNotNull(documents.importHash),
         ),
       )
-      .returning({ blobPath: documents.blobPath });
+      .returning({
+        blobPath: documents.blobPath,
+        importItems: documents.importItems,
+      });
     if (!document) return null;
+    if (
+      origin === "importDraft" &&
+      document.importItems?.some(({ published }) => published)
+    ) {
+      throw new TrainTicketPoolError(
+        "published_train_ticket_confirmation_required",
+      );
+    }
     await transaction
       .delete(seats)
       .where(
@@ -193,7 +231,7 @@ export async function removeTrainTicketDocument(
       );
     await transaction
       .insert(schema.pendingTicketBlobDeletions)
-      .values(document)
+      .values({ blobPath: document.blobPath })
       .onConflictDoNothing();
     return document.blobPath;
   });
@@ -218,7 +256,18 @@ export async function canManageTrainTickets(
 }
 
 export function normalizeTrainSeatLabel(label: string) {
-  return label.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
+  const value = label
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  const seat =
+    /^(?:voiture|carriage|coach)\s+([a-z0-9-]+)[ .,:·/-]+(?:place|seat)\s+([a-z0-9-]+)$/.exec(
+      value,
+    );
+  return seat
+    ? `seat:${seat[1]?.replace(/^0+(?=\d)/, "")}:${seat[2]?.replace(/^0+(?=\d)/, "")}`
+    : value;
 }
 
 export class TrainTicketPoolError extends Error {
@@ -226,7 +275,8 @@ export class TrainTicketPoolError extends Error {
     readonly code:
       | "train_segment_unavailable"
       | "duplicate_train_seat"
-      | "train_pool_capacity_reached",
+      | "train_pool_capacity_reached"
+      | "published_train_ticket_confirmation_required",
   ) {
     super(code);
   }

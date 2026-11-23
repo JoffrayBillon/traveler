@@ -136,7 +136,15 @@ export function registerTravelerReadEndpoints(
       details: details ?? null,
       tickets: [
         ...tickets,
-        ...trainTickets.map(({ blobPath: _blobPath, ...ticket }) => ticket),
+        ...trainTickets.map(
+          ({
+            blobPath: _blobPath,
+            pageNumbers: _pageNumbers,
+            imported: _imported,
+            allocation,
+            ...ticket
+          }) => ({ ...ticket, managedByStaff: allocation === "collective" }),
+        ),
       ],
     });
   });

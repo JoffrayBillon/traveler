@@ -9,6 +9,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+import type { TrainTicketImportItem } from "./services/tickets/train-ticket-import.types";
 
 export const trips = sqliteTable(
   "trips",
@@ -702,6 +703,11 @@ export const trainTicketDocuments = sqliteTable(
     blobPath: text("blob_path").notNull(),
     originalName: text("original_name").notNull(),
     size: integer("size").notNull(),
+    importHash: text("import_hash"),
+    importJourney: text("import_journey"),
+    importItems: text("import_items", { mode: "json" }).$type<
+      TrainTicketImportItem[]
+    >(),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -711,6 +717,11 @@ export const trainTicketDocuments = sqliteTable(
       table.tripId,
       table.segmentId,
       table.id,
+    ),
+    uniqueIndex("train_ticket_documents_import_hash_unique").on(
+      table.tripId,
+      table.segmentId,
+      table.importHash,
     ),
   ],
 );
@@ -724,6 +735,11 @@ export const trainTicketSeats = sqliteTable(
     documentId: text("document_id").notNull(),
     label: text("label").notNull(),
     position: integer("position").notNull(),
+    importItemId: text("import_item_id"),
+    pageNumbers: text("page_numbers", { mode: "json" }).$type<number[]>(),
+    allocation: text("allocation", { enum: ["pool", "named", "collective"] })
+      .notNull()
+      .default("pool"),
     roomId: text("room_id").references(() => rooms.id, {
       onDelete: "set null",
     }),

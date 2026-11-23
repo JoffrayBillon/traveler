@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import * as schema from "../schema";
 import type { DatabaseTransaction } from "../source-imports/database.types";
@@ -42,6 +42,8 @@ export function listTrainSeats(
       position: seats.position,
       roomId: seats.roomId,
       userId: seats.userId,
+      importItemId: seats.importItemId,
+      allocation: seats.allocation,
     })
     .from(seats)
     .innerJoin(
@@ -71,7 +73,13 @@ export function findTrainTicketDocument(
       originalName: documents.originalName,
     })
     .from(documents)
-    .where(and(eq(documents.tripId, tripId), eq(documents.id, documentId)))
+    .where(
+      and(
+        eq(documents.tripId, tripId),
+        eq(documents.id, documentId),
+        isNull(documents.importHash),
+      ),
+    )
     .limit(1);
 }
 
@@ -110,7 +118,8 @@ export function listTrainPassengers(database: DatabaseReader, tripId: string) {
         eq(schema.rooms.id, roomAssignments.roomId),
       ),
     )
-    .where(eq(memberships.tripId, tripId));
+    .where(eq(memberships.tripId, tripId))
+    .orderBy(memberships.userId);
 }
 
 export function saveTrainSeatAssignments(
@@ -139,9 +148,90 @@ export function listTrainTicketDocuments(
     .select({ id: documents.id, originalName: documents.originalName })
     .from(documents)
     .where(
-      and(eq(documents.tripId, tripId), eq(documents.segmentId, segmentId)),
+      and(
+        eq(documents.tripId, tripId),
+        eq(documents.segmentId, segmentId),
+        isNull(documents.importHash),
+      ),
     )
     .orderBy(documents.createdAt, documents.id);
+}
+
+export function listTrainTicketImports(
+  database: DatabaseReader,
+  tripId: string,
+  segmentId: string,
+) {
+  return database
+    .select()
+    .from(documents)
+    .where(
+      and(
+        eq(documents.tripId, tripId),
+        eq(documents.segmentId, segmentId),
+        isNotNull(documents.importHash),
+      ),
+    )
+    .orderBy(documents.createdAt, documents.id);
+}
+
+export function findTrainTicketImport(
+  database: DatabaseReader,
+  tripId: string,
+  segmentId: string,
+  documentId: string,
+) {
+  return database
+    .select()
+    .from(documents)
+    .where(
+      and(
+        eq(documents.tripId, tripId),
+        eq(documents.segmentId, segmentId),
+        eq(documents.id, documentId),
+        isNotNull(documents.importHash),
+      ),
+    )
+    .limit(1);
+}
+
+export function findTrainTicketImportByHash(
+  database: DatabaseReader,
+  tripId: string,
+  segmentId: string,
+  hash: string,
+) {
+  return database
+    .select({ id: documents.id })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.tripId, tripId),
+        eq(documents.segmentId, segmentId),
+        eq(documents.importHash, hash),
+      ),
+    )
+    .limit(1);
+}
+
+export async function countTrainTicketImportItems(
+  database: DatabaseReader,
+  tripId: string,
+  segmentId: string,
+) {
+  const [result] = await database
+    .select({
+      total: sql<number>`coalesce(sum(json_array_length(${documents.importItems})), 0)`,
+    })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.tripId, tripId),
+        eq(documents.segmentId, segmentId),
+        isNotNull(documents.importHash),
+      ),
+    );
+  return result?.total ?? 0;
 }
 
 export function listTravelerTrainTickets(
@@ -153,13 +243,21 @@ export function listTravelerTrainTickets(
   const assignments = schema.transportGroupAssignments;
   return database
     .select({
-      id: documents.id,
+      id: sql<string>`CASE WHEN ${documents.importHash} IS NULL THEN ${documents.id} ELSE ${seats.id} END`,
       kind: segments.direction,
-      originalName: documents.originalName,
-      size: documents.size,
+      originalName: sql<string>`CASE WHEN ${documents.importHash} IS NULL THEN ${documents.originalName} ELSE 'train-ticket.pdf' END`,
+      size: sql<
+        number | null
+      >`CASE WHEN ${documents.importHash} IS NULL THEN ${documents.size} END`,
       createdAt: documents.createdAt,
-      seatLabel: seats.label,
+      seatLabel: sql<
+        string | null
+      >`CASE WHEN ${seats.label} NOT LIKE 'import:%' THEN ${seats.label} END`,
       blobPath: documents.blobPath,
+      segmentId: segments.id,
+      allocation: seats.allocation,
+      pageNumbers: seats.pageNumbers,
+      imported: sql<number>`CASE WHEN ${documents.importHash} IS NULL THEN 0 ELSE 1 END`,
     })
     .from(seats)
     .innerJoin(
@@ -190,7 +288,12 @@ export function listTravelerTrainTickets(
       and(
         eq(seats.tripId, tripId),
         eq(seats.userId, userId),
-        documentId ? eq(documents.id, documentId) : undefined,
+        documentId
+          ? or(
+              and(isNull(documents.importHash), eq(documents.id, documentId)),
+              and(isNotNull(documents.importHash), eq(seats.id, documentId)),
+            )
+          : undefined,
       ),
     )
     .orderBy(segments.direction, segments.position);

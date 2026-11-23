@@ -75,6 +75,122 @@ export const en = {
   trainTicketPublishFailed: "The allocation could not be published.",
   trainTicketPublish: "Publish assignments",
   trainTicketSeatLabel: "Train seat · {{seat}}",
+  trainTicketManagedByStaff:
+    "Your transport ticket is managed by the trip team.",
+  trainTicketNotYetAvailable:
+    "Your transport ticket will appear here once it is published.",
+  trainTicketManualPool: "Manual seat pool (fallback tool)",
+  trainTicketImportTitle: "Import ticket PDFs",
+  trainTicketImportDescription:
+    "Add one or more PDFs for this segment. Detected tickets stay in preview until an organizer publishes them.",
+  trainTicketImportCoverage: "Ticket coverage",
+  trainTicketImportExpected: "Travelers expected",
+  trainTicketImportPublished: "Tickets published",
+  trainTicketImportReady: "Ready to publish",
+  trainTicketImportMissing: "Tickets missing",
+  trainTicketImportMissingList: "Travelers still missing a ticket",
+  trainTicketImportDropLabel: "Drop ticket PDFs",
+  trainTicketImportDropHint:
+    "Add multiple PDF files for this train. Maximum size: 4 MB per file.",
+  trainTicketImportQueue: "Files ready to import",
+  trainTicketImportQueued: "Queued",
+  trainTicketImportFileUploading: "Analyzing",
+  trainTicketImportFileFailedStatus: "Failed — can retry",
+  trainTicketImportUpload: "Analyze files",
+  trainTicketImportUploadProgress: "Analyzing file {{done}} of {{total}}…",
+  trainTicketImportInvalidPdf: "Only PDF files can be imported.",
+  trainTicketImportFileTooLarge: "The file exceeds the 4 MB size limit.",
+  trainTicketImportFailed:
+    "The file could not be analyzed. Try again or choose another PDF.",
+  trainTicketImportChanged:
+    "The data changed. Refresh the preview before continuing.",
+  trainTicketImportConflict:
+    "This file contains tickets already imported or incompatible with this segment.",
+  trainTicketImportUnavailable: "Ticket imports could not be loaded.",
+  trainTicketImportRemoveDraft: "Remove draft",
+  trainTicketImportDocument: "Document {{name}}",
+  trainTicketImportItemCount: "{{count}} tickets detected",
+  trainTicketImportNoItems: "No tickets were detected in this document.",
+  trainTicketImportPages: "Pages {{pages}}",
+  trainTicketImportPreviewPdf: "View ticket pages",
+  trainTicketImportUnrecognizedItem: "Ticket needs review",
+  trainTicketImportClassification: "Ticket type",
+  trainTicketImportKindNamed: "Named ticket",
+  trainTicketImportKindTransferable: "Transferable seat",
+  trainTicketImportKindCollective: "Collective ticket",
+  trainTicketImportKindIgnored: "Ignore this item",
+  trainTicketImportKindDetected: "Automatic detection",
+  trainTicketImportAssignTraveler: "Traveler",
+  trainTicketImportCollectiveTravelers:
+    "Travelers covered by the collective ticket",
+  trainTicketImportCollectiveCapacity: "Number of covered seats",
+  trainTicketImportSaveCollective: "Save travelers and capacity",
+  trainTicketImportTransferableHint:
+    "This seat will be assigned automatically in room order when published.",
+  trainTicketImportNeedsReview: "Review this ticket before publishing.",
+  trainTicketImportIssueDuplicateTicket:
+    "This ticket number appears more than once.",
+  trainTicketImportIssueSegmentMismatch:
+    "This ticket seems to belong to another journey segment.",
+  trainTicketImportIssueTravelerUnavailable:
+    "The detected traveler is unavailable for this segment.",
+  trainTicketImportIssueUnassigned:
+    "No eligible traveler was assigned to this ticket.",
+  trainTicketImportIssueUnrecognized:
+    "The ticket could not be identified automatically.",
+  trainTicketImportIssueMultipleTickets:
+    "Multiple tickets seem to match the same traveler.",
+  trainTicketImportIssueCollectiveUnconfirmed:
+    "Confirm the travelers and seat capacity covered.",
+  trainTicketImportPublish: "Publish ready tickets",
+  trainTicketImportPublishTitle: "Publish ready tickets?",
+  trainTicketImportPublishConfirmation:
+    "{{ready}} ready ticket(s) will be published. {{missing}} traveler(s) will remain without a published ticket. Items needing review will stay in the preview.",
+  trainTicketImportPublishReady: "Confirm publication",
+  trainTicketImportPartialAllowed:
+    "Partial publication is available; items needing review will remain drafts.",
+  trainTicketImportCarrier: "Carrier",
+  trainTicketCarrierInoui: "TGV INOUI",
+  trainTicketCarrierLyria: "TGV Lyria",
+  trainTicketCarrierOuigo: "OUIGO",
+  trainTicketCarrierTrenitalia: "Trenitalia",
+  trainTicketCarrierTer: "TER",
+  trainTicketImportReservation: "Reservation",
+  trainTicketImportService: "Train",
+  trainTicketImportCarriage: "Carriage",
+  trainTicketImportSeat: "Seat",
+  trainTicketImportStatus: "Status",
+  trainTicketImportStatusReady: "Ready to publish",
+  trainTicketImportStatusReview: "Needs review",
+  trainTicketImportStatusPublished: "Published",
+  trainTicketImportStatusIgnored: "Ignored",
+  trainTicketImportTicketNumber: "Ticket number",
+  trainTicketImportDocumentPublished:
+    "All tickets in this document are published",
+  trainTicketImportDocumentReview: "Document needs review",
+  trainTicketImportDocumentReady: "Document ready to publish",
+  trainTicketImportDocumentIgnored: "Document ignored",
+  trainTicketImportDownloadSource: "Download original PDF",
+  trainTicketImportUpdateFailed:
+    "This correction could not be saved. Try again.",
+  trainTicketImportRemoveTitle: "Delete this draft?",
+  trainTicketImportRemoveConfirmation:
+    "Document {{name}} and its unpublished tickets will be permanently deleted.",
+  trainTicketImportRemoveFailed: "This draft could not be deleted.",
+  trainTicketImportWithdraw: "Withdraw document",
+  trainTicketImportWithdrawTitle: "Withdraw this published document?",
+  trainTicketImportWithdrawConfirmation:
+    "Document {{name}} will be withdrawn and travelers will no longer be able to access the tickets already published from it.",
+  trainTicketImportWithdrawalChanged:
+    "The document state changed. Refresh and review its tickets before confirming the withdrawal.",
+  trainTicketImportRetryFailed: "Retry failed files",
+  trainTicketImportDuplicateFile:
+    "{{name}} was already imported. The existing file is kept.",
+  trainTicketImportExpandItems: "Show {{count}} tickets",
+  trainTicketImportCollapseItems: "Collapse ticket list",
+  trainTicketGroup: "Group transport",
+  trainTicketDirection: "Direction",
+  chooseFiles: "Choose files",
   transportGroupHasTrainTickets:
     "Remove this train’s tickets before deleting the leg or changing its direction or mode.",
   legalIntro: "Traveler is a private space provided by your trip organizers.",

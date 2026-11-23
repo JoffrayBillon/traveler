@@ -42,7 +42,13 @@ export function useUploadTrainTicketMutation(
       form.set("seats", seats);
       return apiRequest(`${path}/documents`, { method: "POST", body: form });
     },
-    onSuccess: () => client.invalidateQueries({ queryKey }),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey }),
+        client.invalidateQueries({
+          queryKey: queryKeys.trainTicketImports(tripId, segmentId),
+        }),
+      ]),
   });
 }
 
@@ -58,6 +64,9 @@ export function usePublishTrainTicketPoolMutation(
     onSuccess: () =>
       Promise.all([
         client.invalidateQueries({ queryKey }),
+        client.invalidateQueries({
+          queryKey: queryKeys.trainTicketImports(tripId, segmentId),
+        }),
         client.invalidateQueries({ queryKey: queryKeys.traveler(tripId) }),
       ]),
     onError: (error) => {
@@ -85,6 +94,9 @@ export function useRemoveTrainTicketMutation(
       Promise.all([
         client.invalidateQueries({
           queryKey: queryKeys.trainTickets(tripId, segmentId),
+        }),
+        client.invalidateQueries({
+          queryKey: queryKeys.trainTicketImports(tripId, segmentId),
         }),
         client.invalidateQueries({ queryKey: queryKeys.traveler(tripId) }),
       ]),

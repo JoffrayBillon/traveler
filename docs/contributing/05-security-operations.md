@@ -6,6 +6,8 @@ Authentication is closed membership: no public signup, server-side membership an
 
 Uploads require bounded sizes, type/content validation, generated storage keys and private storage. Download authorization checks the requesting user's trip and permissions. Never place tickets in frontend public assets, Git, logs or an unauthenticated public bucket.
 
+Train imports retain one private source PDF per segment and content hash. Limit each PDF to 4 MiB and 200 pages. Staff review and explicitly publish assignments from that source. Traveler downloads verify current group and seat membership and serve only the assigned pages. Collective coverage exposes a status to the traveler while staff retains access to the source. Include the source and its review metadata in the same J+90 purge as other train ticket documents. Use synthetic PDFs for CI and hosted previews.
+
 ## Trip data retention
 
 Set the actual end date in **Journey and options** before enrolling travelers. The daily production job at `/api/cron/purge-expired-trips` requires `CRON_SECRET`. At the first run at least 90 days after that date (UTC), it deletes the trip, including cancelled bookings, emergency contacts, transport, rooms, requests and history. Global accounts and credentials survive only while associated with another trip. If the last trip for a manager is removed, provision their access to the next trip using the operator commands. Files in private Vercel Blob are removed through the existing durable queue and retried after failures. Cron returns counts only, with a 503 when Blob deletions need retry.

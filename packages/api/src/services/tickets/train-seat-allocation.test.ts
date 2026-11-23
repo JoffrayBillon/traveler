@@ -57,3 +57,13 @@ it("keeps a traveler's seat when they move to another room", () => {
     ),
   ).toEqual([{ id: "12", userId: "A", roomId: "ten" }]);
 });
+
+it("never gives a canceled nominative ticket to another traveler", () => {
+  expect(
+    planTrainSeats(
+      [{ id: "12", userId: "A", roomId: "two", allocation: "named" }],
+      [traveler("B", "two", "2")],
+      true,
+    ),
+  ).toEqual([{ id: "12", userId: null, roomId: null, allocation: "named" }]);
+});

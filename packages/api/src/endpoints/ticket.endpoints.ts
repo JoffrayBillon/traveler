@@ -10,6 +10,7 @@ import {
 import type { TicketBlobStorage } from "../ports/ticket-storage";
 import * as schema from "../schema";
 import { getSession } from "../services/auth/get-session";
+import { readTrainTicketPages } from "../services/tickets/read-train-ticket-pages";
 import { uploadPrivateTicket } from "../services/tickets/upload-private-ticket";
 
 export function registerTicketEndpoints(
@@ -167,16 +168,25 @@ export function registerTicketEndpoints(
     ) {
       return context.json({ error: "not_found" }, 404);
     }
-    const [groupDocument] = individual
+    const [assignedTrainTicket] = individual
       ? []
-      : membership.role === "traveler"
-        ? await listTravelerTrainTickets(
-            services.database,
-            tripId,
-            session.user.id,
-            ticketId,
-          )
-        : await findTrainTicketDocument(services.database, tripId, ticketId);
+      : await listTravelerTrainTickets(
+          services.database,
+          tripId,
+          session.user.id,
+          ticketId,
+        );
+    if (
+      assignedTrainTicket?.allocation === "collective" ||
+      (assignedTrainTicket?.imported &&
+        !assignedTrainTicket.pageNumbers?.length)
+    )
+      return context.json({ error: "not_found" }, 404);
+    const [legacyStaffDocument] =
+      !individual && !assignedTrainTicket && membership.role !== "traveler"
+        ? await findTrainTicketDocument(services.database, tripId, ticketId)
+        : [];
+    const groupDocument = assignedTrainTicket ?? legacyStaffDocument;
     const ticket =
       individual ??
       (groupDocument && { ...groupDocument, contentType: "application/pdf" });
@@ -187,7 +197,13 @@ export function registerTicketEndpoints(
       });
       if (blob?.statusCode !== 200 || !blob.stream)
         return context.json({ error: "not_found" }, 404);
-      return new Response(blob.stream, {
+      const body = assignedTrainTicket?.pageNumbers
+        ? await readTrainTicketPages(
+            blob.stream,
+            assignedTrainTicket.pageNumbers,
+          )
+        : blob.stream;
+      return new Response(body, {
         headers: {
           "Content-Type": ticket.contentType,
           "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(ticket.originalName)}`,

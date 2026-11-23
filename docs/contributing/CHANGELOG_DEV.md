@@ -1,5 +1,10 @@
 # Technical changelog
 
+## 2026-11-23 — Transport — Import train ticket PDFs
+
+- Organizers can upload multiple PDFs per train leg, review extracted tickets or group capacity, check how many passengers lack a ticket, and publish assignments. Transferable seats follow room order, unique nominative matches take priority, and collective documents stay private to the trip staff.
+- `pnpm check` passed on Node 26 with 140 tests. The local sample check covered 61 PDFs, including a 57-passenger Trenitalia group document and a Lyria ticket whose extracted page rendered identically to the original.
+
 ## 2026-11-22 — Privacy — Put organizer contact first
 
 - Details/impact: direct travelers to the trip organizer for privacy requests in French and English. State the right to lodge a complaint in plain text and remove the direct link to the complaint form.

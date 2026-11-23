@@ -43,8 +43,10 @@ export type TravelerTripData = {
     id: string;
     kind: "outbound" | "return" | "other";
     originalName: string;
-    size: number;
+    size: number | null;
     createdAt: string;
-    seatLabel?: string;
+    seatLabel?: string | null;
+    segmentId?: string;
+    managedByStaff?: boolean;
   }[];
 };
