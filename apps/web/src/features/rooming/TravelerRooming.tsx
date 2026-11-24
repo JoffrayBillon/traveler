@@ -46,9 +46,9 @@ export function TravelerRooming({
   }
 
   return (
-    <>
+    <Card as="article" spacing="compact" arrangement="stack">
       {ownRoom ? (
-        <Card as="article" spacing="compact" arrangement="stack">
+        <>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-2">
               <span className="text-xs text-content-subtle">
@@ -92,29 +92,29 @@ export function TravelerRooming({
               </li>
             ))}
           </ul>
-          {ownRoom.isLocked ? (
-            <p className="text-sm text-content-muted">
-              {t("yourRoomIsLockedNoExchangeRequests")}
-            </p>
-          ) : (
-            <div>
-              <TravelerRoomPlanDialog
-                tripId={tripId}
-                isOpen={isPlanOpen}
-                onOpenChange={setIsPlanOpen}
-                rooms={rooms}
-                ownRoom={ownRoom}
-                userId={userId}
-                onMessage={onMessage}
-              />
-            </div>
-          )}
-        </Card>
+        </>
       ) : (
-        <p className="rounded-card border border-dashed border-border p-4 text-sm text-content-muted">
+        <p className="text-sm text-content-muted">
           {t("youHaveNotBeenAssignedARoomYet")}
         </p>
       )}
-    </>
+      {isLocked ? (
+        <p className="text-sm text-content-muted">
+          {t("yourRoomIsLockedNoExchangeRequests")}
+        </p>
+      ) : rooms.some((room) => !room.isLocked) ? (
+        <div>
+          <TravelerRoomPlanDialog
+            tripId={tripId}
+            isOpen={isPlanOpen}
+            onOpenChange={setIsPlanOpen}
+            rooms={rooms}
+            ownRoom={ownRoom}
+            userId={userId}
+            onMessage={onMessage}
+          />
+        </div>
+      ) : null}
+    </Card>
   );
 }

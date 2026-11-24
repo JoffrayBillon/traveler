@@ -1,4 +1,5 @@
 export const en = {
+  signInPageTitle: "Sign in",
   confirmSignInTitle: "Confirm your sign-in",
   confirmSignInIdentity: "Are you {{name}}?",
   confirmSignInDescription:
@@ -107,7 +108,7 @@ export const en = {
     "Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, United States.",
   allMyTrips: "All my trips",
   organizerTools: "Organizer tools",
-  pageNotFound: "PAGE NOT FOUND",
+  pageNotFound: "Page not found",
   thisPageCouldNotBeFound: "This page could not be found.",
   backToMyTrips: "Back to my trips",
   profileAndPreferences: "Profile and preferences",
@@ -212,10 +213,17 @@ export const en = {
   transport: "Transport",
   yourRoomAndPendingRequests: "Your room and pending requests.",
   viewRoomPlan: "View room plan",
-  selectRoommateToRequestExchange:
-    "Select someone to request a room exchange with.",
+  chooseRoomPlace:
+    "Choose an available place. The occupants may need to approve your request.",
+  chooseRoomPlaceOrExchange:
+    "Choose an available place or select someone to propose a swap. The occupants may need to approve your request.",
+  takeRoomPlace: "Take a place",
+  takePlaceInRoom: "Take a place in room {{room}}",
+  roomPlaceConfirmed: "Your place in room {{room}} is confirmed.",
+  roomPlaceRequestSent:
+    "Your request has been sent to the occupants of room {{room}}.",
   yourRoomIsLockedNoExchangeRequests:
-    "Unlock your room to view the plan and request an exchange.",
+    "Unlock your room to view the plan and change rooms.",
   requestRoomExchangeWith: "Request a room exchange with {{name}}",
   organizerRoomingOverviewDescription:
     "Review and organize room assignments. Drag participants between rooms or use the manual assignment controls.",

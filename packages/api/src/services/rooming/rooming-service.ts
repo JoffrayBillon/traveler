@@ -142,42 +142,24 @@ export function createRoomingService(database: AppDatabase) {
         }
 
         const requiredConsents = new Set(userIds);
-        for (const roomId of affectedRoomIds) {
-          const beforeGender = new Set(
-            assignments
-              .filter((assignment) => assignment.roomId === roomId)
-              .map((assignment) => genderByUser.get(assignment.userId))
-              .filter(
-                (gender): gender is "M" | "F" =>
-                  gender !== null && gender !== undefined,
-              ),
-          );
+        const vacancy = moves.length === 1 ? moves[0] : undefined;
+        for (const roomId of vacancy
+          ? [vacancy.targetRoomId]
+          : affectedRoomIds) {
           const afterOccupants = [...afterByUser.entries()]
             .filter(([, assignedRoomId]) => assignedRoomId === roomId)
             .map(([userId]) => userId);
           const afterGender = new Set(
-            afterOccupants
-              .map((userId) => genderByUser.get(userId))
-              .filter(
-                (gender): gender is "M" | "F" =>
-                  gender !== null && gender !== undefined,
-              ),
+            afterOccupants.map((userId) => genderByUser.get(userId) ?? null),
           );
-          const room = roomById.get(roomId);
-          const isMixed = afterGender.size > 1;
-          if (isMixed) {
+          const needsRoomConsent =
+            afterOccupants.length > 1 &&
+            (afterGender.size > 1 ||
+              afterGender.has(null) ||
+              (vacancy && roomById.get(roomId)?.genderPolicy === "mixed"));
+          if (needsRoomConsent) {
             for (const occupantId of afterOccupants)
               requiredConsents.add(occupantId);
-          } else if (room?.genderPolicy === "mixed" || beforeGender.size > 1) {
-            // When a room becomes single-gender, only the people moving need
-            // to agree; the broad approval rule applies to mixed rooms.
-            for (const move of moves) {
-              if (
-                move.expectedRoomId === roomId ||
-                move.targetRoomId === roomId
-              )
-                requiredConsents.add(move.userId);
-            }
           }
         }
 

@@ -1,7 +1,9 @@
 import { useRoomingMutations } from "@traveler/api/rooming/mutations";
 import type { RoomSummary } from "@traveler/api/rooming/rooming.types";
 import { Button, Card } from "@traveler/components/ui";
-import { ArrowLeftRight, X } from "lucide-react";
+import type { TranslationKey } from "@traveler/i18n/resources";
+import { ArrowLeftRight, DoorOpen, X } from "lucide-react";
+import { useState } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -25,44 +27,60 @@ export function TravelerRoomPlanDialog({
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   rooms: RoomSummary[];
-  ownRoom: RoomSummary;
+  ownRoom: RoomSummary | undefined;
   userId: string;
   onMessage: (message: string) => void;
 }) {
   const { t } = useTranslation();
   const mutations = useRoomingMutations(tripId);
+  const [errorLabel, setErrorLabel] = useState<TranslationKey | null>(null);
 
-  async function requestExchange(
-    person: RoomSummary["occupants"][number],
+  async function requestRoom(
     room: RoomSummary,
+    exchangeWith?: RoomSummary["occupants"][number],
   ) {
-    try {
-      await mutations.createRequest.mutateAsync({
-        moves: [
-          {
-            userId,
-            expectedRoomId: ownRoom.id,
-            targetRoomId: room.id,
-          },
-          {
-            userId: person.userId,
-            expectedRoomId: room.id,
-            targetRoomId: ownRoom.id,
-          },
-        ],
+    const moves = [
+      { userId, expectedRoomId: ownRoom?.id ?? null, targetRoomId: room.id },
+    ];
+    if (exchangeWith && ownRoom) {
+      moves.push({
+        userId: exchangeWith.userId,
+        expectedRoomId: room.id,
+        targetRoomId: ownRoom.id,
       });
+    }
+    setErrorLabel(null);
+    try {
+      const { request } = await mutations.createRequest.mutateAsync({ moves });
       onOpenChange(false);
-      onMessage(t("yourSwapProposalHasBeenSentToThePeopleInvolved"));
+      onMessage(
+        exchangeWith
+          ? t("yourSwapProposalHasBeenSentToThePeopleInvolved")
+          : t(
+              request.status === "applied"
+                ? "roomPlaceConfirmed"
+                : "roomPlaceRequestSent",
+              {
+                room: room.name,
+              },
+            ),
+      );
     } catch (error) {
       const code = (error as { code?: string }).code;
-      onMessage(
-        t(roomErrorLabel[code ?? ""] ?? "roomAssignmentsCouldNotBeUpdated"),
+      setErrorLabel(
+        roomErrorLabel[code ?? ""] ?? "roomAssignmentsCouldNotBeUpdated",
       );
     }
   }
 
   return (
-    <DialogTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
+    <DialogTrigger
+      isOpen={isOpen}
+      onOpenChange={(open) => {
+        if (open) setErrorLabel(null);
+        onOpenChange(open);
+      }}
+    >
       <Button appearance="secondary">{t("viewRoomPlan")}</Button>
       <ModalOverlay
         isDismissable={!mutations.createRequest.isPending}
@@ -76,7 +94,7 @@ export function TravelerRoomPlanDialog({
                   {t("roomPlan")}
                 </Heading>
                 <p className="text-sm text-content-muted">
-                  {t("selectRoommateToRequestExchange")}
+                  {t(ownRoom ? "chooseRoomPlaceOrExchange" : "chooseRoomPlace")}
                 </p>
               </div>
               <Button appearance="quiet" slot="close" aria-label={t("close")}>
@@ -84,11 +102,18 @@ export function TravelerRoomPlanDialog({
               </Button>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7">
+              {errorLabel && (
+                <p className="mb-4 text-sm text-danger" role="alert">
+                  {t(errorLabel)}
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {rooms
                   .filter((room) => !room.isLocked)
                   .map((room) => {
-                    const isOwnRoom = room.id === ownRoom.id;
+                    const isOwnRoom = room.id === ownRoom?.id;
+                    const canClaim =
+                      !isOwnRoom && room.occupiedCount < room.capacity;
                     return (
                       <Card
                         key={room.id}
@@ -119,7 +144,7 @@ export function TravelerRoomPlanDialog({
                               const isSelf = person.userId === userId;
                               return (
                                 <li key={person.userId}>
-                                  {isOwnRoom || isSelf ? (
+                                  {!ownRoom || isOwnRoom || isSelf ? (
                                     <span className="block min-h-10 wrap-anywhere px-2 py-2 text-sm text-content-muted">
                                       {person.firstName} {person.lastName}
                                       {isSelf ? ` · ${t("you")}` : ""}
@@ -129,7 +154,7 @@ export function TravelerRoomPlanDialog({
                                       appearance="quiet"
                                       className="h-auto min-h-10 w-full justify-start px-2 py-1 text-left"
                                       onPress={() =>
-                                        void requestExchange(person, room)
+                                        void requestRoom(room, person)
                                       }
                                       isDisabled={
                                         mutations.createRequest.isPending
@@ -156,6 +181,20 @@ export function TravelerRoomPlanDialog({
                           <p className="text-sm text-content-subtle">
                             {t("emptyRoom")}
                           </p>
+                        )}
+                        {canClaim && (
+                          <Button
+                            appearance="secondary"
+                            className="min-h-11 justify-start"
+                            aria-label={t("takePlaceInRoom", {
+                              room: room.name,
+                            })}
+                            isDisabled={mutations.createRequest.isPending}
+                            onPress={() => void requestRoom(room)}
+                          >
+                            <DoorOpen aria-hidden="true" size={16} />
+                            {t("takeRoomPlace")}
+                          </Button>
                         )}
                       </Card>
                     );
