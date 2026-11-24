@@ -467,6 +467,15 @@ describe("room change consent", () => {
     await expect(
       store.consent(trip.id, request.id, "ben", true),
     ).resolves.toEqual({ status: "applied" });
+    const [stored] = await database
+      .select()
+      .from(schema.roomChangeRequests)
+      .where(eq(schema.roomChangeRequests.id, request.id));
+    expect(JSON.parse(stored?.approvedConsentsJson ?? "[]").sort()).toEqual([
+      "alice",
+      "ben",
+      "cara",
+    ]);
   });
 
   it("requires every occupant to consent to a vacancy claim when composition is unconfirmed", async () => {
@@ -550,8 +559,9 @@ describe("room change consent", () => {
     ).toEqual([]);
   });
 
-  it("requires the remaining occupant's consent when a swap may make their room mixed", async () => {
+  it("requires consent for an uncertain swap and rejects legacy approvals that omit an occupant", async () => {
     const { database, trip } = await createFixture();
+    const store = createRoomingStore(database);
     await database
       .update(schema.tripMemberships)
       .set({ genderConfirmed: false })
@@ -562,19 +572,29 @@ describe("room change consent", () => {
       roomId: "room-two",
       userId: "alice",
     });
-    await expect(
-      createRoomingStore(database).createRequest(trip.id, "ben", [
-        { userId: "ben", expectedRoomId: "room-one", targetRoomId: "room-two" },
-        {
-          userId: "cara",
-          expectedRoomId: "room-two",
-          targetRoomId: "room-one",
-        },
-      ]),
-    ).resolves.toMatchObject({
+    const request = await store.createRequest(trip.id, "ben", [
+      { userId: "ben", expectedRoomId: "room-one", targetRoomId: "room-two" },
+      { userId: "cara", expectedRoomId: "room-two", targetRoomId: "room-one" },
+    ]);
+    expect(request).toMatchObject({
       status: "pending",
       requiredConsents: ["alice", "ben", "cara"],
     });
+    // A pending request written under the previous rule omitted Alice.
+    await database
+      .update(schema.roomChangeRequests)
+      .set({ requiredConsentsJson: JSON.stringify(["ben", "cara"]) })
+      .where(eq(schema.roomChangeRequests.id, request.id));
+    await expect(
+      store.consent(trip.id, request.id, "cara", true),
+    ).resolves.toEqual({
+      status: "stale",
+    });
+    const [assignment] = await database
+      .select()
+      .from(schema.roomAssignments)
+      .where(eq(schema.roomAssignments.userId, "ben"));
+    expect(assignment?.roomId).toBe("room-one");
   });
 
   it("marks a vacancy request stale when a roster import removes a required occupant", async () => {

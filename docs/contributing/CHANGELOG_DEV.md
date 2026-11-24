@@ -3,12 +3,12 @@
 ## 2026-11-24 — Rooming — Let travelers take an available place
 
 - Assigned and unassigned travelers can claim an unlocked vacancy from the personal room plan. The server applies a confirmed non-mixed move immediately and requests all destination occupants' approval for mixed or uncertain composition.
-- Coverage includes keyboard activation and focus return, immediate and pending moves, final approval by all occupants, and loss of trip membership during approval.
+- Test status: `pnpm check` passed on Node 26.13.0 with 125 tests. Coverage includes keyboard activation, immediate and pending moves, stale legacy approvals and loss of trip membership during approval.
 
 ## 2026-11-24 — Web — Give each page a descriptive title and show the Traveler favicon
 
 - Apply localized titles through one route component. Include the trip name for traveler and organizer pages. Serve the existing Mountain Snow brand mark as an SVG favicon.
-- Route tests verify titles on navigation. The production build includes the favicon.
+- Test status: `pnpm check` passed on Node 26.13.0 with 125 tests. Route tests verify titles on navigation and the production build includes the favicon.
 
 ## 2026-11-22 — Privacy — Put organizer contact first
 

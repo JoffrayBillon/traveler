@@ -5,12 +5,14 @@ import { staleRoomRequestsForRooms } from "../../datamodel/room-request.reposito
 import * as schema from "../../schema";
 import { reconcileTrainTicketSeats } from "../tickets/train-ticket-pool";
 import { type RoomChangePayload, RoomingError } from "./model";
+import { getRequiredRoomConsents } from "./required-room-consents";
 
 export async function applyApprovedRequest(
   transaction: Parameters<Parameters<AppDatabase["transaction"]>[0]>[0],
   requestId: string,
   tripId: string,
   payload: RoomChangePayload,
+  approved: ReadonlySet<string>,
 ) {
   const roomIds = Object.keys(payload.roomVersions);
   const rooms = roomIds.length
@@ -68,6 +70,15 @@ export async function applyApprovedRequest(
   }
   for (const move of payload.moves)
     currentByUser.set(move.userId, move.targetRoomId);
+  const required = getRequiredRoomConsents(
+    payload.moves,
+    roomIds,
+    currentByUser,
+    genderByUser,
+    new Map(rooms.map((room) => [room.id, room])),
+  );
+  if (required.some((userId) => !approved.has(userId)))
+    throw new RoomingError("room_composition_changed");
   const capacities = new Map(rooms.map((room) => [room.id, room.capacity]));
   const affectedRoomIds = new Set(roomIds);
   const finalCounts = new Map<string, number>();
@@ -128,6 +139,10 @@ export async function applyApprovedRequest(
   await reconcileTrainTicketSeats(transaction, tripId);
   await transaction
     .update(schema.roomChangeRequests)
-    .set({ status: "applied", updatedAt: new Date() })
+    .set({
+      status: "applied",
+      approvedConsentsJson: JSON.stringify([...approved]),
+      updatedAt: new Date(),
+    })
     .where(eq(schema.roomChangeRequests.id, requestId));
 }
