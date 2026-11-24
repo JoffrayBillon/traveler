@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiPost, apiRequest } from "@traveler/api/client";
+import { ApiError, apiPost, apiRequest } from "@traveler/api/client";
 import { queryKeys } from "@traveler/api/query-keys";
 import type { RoomAssignmentPlan, RoomInventoryItem } from "./rooming.types";
 
@@ -83,6 +83,13 @@ export function useRoomingMutations(tripId: string) {
         input,
       ),
     onSuccess: ({ request }) => refreshRequest(request),
+    onError: (error) => {
+      if (
+        error instanceof ApiError &&
+        (error.status === 404 || error.status === 409)
+      )
+        return invalidatePlan();
+    },
   });
   const respondToRequest = useMutation({
     mutationFn: ({

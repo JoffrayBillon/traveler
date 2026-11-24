@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase } from "../auth";
 import { recordRoomAssignmentHistory } from "../datamodel/room-assignment-history.repository";
+import { staleRoomRequestsForRooms } from "../datamodel/room-request.repository";
 import * as schema from "../schema";
 
 type DatabaseTransaction = Parameters<
@@ -185,6 +186,7 @@ export async function cancelMissingValidatedRegistrations(
             and(eq(schema.rooms.tripId, tripId), eq(schema.rooms.id, roomId)),
           );
       }
+      await staleRoomRequestsForRooms(transaction, tripId, roomIds);
     }
     const membershipByUser = new Map(
       memberships.map((membership) => [membership.userId, membership]),

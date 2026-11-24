@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { NotFoundRoute } from "./NotFoundRoute";
+import { PageTitle } from "./PageTitle";
 
 export function TripRoute({ profile }: { profile: TravelerProfile }) {
   const { t } = useTranslation();
@@ -13,6 +14,7 @@ export function TripRoute({ profile }: { profile: TravelerProfile }) {
   if (!trip) return <NotFoundRoute />;
   return (
     <PageContainer as="section" spacing="regular" aria-label={trip.tripName}>
+      <PageTitle title={trip.tripName} />
       <h1 className="sr-only" data-route-heading tabIndex={-1}>
         {trip.tripName}
       </h1>

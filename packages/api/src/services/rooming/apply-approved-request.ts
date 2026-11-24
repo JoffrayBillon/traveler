@@ -5,12 +5,14 @@ import { staleRoomRequestsForRooms } from "../../datamodel/room-request.reposito
 import * as schema from "../../schema";
 import { reconcileTrainTicketSeats } from "../tickets/train-ticket-pool";
 import { type RoomChangePayload, RoomingError } from "./model";
+import { getRequiredRoomConsents } from "./required-room-consents";
 
 export async function applyApprovedRequest(
   transaction: Parameters<Parameters<AppDatabase["transaction"]>[0]>[0],
   requestId: string,
   tripId: string,
   payload: RoomChangePayload,
+  approved: ReadonlySet<string>,
 ) {
   const roomIds = Object.keys(payload.roomVersions);
   const rooms = roomIds.length
@@ -44,13 +46,39 @@ export async function applyApprovedRequest(
   const currentByUser = new Map(
     current.map((assignment) => [assignment.userId, assignment.roomId]),
   );
+  const members = await transaction
+    .select({
+      userId: schema.tripMemberships.userId,
+      gender: schema.tripMemberships.gender,
+      genderConfirmed: schema.tripMemberships.genderConfirmed,
+    })
+    .from(schema.tripMemberships)
+    .where(eq(schema.tripMemberships.tripId, tripId));
+  const genderByUser = new Map(
+    members.map(({ userId, gender, genderConfirmed }) => [
+      userId,
+      genderConfirmed ? gender : null,
+    ]),
+  );
   for (const move of payload.moves) {
-    if ((currentByUser.get(move.userId) ?? null) !== move.expectedRoomId) {
+    if (
+      !genderByUser.has(move.userId) ||
+      (currentByUser.get(move.userId) ?? null) !== move.expectedRoomId
+    ) {
       throw new RoomingError("room_composition_changed");
     }
   }
   for (const move of payload.moves)
     currentByUser.set(move.userId, move.targetRoomId);
+  const required = getRequiredRoomConsents(
+    payload.moves,
+    roomIds,
+    currentByUser,
+    genderByUser,
+    new Map(rooms.map((room) => [room.id, room])),
+  );
+  if (required.some((userId) => !approved.has(userId)))
+    throw new RoomingError("room_composition_changed");
   const capacities = new Map(rooms.map((room) => [room.id, room.capacity]));
   const affectedRoomIds = new Set(roomIds);
   const finalCounts = new Map<string, number>();
@@ -66,17 +94,7 @@ export async function applyApprovedRequest(
   }
 
   for (const move of payload.moves) {
-    const existing = await transaction
-      .select({ id: schema.roomAssignments.id })
-      .from(schema.roomAssignments)
-      .where(
-        and(
-          eq(schema.roomAssignments.tripId, tripId),
-          eq(schema.roomAssignments.userId, move.userId),
-        ),
-      )
-      .limit(1);
-    if (existing.length) {
+    if (move.expectedRoomId !== null) {
       await transaction
         .update(schema.roomAssignments)
         .set({ roomId: move.targetRoomId, assignedAt: new Date() })
@@ -96,35 +114,12 @@ export async function applyApprovedRequest(
     }
   }
 
-  const assignments = await transaction
-    .select({
-      roomId: schema.roomAssignments.roomId,
-      gender: schema.tripMemberships.gender,
-      genderConfirmed: schema.tripMemberships.genderConfirmed,
-    })
-    .from(schema.roomAssignments)
-    .innerJoin(
-      schema.tripMemberships,
-      and(
-        eq(schema.roomAssignments.tripId, schema.tripMemberships.tripId),
-        eq(schema.roomAssignments.userId, schema.tripMemberships.userId),
-      ),
-    )
-    .where(
-      and(
-        eq(schema.roomAssignments.tripId, tripId),
-        inArray(schema.roomAssignments.roomId, roomIds),
-      ),
-    );
   for (const roomId of roomIds) {
     const genders = new Set(
-      assignments
-        .filter(
-          (assignment) =>
-            assignment.roomId === roomId && assignment.genderConfirmed,
-        )
-        .map((assignment) => assignment.gender)
-        .filter((gender): gender is "M" | "F" => gender !== null),
+      [...currentByUser]
+        .filter(([, assignedRoomId]) => assignedRoomId === roomId)
+        .map(([userId]) => genderByUser.get(userId))
+        .filter((gender) => gender != null),
     );
     const genderPolicy =
       genders.size === 0
@@ -144,6 +139,10 @@ export async function applyApprovedRequest(
   await reconcileTrainTicketSeats(transaction, tripId);
   await transaction
     .update(schema.roomChangeRequests)
-    .set({ status: "applied", updatedAt: new Date() })
+    .set({
+      status: "applied",
+      approvedConsentsJson: JSON.stringify([...approved]),
+      updatedAt: new Date(),
+    })
     .where(eq(schema.roomChangeRequests.id, requestId));
 }

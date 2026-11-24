@@ -1,21 +1,14 @@
 import { PageContainer, Stack } from "@traveler/components/ui";
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { PageTitle } from "./PageTitle";
 
 export function LegalAndPrivacyRoute() {
   const { t } = useTranslation();
   const title = t("legalAndPrivacyTitle");
 
-  useEffect(() => {
-    const previousTitle = document.title;
-    document.title = `${title} · Traveler`;
-    return () => {
-      document.title = previousTitle;
-    };
-  }, [title]);
-
   return (
     <PageContainer as="article" width="narrow" aria-labelledby="legal-title">
+      <PageTitle title={title} />
       <Stack gap="sm">
         <h1
           className="text-3xl font-bold tracking-tight sm:text-4xl"

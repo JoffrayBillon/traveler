@@ -4,6 +4,7 @@ import type { AppDatabase } from "../../auth";
 import * as schema from "../../schema";
 import { applyApprovedRequest } from "./apply-approved-request";
 import { type RoomChangePayload, RoomingError, type RoomMove } from "./model";
+import { getRequiredRoomConsents } from "./required-room-consents";
 import { resolveRoomExchangeMoves } from "./resolve-room-exchange";
 
 export function createRoomingService(database: AppDatabase) {
@@ -141,45 +142,13 @@ export function createRoomingService(database: AppDatabase) {
             throw new RoomingError("room_capacity_exceeded");
         }
 
-        const requiredConsents = new Set(userIds);
-        for (const roomId of affectedRoomIds) {
-          const beforeGender = new Set(
-            assignments
-              .filter((assignment) => assignment.roomId === roomId)
-              .map((assignment) => genderByUser.get(assignment.userId))
-              .filter(
-                (gender): gender is "M" | "F" =>
-                  gender !== null && gender !== undefined,
-              ),
-          );
-          const afterOccupants = [...afterByUser.entries()]
-            .filter(([, assignedRoomId]) => assignedRoomId === roomId)
-            .map(([userId]) => userId);
-          const afterGender = new Set(
-            afterOccupants
-              .map((userId) => genderByUser.get(userId))
-              .filter(
-                (gender): gender is "M" | "F" =>
-                  gender !== null && gender !== undefined,
-              ),
-          );
-          const room = roomById.get(roomId);
-          const isMixed = afterGender.size > 1;
-          if (isMixed) {
-            for (const occupantId of afterOccupants)
-              requiredConsents.add(occupantId);
-          } else if (room?.genderPolicy === "mixed" || beforeGender.size > 1) {
-            // When a room becomes single-gender, only the people moving need
-            // to agree; the broad approval rule applies to mixed rooms.
-            for (const move of moves) {
-              if (
-                move.expectedRoomId === roomId ||
-                move.targetRoomId === roomId
-              )
-                requiredConsents.add(move.userId);
-            }
-          }
-        }
+        const requiredConsents = getRequiredRoomConsents(
+          moves,
+          affectedRoomIds,
+          afterByUser,
+          genderByUser,
+          roomById,
+        );
 
         const roomVersions = Object.fromEntries(
           [...affectedRoomIds].map((roomId) => [
@@ -189,33 +158,29 @@ export function createRoomingService(database: AppDatabase) {
         );
         const payload: RoomChangePayload = { moves, roomVersions };
         const id = randomUUID();
-        const approved = [requesterUserId];
+        const approved = new Set([requesterUserId]);
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         await transaction.insert(schema.roomChangeRequests).values({
           id,
           tripId,
           requesterUserId,
           changesJson: JSON.stringify(payload),
-          requiredConsentsJson: JSON.stringify([...requiredConsents].sort()),
-          approvedConsentsJson: JSON.stringify(approved),
+          requiredConsentsJson: JSON.stringify(requiredConsents),
+          approvedConsentsJson: JSON.stringify([...approved]),
           expiresAt,
         });
 
-        if (
-          [...requiredConsents].every((userId) => approved.includes(userId))
-        ) {
-          await applyApprovedRequest(transaction, id, tripId, payload);
-          return {
+        if (requiredConsents.every((userId) => approved.has(userId))) {
+          await applyApprovedRequest(
+            transaction,
             id,
-            status: "applied",
-            requiredConsents: [...requiredConsents].sort(),
-          };
+            tripId,
+            payload,
+            approved,
+          );
+          return { id, status: "applied", requiredConsents };
         }
-        return {
-          id,
-          status: "pending",
-          requiredConsents: [...requiredConsents].sort(),
-        };
+        return { id, status: "pending", requiredConsents };
       });
     },
 
@@ -295,7 +260,13 @@ export function createRoomingService(database: AppDatabase) {
         const payload = JSON.parse(request.changesJson) as RoomChangePayload;
         if (required.every((requiredUserId) => approved.has(requiredUserId))) {
           try {
-            await applyApprovedRequest(transaction, requestId, tripId, payload);
+            await applyApprovedRequest(
+              transaction,
+              requestId,
+              tripId,
+              payload,
+              approved,
+            );
           } catch (error) {
             if (
               !(error instanceof RoomingError) ||
