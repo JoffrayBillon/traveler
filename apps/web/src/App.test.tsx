@@ -45,6 +45,7 @@ describe("application shell", () => {
   it("links to privacy information and focuses its heading without signing in", async () => {
     const user = userEvent.setup();
     render(<App />);
+    expect(document.title).toBe("Connexion · Traveler");
 
     const legalLink = screen.getByRole("link", {
       name: "Mentions légales et confidentialité",
@@ -100,6 +101,7 @@ describe("application shell", () => {
     expect(
       await screen.findByText("Êtes-vous bien Mina Manager ?"),
     ).toBeInTheDocument();
+    expect(document.title).toBe("Confirmer votre connexion · Traveler");
     const button = screen.getByRole("button", { name: "Oui, me connecter" });
     const form = button.closest("form");
     expect(form).toHaveAttribute("method", "post");
@@ -197,6 +199,7 @@ describe("application shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Bonjour Mina." }),
     ).toBeInTheDocument();
+    expect(document.title).toBe("Vos voyages · Traveler");
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
     await user.click(
       screen.getByRole("button", { name: "Compte de Mina Manager" }),
@@ -354,6 +357,7 @@ describe("application shell", () => {
       ),
     );
     const dialog = await screen.findByRole("dialog");
+    expect(document.title).toBe("Espace organisation · Ski 2027 · Traveler");
     const emailField = within(dialog).getByRole("textbox", {
       name: "Adresse e-mail",
     });
@@ -713,6 +717,10 @@ describe("application shell", () => {
               },
             }),
           });
+        if (url === "/api/trips/trip-1/room-requests")
+          return Promise.resolve(mockResponse(200, { requests: [] }));
+        if (url === "/api/trips/trip-1/rooms")
+          return Promise.resolve(mockResponse(200, { rooms: [] }));
         return Promise.resolve(mockResponse(200));
       }),
     );
@@ -723,6 +731,7 @@ describe("application shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Votre séjour" }),
     ).toBeInTheDocument();
+    expect(document.title).toBe("Ski 2027 · Traveler");
     expect(screen.getByText("Forfait ski 3 jours")).toBeInTheDocument();
     expect(await screen.findByText("Paris Ski")).toBeInTheDocument();
     expect(
@@ -740,6 +749,8 @@ describe("application shell", () => {
         name: "Télécharger Aller : billet-aller.pdf",
       }),
     ).toHaveAttribute("href", "/api/trips/trip-1/tickets/ticket-1");
+    await user.click(screen.getByRole("link", { name: "Tous mes voyages" }));
+    await waitFor(() => expect(document.title).toBe("Vos voyages · Traveler"));
   });
 
   it("revalidates the session on focus and clears the profile after a 401", async () => {

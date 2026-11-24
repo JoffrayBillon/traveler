@@ -19,6 +19,7 @@ import {
   previewRoomAssignments,
 } from "./services/rooming/room-plan-service";
 import { completeTravelerProfile } from "./services/traveler-details";
+import { importValidatedRoster } from "./source-imports/validated-roster-import";
 import { createTripsStore } from "./trips";
 
 const clients: ReturnType<typeof createClient>[] = [];
@@ -422,6 +423,206 @@ it("exports numbered rooms into matching agency slots without changing the plan"
 });
 
 describe("room change consent", () => {
+  it("lets an unassigned traveler take a free place in a compatible room", async () => {
+    const { database, trip } = await createFixture();
+    const store = createRoomingStore(database);
+    await expect(
+      store.createRequest(trip.id, "alice", [
+        { userId: "alice", expectedRoomId: null, targetRoomId: "room-two" },
+      ]),
+    ).resolves.toMatchObject({
+      status: "applied",
+      requiredConsents: ["alice"],
+    });
+    const view = await getRoomingView(database, trip.id, "alice");
+    expect(view?.rooms.find(({ id }) => id === "room-two")?.occupiedCount).toBe(
+      2,
+    );
+  });
+
+  it("requires every occupant of an already mixed room to approve a new arrival", async () => {
+    const { database, trip } = await createFixture();
+    const store = createRoomingStore(database);
+    await database
+      .update(schema.rooms)
+      .set({ capacity: 3, genderPolicy: "mixed" })
+      .where(eq(schema.rooms.id, "room-one"));
+    await database.insert(schema.roomAssignments).values({
+      id: "assignment-alice",
+      tripId: trip.id,
+      roomId: "room-one",
+      userId: "alice",
+    });
+
+    const request = await store.createRequest(trip.id, "cara", [
+      { userId: "cara", expectedRoomId: "room-two", targetRoomId: "room-one" },
+    ]);
+    expect(request).toMatchObject({
+      status: "pending",
+      requiredConsents: ["alice", "ben", "cara"],
+    });
+    await expect(
+      store.consent(trip.id, request.id, "alice", true),
+    ).resolves.toEqual({ status: "pending" });
+    await expect(
+      store.consent(trip.id, request.id, "ben", true),
+    ).resolves.toEqual({ status: "applied" });
+    const [stored] = await database
+      .select()
+      .from(schema.roomChangeRequests)
+      .where(eq(schema.roomChangeRequests.id, request.id));
+    expect(JSON.parse(stored?.approvedConsentsJson ?? "[]").sort()).toEqual([
+      "alice",
+      "ben",
+      "cara",
+    ]);
+  });
+
+  it("requires every occupant to consent to a vacancy claim when composition is unconfirmed", async () => {
+    const { database, trip } = await createFixture();
+    const store = createRoomingStore(database);
+    await database
+      .update(schema.tripMemberships)
+      .set({ genderConfirmed: false })
+      .where(eq(schema.tripMemberships.userId, "ben"));
+
+    const request = await store.createRequest(trip.id, "alice", [
+      { userId: "alice", expectedRoomId: null, targetRoomId: "room-one" },
+    ]);
+    expect(request).toMatchObject({
+      status: "pending",
+      requiredConsents: ["alice", "ben"],
+    });
+    const view = await getRoomingView(database, trip.id, "alice");
+    expect(view?.rooms.find(({ id }) => id === "room-one")?.occupiedCount).toBe(
+      1,
+    );
+    await expect(
+      store.consent(trip.id, request.id, "ben", true),
+    ).resolves.toEqual({
+      status: "applied",
+    });
+  });
+
+  it("lets a traveler leave a mixed room for a compatible vacancy without source-room consent", async () => {
+    const { database, trip } = await createFixture();
+    const store = createRoomingStore(database);
+    const mixedRoom = "room-mixed";
+    await database.insert(schema.rooms).values({
+      id: mixedRoom,
+      tripId: trip.id,
+      name: "Chambre mixte",
+      capacity: 4,
+      genderPolicy: "mixed",
+    });
+    await database.update(schema.roomAssignments).set({ roomId: mixedRoom });
+    await database.insert(schema.roomAssignments).values({
+      id: "assignment-alice",
+      tripId: trip.id,
+      roomId: mixedRoom,
+      userId: "alice",
+    });
+    await expect(
+      store.createRequest(trip.id, "alice", [
+        {
+          userId: "alice",
+          expectedRoomId: mixedRoom,
+          targetRoomId: "room-two",
+        },
+      ]),
+    ).resolves.toMatchObject({
+      status: "applied",
+      requiredConsents: ["alice"],
+    });
+  });
+
+  it("invalidates a pending vacancy claim if the unassigned traveler leaves the trip", async () => {
+    const { database, trip } = await createFixture();
+    const store = createRoomingStore(database);
+    const request = await store.createRequest(trip.id, "alice", [
+      { userId: "alice", expectedRoomId: null, targetRoomId: "room-one" },
+    ]);
+    expect(request.status).toBe("pending");
+    await database
+      .delete(schema.tripMemberships)
+      .where(eq(schema.tripMemberships.userId, "alice"));
+    await expect(
+      store.consent(trip.id, request.id, "ben", true),
+    ).resolves.toEqual({
+      status: "stale",
+    });
+    expect(
+      await database
+        .select()
+        .from(schema.roomAssignments)
+        .where(eq(schema.roomAssignments.userId, "alice")),
+    ).toEqual([]);
+  });
+
+  it("requires consent for an uncertain swap and rejects legacy approvals that omit an occupant", async () => {
+    const { database, trip } = await createFixture();
+    const store = createRoomingStore(database);
+    await database
+      .update(schema.tripMemberships)
+      .set({ genderConfirmed: false })
+      .where(eq(schema.tripMemberships.userId, "alice"));
+    await database.insert(schema.roomAssignments).values({
+      id: "assignment-alice",
+      tripId: trip.id,
+      roomId: "room-two",
+      userId: "alice",
+    });
+    const request = await store.createRequest(trip.id, "ben", [
+      { userId: "ben", expectedRoomId: "room-one", targetRoomId: "room-two" },
+      { userId: "cara", expectedRoomId: "room-two", targetRoomId: "room-one" },
+    ]);
+    expect(request).toMatchObject({
+      status: "pending",
+      requiredConsents: ["alice", "ben", "cara"],
+    });
+    // A pending request written under the previous rule omitted Alice.
+    await database
+      .update(schema.roomChangeRequests)
+      .set({ requiredConsentsJson: JSON.stringify(["ben", "cara"]) })
+      .where(eq(schema.roomChangeRequests.id, request.id));
+    await expect(
+      store.consent(trip.id, request.id, "cara", true),
+    ).resolves.toEqual({
+      status: "stale",
+    });
+    const [assignment] = await database
+      .select()
+      .from(schema.roomAssignments)
+      .where(eq(schema.roomAssignments.userId, "ben"));
+    expect(assignment?.roomId).toBe("room-one");
+  });
+
+  it("marks a vacancy request stale when a roster import removes a required occupant", async () => {
+    const { database, trip } = await createFixture();
+    await database.insert(schema.tripRegistrations).values({
+      id: "ben-registration",
+      tripId: trip.id,
+      reference: "book-ben",
+      userId: "ben",
+      status: "validated",
+      sourceEmail: "ben@example.com",
+      firstName: "Ben",
+      lastName: "Boreal",
+    });
+    const request = await createRoomingStore(database).createRequest(
+      trip.id,
+      "alice",
+      [{ userId: "alice", expectedRoomId: null, targetRoomId: "room-one" }],
+    );
+    expect(request.status).toBe("pending");
+    await importValidatedRoster(database, trip.id, []);
+    const [stored] = await database
+      .select()
+      .from(schema.roomChangeRequests)
+      .where(eq(schema.roomChangeRequests.id, request.id));
+    expect(stored?.status).toBe("stale");
+  });
+
   it("requires the mover and every occupant of a newly mixed room, then applies atomically", async () => {
     const { database, trip } = await createFixture();
     const store = createRoomingStore(database);

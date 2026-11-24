@@ -3,8 +3,10 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { RoomSummary } from "@traveler/api/rooming/rooming.types";
 import "@traveler/i18n";
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { TravelerRooming } from "./TravelerRooming";
+
+afterEach(() => vi.unstubAllGlobals());
 
 function room(id: string, isLocked: boolean, firstName: string): RoomSummary {
   return {
@@ -72,3 +74,61 @@ it("only offers exchanges in unlocked rooms and closes the plan when one's own r
     within(plan).getByRole("button", { name: /Sam Voyageur/ }),
   ).toBeEnabled();
 });
+
+it.each([
+  ["applied", "Votre place dans la chambre 03 est confirmée."],
+  ["pending", "Votre demande a été envoyée aux occupants de la chambre 03."],
+] as const)(
+  "lets an unassigned traveler take a free place and announces %s",
+  async (status, message) => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ request: { status } }, { status: 201 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const onMessage = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <TravelerRooming
+          tripId="ski"
+          userId="Léa"
+          ownRoom={undefined}
+          rooms={[
+            room("01", false, "Alex"),
+            { ...room("02", true, "Jo"), capacity: 2 },
+            { ...room("03", false, "Sam"), capacity: 3 },
+          ]}
+          onMessage={onMessage}
+        />
+      </QueryClientProvider>,
+    );
+    const trigger = screen.getByRole("button", {
+      name: "Voir le plan des chambres",
+    });
+    trigger.focus();
+    await user.keyboard("{Enter}");
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).queryByRole("button", { name: /échange/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getAllByRole("button", { name: /Prendre une place/ }),
+    ).toHaveLength(1);
+    const takePlace = within(dialog).getByRole("button", {
+      name: "Prendre une place dans la chambre 03",
+    });
+    takePlace.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(onMessage).toHaveBeenCalledWith(message));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("/api/trips/ski/room-requests");
+    expect(JSON.parse(init.body)).toEqual({
+      moves: [{ userId: "Léa", expectedRoomId: null, targetRoomId: "03" }],
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  },
+);

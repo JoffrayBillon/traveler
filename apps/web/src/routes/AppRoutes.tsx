@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { LegalAndPrivacyRoute } from "./LegalAndPrivacyRoute";
 import { NotFoundRoute } from "./NotFoundRoute";
+import { PageTitle } from "./PageTitle";
 import { TravelerLayout } from "./TravelerLayout";
 
 const OrganizerRoute = lazy(() =>
@@ -77,17 +78,34 @@ export function AppRoutes({
       >
         <Route
           path="sign-in/confirm"
-          element={<SignInConfirmationRoute key={location.key} />}
+          element={
+            <>
+              <PageTitle title={t("confirmSignInTitle")} />
+              <SignInConfirmationRoute key={location.key} />
+            </>
+          }
         />
         <Route path="mentions-legales" element={<LegalAndPrivacyRoute />} />
         <Route
           index
-          element={profile ? <Navigate to="/trips" replace /> : signInPage}
+          element={
+            profile ? (
+              <Navigate to="/trips" replace />
+            ) : (
+              <>
+                <PageTitle title={t("signInPageTitle")} />
+                {signInPage}
+              </>
+            )
+          }
         />
         <Route
           path="trips"
           element={renderProtectedRoute((currentProfile) => (
-            <TripsHome profile={currentProfile} />
+            <>
+              <PageTitle title={t("yourTrips")} />
+              <TripsHome profile={currentProfile} />
+            </>
           ))}
         />
         <Route

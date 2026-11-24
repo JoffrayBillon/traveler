@@ -1,4 +1,5 @@
 export const fr = {
+  signInPageTitle: "Connexion",
   confirmSignInTitle: "Confirmer votre connexion",
   confirmSignInIdentity: "Êtes-vous bien {{name}} ?",
   confirmSignInDescription:
@@ -110,7 +111,7 @@ export const fr = {
     "Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis.",
   allMyTrips: "Tous mes voyages",
   organizerTools: "Outils d’organisation",
-  pageNotFound: "PAGE INTROUVABLE",
+  pageNotFound: "Page introuvable",
   thisPageCouldNotBeFound: "Ce chemin ne mène nulle part.",
   backToMyTrips: "Revenir à mes voyages",
   profileAndPreferences: "Profil et préférences",
@@ -217,10 +218,17 @@ export const fr = {
   transport: "Transport",
   yourRoomAndPendingRequests: "Votre chambre et les demandes en attente.",
   viewRoomPlan: "Voir le plan des chambres",
-  selectRoommateToRequestExchange:
-    "Sélectionnez une personne pour proposer un échange de chambre.",
+  chooseRoomPlace:
+    "Choisissez une place libre. L’accord des occupants peut être nécessaire.",
+  chooseRoomPlaceOrExchange:
+    "Choisissez une place libre ou sélectionnez une personne pour proposer un échange. L’accord des occupants peut être nécessaire.",
+  takeRoomPlace: "Prendre une place",
+  takePlaceInRoom: "Prendre une place dans la chambre {{room}}",
+  roomPlaceConfirmed: "Votre place dans la chambre {{room}} est confirmée.",
+  roomPlaceRequestSent:
+    "Votre demande a été envoyée aux occupants de la chambre {{room}}.",
   yourRoomIsLockedNoExchangeRequests:
-    "Déverrouillez votre chambre pour voir le plan et proposer un échange.",
+    "Déverrouillez votre chambre pour voir le plan et changer de chambre.",
   requestRoomExchangeWith: "Demander un échange de chambre avec {{name}}",
   organizerRoomingOverviewDescription:
     "Consultez et organisez les chambres. Déplacez les participants par glisser-déposer ou utilisez les commandes d’affectation manuelle.",
